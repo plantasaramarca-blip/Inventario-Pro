@@ -3,8 +3,8 @@ import React, { useState, useEffect } from 'react';
 import { Product, Role } from '../types';
 import * as api from '../services/supabaseService';
 import { StockBadge } from '../components/StockBadge';
-import { Plus, Search, Edit2, Trash2, MapPin, ImageIcon, Loader2, CheckCircle2, Zap, FileDown } from 'lucide-react';
-import imageCompression from 'browser-image-compression';
+import { Plus, Search, Edit2, Trash2, MapPin, ImageIcon, Loader2, CheckCircle2, Zap, FileDown } from 'https://esm.sh/lucide-react@^0.561.0';
+import imageCompression from 'https://esm.sh/browser-image-compression@2.0.2';
 
 interface InventoryProps {
   role: Role;

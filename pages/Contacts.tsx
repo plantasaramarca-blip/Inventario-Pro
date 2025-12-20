@@ -1,7 +1,8 @@
+
 import React, { useState, useEffect } from 'react';
 import { Contact, Role } from '../types';
 import * as api from '../services/supabaseService';
-import { Plus, Search, User, Briefcase, Phone, Mail, Trash2, Edit2 } from 'lucide-react';
+import { Plus, Search, User, Briefcase, Phone, Mail, Trash2, Edit2 } from 'https://esm.sh/lucide-react@^0.561.0';
 
 interface ContactsProps { role: Role; }
 

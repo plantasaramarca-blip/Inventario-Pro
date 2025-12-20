@@ -1,5 +1,6 @@
+
 import React from 'react';
-import { LayoutDashboard, Boxes, ClipboardList, Users } from 'lucide-react';
+import { LayoutDashboard, Boxes, ClipboardList, Users } from 'https://esm.sh/lucide-react@^0.561.0';
 
 interface SidebarProps {
   activeTab: string;
