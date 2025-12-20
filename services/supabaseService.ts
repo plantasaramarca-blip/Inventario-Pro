@@ -3,13 +3,18 @@ import { supabase, isSupabaseConfigured } from '../supabaseClient.ts';
 import { Product, Movement, Contact, InventoryStats } from '../types.ts';
 import * as localStorageApi from './storageService.ts';
 
-// Helper para decidir qué API usar
 const useSupabase = () => isSupabaseConfigured;
 
 export const getCategories = async (): Promise<string[]> => {
   if (!useSupabase()) return localStorageApi.getCategories();
-  const { data } = await supabase.from('categories').select('name').order('name');
-  return data?.map(c => c.name) || [];
+  try {
+    const { data, error } = await supabase.from('categories').select('name').order('name');
+    if (error) throw error;
+    return data?.map(c => c.name) || [];
+  } catch (e) {
+    console.warn("Error categories:", e);
+    return [];
+  }
 };
 
 export const saveCategory = async (name: string) => {
@@ -19,19 +24,25 @@ export const saveCategory = async (name: string) => {
 
 export const getProducts = async (): Promise<Product[]> => {
   if (!useSupabase()) return localStorageApi.getProducts();
-  const { data } = await supabase.from('products').select('*').order('name');
-  return (data || []).map(p => ({
-    id: p.id,
-    code: p.code,
-    name: p.name,
-    category: p.category,
-    location: p.location,
-    stock: p.stock,
-    minStock: p.min_stock,
-    unit: p.unit,
-    imageUrl: p.image_url,
-    updatedAt: p.updated_at
-  }));
+  try {
+    const { data, error } = await supabase.from('products').select('*').order('name');
+    if (error) throw error;
+    return (data || []).map(p => ({
+      id: p.id,
+      code: p.code,
+      name: p.name,
+      category: p.category,
+      location: p.location,
+      stock: p.stock,
+      minStock: p.min_stock,
+      unit: p.unit,
+      imageUrl: p.image_url,
+      updatedAt: p.updated_at
+    }));
+  } catch (e) {
+    console.error("Error products:", e);
+    return [];
+  }
 };
 
 export const saveProduct = async (product: Partial<Product>) => {
@@ -62,15 +73,20 @@ export const deleteProduct = async (id: string) => {
 
 export const getContacts = async (): Promise<Contact[]> => {
   if (!useSupabase()) return localStorageApi.getContacts();
-  const { data } = await supabase.from('contacts').select('*').order('name');
-  return (data || []).map(c => ({
-    id: c.id,
-    name: c.name,
-    type: c.type,
-    phone: c.phone,
-    email: c.email,
-    taxId: c.tax_id
-  }));
+  try {
+    const { data, error } = await supabase.from('contacts').select('*').order('name');
+    if (error) throw error;
+    return (data || []).map(c => ({
+      id: c.id,
+      name: c.name,
+      type: c.type,
+      phone: c.phone,
+      email: c.email,
+      taxId: c.tax_id
+    }));
+  } catch (e) {
+    return [];
+  }
 };
 
 export const saveContact = async (contact: Partial<Contact>) => {
@@ -96,20 +112,25 @@ export const deleteContact = async (id: string) => {
 
 export const getMovements = async (): Promise<Movement[]> => {
   if (!useSupabase()) return localStorageApi.getMovements();
-  const { data } = await supabase.from('movements').select('*').order('date', { ascending: false });
-  return (data || []).map(m => ({
-    id: m.id,
-    productId: m.product_id,
-    productName: m.product_name,
-    type: m.type,
-    quantity: m.quantity,
-    date: m.date,
-    dispatcher: m.dispatcher,
-    reason: m.reason,
-    balanceAfter: m.balance_after,
-    contactId: m.contact_id,
-    contactName: m.contact_name
-  }));
+  try {
+    const { data, error } = await supabase.from('movements').select('*').order('date', { ascending: false });
+    if (error) throw error;
+    return (data || []).map(m => ({
+      id: m.id,
+      productId: m.product_id,
+      productName: m.product_name,
+      type: m.type,
+      quantity: m.quantity,
+      date: m.date,
+      dispatcher: m.dispatcher,
+      reason: m.reason,
+      balanceAfter: m.balance_after,
+      contactId: m.contact_id,
+      contactName: m.contact_name
+    }));
+  } catch (e) {
+    return [];
+  }
 };
 
 export const registerMovement = async (movement: any) => {
@@ -148,24 +169,28 @@ export const registerMovement = async (movement: any) => {
 
 export const getStats = async (): Promise<InventoryStats> => {
   if (!useSupabase()) return localStorageApi.getStats();
-  const [products, movements, contacts] = await Promise.all([
-    getProducts(),
-    getMovements(),
-    getContacts()
-  ]);
+  try {
+    const [products, movements, contacts] = await Promise.all([
+      getProducts(),
+      getMovements(),
+      getContacts()
+    ]);
 
-  return {
-    totalProducts: products.length,
-    lowStockCount: products.filter(p => p.stock > 0 && p.stock <= p.minStock).length,
-    outOfStockCount: products.filter(p => p.stock === 0).length,
-    totalMovements: movements.length,
-    totalContacts: contacts.length
-  };
+    return {
+      totalProducts: products.length,
+      lowStockCount: products.filter(p => p.stock > 0 && p.stock <= p.minStock).length,
+      outOfStockCount: products.filter(p => p.stock === 0).length,
+      totalMovements: movements.length,
+      totalContacts: contacts.length
+    };
+  } catch (e) {
+    console.error("Stats error:", e);
+    throw e;
+  }
 };
 
 export const uploadProductImage = async (file: File | Blob): Promise<string | null> => {
   if (!useSupabase()) {
-    // En modo local, usamos base64 como preview temporal
     return new Promise((resolve) => {
       const reader = new FileReader();
       reader.onloadend = () => resolve(reader.result as string);
@@ -173,10 +198,14 @@ export const uploadProductImage = async (file: File | Blob): Promise<string | nu
     });
   }
   
-  const fileName = `${Math.random().toString(36).substring(2)}.webp`;
-  const filePath = `products/${fileName}`;
-  const { error: uploadError } = await supabase.storage.from('inventory-images').upload(filePath, file);
-  if (uploadError) return null;
-  const { data } = supabase.storage.from('inventory-images').getPublicUrl(filePath);
-  return data.publicUrl;
+  try {
+    const fileName = `${Math.random().toString(36).substring(2)}.webp`;
+    const filePath = `products/${fileName}`;
+    const { error: uploadError } = await supabase.storage.from('inventory-images').upload(filePath, file);
+    if (uploadError) return null;
+    const { data } = supabase.storage.from('inventory-images').getPublicUrl(filePath);
+    return data.publicUrl;
+  } catch (e) {
+    return null;
+  }
 };
