@@ -1,0 +1,5 @@
+{
+  "name": "Kardex Pro - Sistema de Inventario",
+  "description": "Sistema de gestión de inventario inteligente con control de stock tipo semáforo, registro de movimientos (kardex) y análisis de despacho.",
+  "requestFramePermissions": []
+}

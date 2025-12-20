@@ -1,0 +1,15 @@
+# Dependencias
+node_modules/
+.DS_Store
+
+# Variables de Entorno (MUY IMPORTANTE)
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Compilación
+dist/
+build/
+.next/
