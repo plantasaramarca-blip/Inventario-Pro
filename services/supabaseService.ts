@@ -1,6 +1,6 @@
 
-import { supabase } from '../supabaseClient.ts';
-import { Product, Movement, Contact, InventoryStats } from '../types.ts';
+import { supabase } from '../supabaseClient';
+import { Product, Movement, Contact, InventoryStats } from '../types';
 
 export const getCategories = async (): Promise<string[]> => {
   const { data } = await supabase.from('categories').select('name').order('name');
@@ -100,14 +100,13 @@ export const getMovements = async (): Promise<Movement[]> => {
 };
 
 export const registerMovement = async (movement: any) => {
-  // 1. Obtener stock actual
   const { data: product, error: pError } = await supabase
     .from('products')
     .select('name, stock')
     .eq('id', movement.productId)
     .single();
 
-  if (pError || !product) throw new Error("Producto no encontrado en la base de datos");
+  if (pError || !product) throw new Error("Producto no encontrado");
 
   let newStock = product.stock;
   if (movement.type === 'INGRESO') {
@@ -117,7 +116,6 @@ export const registerMovement = async (movement: any) => {
     newStock -= movement.quantity;
   }
 
-  // 2. Actualizar Stock en la tabla de productos
   const { error: uError } = await supabase
     .from('products')
     .update({ stock: newStock })
@@ -125,7 +123,6 @@ export const registerMovement = async (movement: any) => {
 
   if (uError) throw new Error("Error al actualizar el stock");
 
-  // 3. Registrar el movimiento en el historial (Kardex)
   const { error: iError } = await supabase.from('movements').insert([{
     product_id: movement.productId,
     product_name: product.name,
@@ -138,13 +135,15 @@ export const registerMovement = async (movement: any) => {
     contact_name: movement.contactName
   }]);
 
-  if (iError) throw new Error("Error al registrar el movimiento en el historial");
+  if (iError) throw new Error("Error al registrar movimiento");
 };
 
 export const getStats = async (): Promise<InventoryStats> => {
-  const products = await getProducts();
-  const movements = await getMovements();
-  const contacts = await getContacts();
+  const [products, movements, contacts] = await Promise.all([
+    getProducts(),
+    getMovements(),
+    getContacts()
+  ]);
 
   return {
     totalProducts: products.length,
@@ -155,9 +154,9 @@ export const getStats = async (): Promise<InventoryStats> => {
   };
 };
 
-export const uploadProductImage = async (file: File): Promise<string | null> => {
-  const fileExt = file.name.split('.').pop();
-  const fileName = `${Math.random()}.${fileExt}`;
+export const uploadProductImage = async (file: File | Blob): Promise<string | null> => {
+  const fileExt = file instanceof File ? file.name.split('.').pop() : 'webp';
+  const fileName = `${Math.random().toString(36).substring(2)}.${fileExt}`;
   const filePath = `products/${fileName}`;
 
   const { error: uploadError } = await supabase.storage
