@@ -1,8 +1,10 @@
+
 import React, { useState, useEffect } from 'react';
 import { Product, Role } from '../types';
 import * as api from '../services/supabaseService';
 import { StockBadge } from '../components/StockBadge';
-import { Plus, Search, Edit2, Trash2, MapPin, ImageIcon, Loader2 } from 'lucide-react';
+import { Plus, Search, Edit2, Trash2, MapPin, ImageIcon, Loader2, CheckCircle2, Zap } from 'lucide-react';
+import imageCompression from 'browser-image-compression';
 
 interface InventoryProps {
   role: Role;
@@ -14,6 +16,8 @@ export const Inventory: React.FC<InventoryProps> = ({ role }) => {
   const [search, setSearch] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const [isOptimizing, setIsOptimizing] = useState(false);
+  const [optimizationStats, setOptimizationStats] = useState<{ original: string, compressed: string } | null>(null);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
 
   const [formData, setFormData] = useState<Partial<Product>>({
@@ -32,6 +36,7 @@ export const Inventory: React.FC<InventoryProps> = ({ role }) => {
   useEffect(() => { loadData(); }, []);
 
   const handleOpenModal = (product?: Product) => {
+    setOptimizationStats(null);
     if (product) {
       setEditingProduct(product);
       setFormData(product);
@@ -47,12 +52,50 @@ export const Inventory: React.FC<InventoryProps> = ({ role }) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    setIsUploading(true);
-    const url = await api.uploadProductImage(file);
-    if (url) {
-      setFormData({ ...formData, imageUrl: url });
+    // Validaciones de archivo
+    const validTypes = ['image/jpeg', 'image/png', 'image/webp'];
+    if (!validTypes.includes(file.type)) {
+      alert("Formato no permitido. Por favor use JPG, PNG o WEBP.");
+      return;
     }
-    setIsUploading(false);
+
+    if (file.size > 10 * 1024 * 1024) { // 10MB Máximo original
+      alert("La imagen original es demasiado pesada (máx 10MB).");
+      return;
+    }
+
+    try {
+      setIsOptimizing(true);
+      setOptimizationStats(null);
+
+      const options = {
+        maxSizeMB: 0.3, // Máximo 300KB
+        maxWidthOrHeight: 800,
+        useWebWorker: true,
+        fileType: file.type as any
+      };
+
+      // Si la imagen ya pesa menos de 300KB, saltamos la compresión agresiva pero redimensionamos
+      const compressedFile = await imageCompression(file, options);
+      
+      const originalSizeStr = (file.size / 1024 / 1024).toFixed(2) + " MB";
+      const compressedSizeStr = (compressedFile.size / 1024).toFixed(0) + " KB";
+      
+      setOptimizationStats({ original: originalSizeStr, compressed: compressedSizeStr });
+      setIsOptimizing(false);
+      
+      setIsUploading(true);
+      const url = await api.uploadProductImage(compressedFile);
+      if (url) {
+        setFormData({ ...formData, imageUrl: url });
+      }
+    } catch (error) {
+      console.error('Error procesando imagen:', error);
+      alert("Error al optimizar la imagen.");
+      setIsOptimizing(false);
+    } finally {
+      setIsUploading(false);
+    }
   };
 
   const handleDelete = async (id: string) => {
@@ -167,18 +210,43 @@ export const Inventory: React.FC<InventoryProps> = ({ role }) => {
                   
                   {/* Image Upload UI */}
                   <div className="flex items-center space-x-4">
-                    <div className="h-24 w-24 rounded border-2 border-dashed border-gray-300 flex items-center justify-center overflow-hidden">
+                    <div className="h-24 w-24 rounded border-2 border-dashed border-gray-300 flex items-center justify-center overflow-hidden bg-slate-50 relative">
                        {formData.imageUrl ? (
                          <img src={formData.imageUrl} className="h-full w-full object-cover" />
-                       ) : isUploading ? (
-                         <Loader2 className="animate-spin text-indigo-500" />
+                       ) : isUploading || isOptimizing ? (
+                         <div className="flex flex-col items-center">
+                            <Loader2 className="animate-spin text-indigo-500 mb-1 w-6 h-6" />
+                            <span className="text-[10px] text-gray-400">{isOptimizing ? 'Comprimiendo...' : 'Subiendo...'}</span>
+                         </div>
                        ) : <ImageIcon className="text-gray-300 w-8 h-8" />}
                     </div>
                     <div className="flex-1">
                       <label className="block text-sm font-medium text-gray-700">Imagen del Producto</label>
-                      <input type="file" accept="image/*" onChange={handleFileChange} className="mt-1 block w-full text-xs text-gray-500 file:mr-4 file:py-1 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100" />
+                      <input 
+                        type="file" 
+                        accept="image/jpeg,image/png,image/webp" 
+                        onChange={handleFileChange} 
+                        className="mt-1 block w-full text-xs text-gray-500 file:mr-4 file:py-1 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100" 
+                      />
+                      <p className="mt-1 text-[10px] text-gray-400">JPG, PNG, WEBP (Se optimizará automáticamente)</p>
                     </div>
                   </div>
+
+                  {/* Optimization Feedback */}
+                  {optimizationStats && (
+                    <div className="bg-green-50 border border-green-100 rounded-lg p-3 flex items-center justify-between animate-in fade-in slide-in-from-top-1">
+                       <div className="flex items-center">
+                          <CheckCircle2 className="w-4 h-4 text-green-500 mr-2" />
+                          <div className="text-xs text-green-800">
+                             Imagen Optimizada: <span className="line-through opacity-50 mr-1">{optimizationStats.original}</span> 
+                             <span className="font-bold">{optimizationStats.compressed}</span>
+                          </div>
+                       </div>
+                       <div className="bg-green-100 px-2 py-0.5 rounded-full text-[10px] text-green-700 font-bold flex items-center">
+                          <Zap className="w-3 h-3 mr-0.5" /> Ahorro de espacio ✓
+                       </div>
+                    </div>
+                  )}
 
                   <div className="grid grid-cols-2 gap-4">
                       <input type="text" placeholder="Código" required value={formData.code} onChange={e => setFormData({...formData, code: e.target.value})} className="border p-2 text-sm rounded" />
@@ -210,9 +278,15 @@ export const Inventory: React.FC<InventoryProps> = ({ role }) => {
                       <input type="text" placeholder="Unidad" required value={formData.unit} onChange={e => setFormData({...formData, unit: e.target.value})} className="border p-2 text-sm rounded" />
                   </div>
                 </div>
-                <div className="bg-gray-50 p-4 text-right space-x-2">
-                  <button type="button" onClick={() => setIsModalOpen(false)} className="text-gray-600 text-sm">Cancelar</button>
-                  <button type="submit" className="bg-indigo-600 text-white px-4 py-2 rounded-md text-sm">Guardar</button>
+                <div className="bg-gray-50 p-4 text-right space-x-2 border-t">
+                  <button type="button" onClick={() => setIsModalOpen(false)} className="text-gray-600 text-sm px-4 py-2 hover:bg-gray-100 rounded transition-colors">Cancelar</button>
+                  <button 
+                    type="submit" 
+                    disabled={isUploading || isOptimizing}
+                    className="bg-indigo-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-indigo-700 disabled:opacity-50 transition-all shadow-md shadow-indigo-100"
+                  >
+                    {editingProduct ? 'Guardar Cambios' : 'Crear Producto'}
+                  </button>
                 </div>
               </form>
             </div>
