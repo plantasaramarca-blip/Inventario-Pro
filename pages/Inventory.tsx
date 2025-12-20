@@ -28,9 +28,12 @@ export const Inventory: React.FC<InventoryProps> = ({ role }) => {
   const [newCategoryName, setNewCategoryName] = useState('');
 
   const loadData = async () => {
-    const [p, c] = await Promise.all([api.getProducts(), api.getCategories()]);
-    setProducts(p);
-    setCategories(c);
+    const [p, c] = await api.getProducts().then(res => [res, api.getCategories()]);
+    // El orden de carga puede variar, manejamos las promesas correctamente
+    const prods = await api.getProducts();
+    const cats = await api.getCategories();
+    setProducts(prods);
+    setCategories(cats);
   };
 
   useEffect(() => { loadData(); }, []);
@@ -52,15 +55,14 @@ export const Inventory: React.FC<InventoryProps> = ({ role }) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // Validaciones de archivo
     const validTypes = ['image/jpeg', 'image/png', 'image/webp'];
     if (!validTypes.includes(file.type)) {
-      alert("Formato no permitido. Por favor use JPG, PNG o WEBP.");
+      alert("Formato no permitido (JPG, PNG o WEBP solamente).");
       return;
     }
 
-    if (file.size > 10 * 1024 * 1024) { // 10MB Máximo original
-      alert("La imagen original es demasiado pesada (máx 10MB).");
+    if (file.size > 10 * 1024 * 1024) {
+      alert("La imagen original excede los 10MB.");
       return;
     }
 
@@ -69,13 +71,12 @@ export const Inventory: React.FC<InventoryProps> = ({ role }) => {
       setOptimizationStats(null);
 
       const options = {
-        maxSizeMB: 0.3, // Máximo 300KB
+        maxSizeMB: 0.3,
         maxWidthOrHeight: 800,
         useWebWorker: true,
         fileType: file.type as any
       };
 
-      // Si la imagen ya pesa menos de 300KB, saltamos la compresión agresiva pero redimensionamos
       const compressedFile = await imageCompression(file, options);
       
       const originalSizeStr = (file.size / 1024 / 1024).toFixed(2) + " MB";
@@ -87,11 +88,11 @@ export const Inventory: React.FC<InventoryProps> = ({ role }) => {
       setIsUploading(true);
       const url = await api.uploadProductImage(compressedFile);
       if (url) {
-        setFormData({ ...formData, imageUrl: url });
+        setFormData(prev => ({ ...prev, imageUrl: url }));
       }
     } catch (error) {
       console.error('Error procesando imagen:', error);
-      alert("Error al optimizar la imagen.");
+      alert("Error al optimizar o subir la imagen.");
       setIsOptimizing(false);
     } finally {
       setIsUploading(false);
@@ -187,10 +188,10 @@ export const Inventory: React.FC<InventoryProps> = ({ role }) => {
                   <td className="px-6 py-4 text-right">
                     {role === 'ADMIN' ? (
                         <div className="flex justify-end space-x-2">
-                            <button onClick={() => handleOpenModal(product)} className="text-indigo-600 bg-indigo-50 p-2 rounded-full"><Edit2 className="h-4 w-4" /></button>
-                            <button onClick={() => handleDelete(product.id)} className="text-red-600 bg-red-50 p-2 rounded-full"><Trash2 className="h-4 w-4" /></button>
+                            <button onClick={() => handleOpenModal(product)} className="text-indigo-600 bg-indigo-50 p-2 rounded-full hover:bg-indigo-100 transition-colors"><Edit2 className="h-4 w-4" /></button>
+                            <button onClick={() => handleDelete(product.id)} className="text-red-600 bg-red-50 p-2 rounded-full hover:bg-red-100 transition-colors"><Trash2 className="h-4 w-4" /></button>
                         </div>
-                    ) : <span className="text-gray-400 text-xs">Bloqueado</span>}
+                    ) : <span className="text-gray-400 text-xs">Consulta</span>}
                   </td>
                 </tr>
               ))}
@@ -202,13 +203,12 @@ export const Inventory: React.FC<InventoryProps> = ({ role }) => {
       {isModalOpen && (
         <div className="fixed inset-0 z-50 overflow-y-auto">
           <div className="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
-            <div className="fixed inset-0 bg-gray-500 opacity-75" onClick={() => setIsModalOpen(false)}></div>
+            <div className="fixed inset-0 bg-gray-500 opacity-75 transition-opacity" onClick={() => setIsModalOpen(false)}></div>
             <div className="inline-block align-bottom bg-white rounded-lg text-left shadow-xl transform transition-all sm:my-8 sm:max-w-lg w-full">
               <form onSubmit={handleSubmit}>
                 <div className="bg-white p-6 space-y-4">
                   <h3 className="text-lg font-medium text-gray-900">{editingProduct ? 'Editar Producto' : 'Agregar Producto'}</h3>
                   
-                  {/* Image Upload UI */}
                   <div className="flex items-center space-x-4">
                     <div className="h-24 w-24 rounded border-2 border-dashed border-gray-300 flex items-center justify-center overflow-hidden bg-slate-50 relative">
                        {formData.imageUrl ? (
@@ -216,7 +216,7 @@ export const Inventory: React.FC<InventoryProps> = ({ role }) => {
                        ) : isUploading || isOptimizing ? (
                          <div className="flex flex-col items-center">
                             <Loader2 className="animate-spin text-indigo-500 mb-1 w-6 h-6" />
-                            <span className="text-[10px] text-gray-400">{isOptimizing ? 'Comprimiendo...' : 'Subiendo...'}</span>
+                            <span className="text-[10px] text-gray-400 text-center">{isOptimizing ? 'Comprimiendo...' : 'Subiendo...'}</span>
                          </div>
                        ) : <ImageIcon className="text-gray-300 w-8 h-8" />}
                     </div>
@@ -228,54 +228,53 @@ export const Inventory: React.FC<InventoryProps> = ({ role }) => {
                         onChange={handleFileChange} 
                         className="mt-1 block w-full text-xs text-gray-500 file:mr-4 file:py-1 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100" 
                       />
-                      <p className="mt-1 text-[10px] text-gray-400">JPG, PNG, WEBP (Se optimizará automáticamente)</p>
+                      <p className="mt-1 text-[10px] text-gray-400 tracking-tight">JPG, PNG, WEBP (Límite 300KB tras compresión)</p>
                     </div>
                   </div>
 
-                  {/* Optimization Feedback */}
                   {optimizationStats && (
                     <div className="bg-green-50 border border-green-100 rounded-lg p-3 flex items-center justify-between animate-in fade-in slide-in-from-top-1">
                        <div className="flex items-center">
                           <CheckCircle2 className="w-4 h-4 text-green-500 mr-2" />
                           <div className="text-xs text-green-800">
-                             Imagen Optimizada: <span className="line-through opacity-50 mr-1">{optimizationStats.original}</span> 
+                             Optimizado: <span className="line-through opacity-50 mr-1">{optimizationStats.original}</span> 
                              <span className="font-bold">{optimizationStats.compressed}</span>
                           </div>
                        </div>
                        <div className="bg-green-100 px-2 py-0.5 rounded-full text-[10px] text-green-700 font-bold flex items-center">
-                          <Zap className="w-3 h-3 mr-0.5" /> Ahorro de espacio ✓
+                          <Zap className="w-3 h-3 mr-0.5" /> Ahorro ✓
                        </div>
                     </div>
                   )}
 
                   <div className="grid grid-cols-2 gap-4">
-                      <input type="text" placeholder="Código" required value={formData.code} onChange={e => setFormData({...formData, code: e.target.value})} className="border p-2 text-sm rounded" />
-                      <input type="text" placeholder="Ubicación" value={formData.location} onChange={e => setFormData({...formData, location: e.target.value})} className="border p-2 text-sm rounded" />
+                      <input type="text" placeholder="Código" required value={formData.code} onChange={e => setFormData({...formData, code: e.target.value})} className="border p-2 text-sm rounded focus:ring-1 focus:ring-indigo-500 outline-none" />
+                      <input type="text" placeholder="Ubicación" value={formData.location} onChange={e => setFormData({...formData, location: e.target.value})} className="border p-2 text-sm rounded focus:ring-1 focus:ring-indigo-500 outline-none" />
                   </div>
-                  <input type="text" placeholder="Nombre" required value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} className="w-full border p-2 text-sm rounded" />
+                  <input type="text" placeholder="Nombre" required value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} className="w-full border p-2 text-sm rounded focus:ring-1 focus:ring-indigo-500 outline-none" />
                   
                   <div>
-                    <label className="text-xs text-gray-500">Categoría</label>
+                    <label className="text-xs text-gray-500 font-semibold mb-1 block">Categoría</label>
                     <div className="flex gap-2">
-                      <select required value={formData.category} onChange={e => setFormData({...formData, category: e.target.value})} className="flex-1 border p-2 text-sm rounded">
+                      <select required value={formData.category} onChange={e => setFormData({...formData, category: e.target.value})} className="flex-1 border p-2 text-sm rounded focus:ring-1 focus:ring-indigo-500 outline-none">
                         <option value="">Seleccione...</option>
                         {categories.map(c => <option key={c} value={c}>{c}</option>)}
                       </select>
-                      <button type="button" onClick={() => setIsAddingCategory(true)} className="bg-indigo-50 p-2 border border-indigo-200 rounded"><Plus className="w-4 h-4" /></button>
+                      <button type="button" onClick={() => setIsAddingCategory(true)} className="bg-indigo-50 p-2 border border-indigo-200 rounded text-indigo-600 hover:bg-indigo-100"><Plus className="w-4 h-4" /></button>
                     </div>
                   </div>
 
                   {isAddingCategory && (
-                    <div className="flex gap-2 mt-2">
-                      <input type="text" placeholder="Nueva Cat..." value={newCategoryName} onChange={e => setNewCategoryName(e.target.value)} className="flex-1 border p-2 text-sm rounded" />
-                      <button type="button" onClick={handleSaveCategory} className="bg-green-600 text-white px-2 py-1 rounded text-xs">Ok</button>
+                    <div className="flex gap-2 mt-2 bg-slate-50 p-2 rounded border border-dashed border-slate-300 animate-in slide-in-from-top-2">
+                      <input type="text" placeholder="Nueva Categoría..." value={newCategoryName} onChange={e => setNewCategoryName(e.target.value)} className="flex-1 border p-2 text-xs rounded outline-none" />
+                      <button type="button" onClick={handleSaveCategory} className="bg-green-600 text-white px-3 py-1 rounded text-xs font-bold shadow-sm">Agregar</button>
                     </div>
                   )}
 
                   <div className="grid grid-cols-3 gap-4">
-                      <input type="number" placeholder="Stock" required value={formData.stock} onChange={e => setFormData({...formData, stock: parseInt(e.target.value)})} className="border p-2 text-sm rounded" />
-                      <input type="number" placeholder="Mínimo" required value={formData.minStock} onChange={e => setFormData({...formData, minStock: parseInt(e.target.value)})} className="border p-2 text-sm rounded" />
-                      <input type="text" placeholder="Unidad" required value={formData.unit} onChange={e => setFormData({...formData, unit: e.target.value})} className="border p-2 text-sm rounded" />
+                      <input type="number" placeholder="Stock" required value={formData.stock} onChange={e => setFormData({...formData, stock: parseInt(e.target.value)})} className="border p-2 text-sm rounded outline-none" />
+                      <input type="number" placeholder="Mínimo" required value={formData.minStock} onChange={e => setFormData({...formData, minStock: parseInt(e.target.value)})} className="border p-2 text-sm rounded outline-none" />
+                      <input type="text" placeholder="Unidad" required value={formData.unit} onChange={e => setFormData({...formData, unit: e.target.value})} className="border p-2 text-sm rounded outline-none" />
                   </div>
                 </div>
                 <div className="bg-gray-50 p-4 text-right space-x-2 border-t">
@@ -283,7 +282,7 @@ export const Inventory: React.FC<InventoryProps> = ({ role }) => {
                   <button 
                     type="submit" 
                     disabled={isUploading || isOptimizing}
-                    className="bg-indigo-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-indigo-700 disabled:opacity-50 transition-all shadow-md shadow-indigo-100"
+                    className="bg-indigo-600 text-white px-4 py-2 rounded-md text-sm font-bold hover:bg-indigo-700 disabled:opacity-50 transition-all shadow-md"
                   >
                     {editingProduct ? 'Guardar Cambios' : 'Crear Producto'}
                   </button>

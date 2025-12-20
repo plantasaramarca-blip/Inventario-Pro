@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { supabase } from './supabaseClient';
 import { Navbar } from './components/Navbar';
@@ -18,13 +19,11 @@ export default function App() {
   const [role, setRole] = useState<Role>('ADMIN');
 
   useEffect(() => {
-    // 1. Obtener sesión actual
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setLoading(false);
     });
 
-    // 2. Escuchar cambios en la sesión (login/logout)
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
     });
@@ -40,7 +39,6 @@ export default function App() {
     );
   }
 
-  // Si no hay sesión, mostrar Login
   if (!session) {
     return <Login />;
   }
