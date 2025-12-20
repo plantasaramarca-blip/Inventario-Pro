@@ -3,8 +3,8 @@ import React, { useState, useEffect } from 'react';
 import { Product, Role } from '../types';
 import * as api from '../services/supabaseService';
 import { StockBadge } from '../components/StockBadge';
-import { Plus, Search, Edit2, Trash2, MapPin, ImageIcon, Loader2, CheckCircle2, Zap } from 'https://esm.sh/lucide-react@^0.561.0';
-import imageCompression from 'https://esm.sh/browser-image-compression@2.0.2';
+import { Plus, Search, Edit2, Trash2, MapPin, ImageIcon, Loader2, CheckCircle2, Zap, FileDown } from 'lucide-react';
+import imageCompression from 'browser-image-compression';
 
 interface InventoryProps {
   role: Role;
@@ -35,6 +35,31 @@ export const Inventory: React.FC<InventoryProps> = ({ role }) => {
   };
 
   useEffect(() => { loadData(); }, []);
+
+  const exportToCSV = () => {
+    const headers = ['Codigo', 'Producto', 'Categoria', 'Ubicacion', 'Stock', 'Unidad', 'Stock Minimo', 'Ultima Actualizacion'];
+    const rows = products.map(p => [
+      p.code,
+      p.name,
+      p.category,
+      p.location || 'N/A',
+      p.stock,
+      p.unit,
+      p.minStock,
+      new Date(p.updatedAt).toLocaleDateString()
+    ]);
+
+    const csvContent = [headers, ...rows].map(e => e.join(",")).join("\n");
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement("a");
+    const url = URL.createObjectURL(blob);
+    link.setAttribute("href", url);
+    link.setAttribute("download", `inventario_${new Date().toISOString().split('T')[0]}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
 
   const handleOpenModal = (product?: Product) => {
     setOptimizationStats(null);
@@ -122,72 +147,93 @@ export const Inventory: React.FC<InventoryProps> = ({ role }) => {
   );
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-in fade-in duration-500">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <h1 className="text-2xl font-bold text-gray-900">Inventario Actual ({products.length})</h1>
-        {role === 'ADMIN' && (
-          <button onClick={() => handleOpenModal()} className="inline-flex items-center px-4 py-2 bg-indigo-600 text-white rounded-md shadow-sm hover:bg-indigo-700">
-            <Plus className="mr-2 h-4 w-4" /> Nuevo Producto
-          </button>
-        )}
-      </div>
-
-      <div className="relative">
-        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-          <Search className="h-5 w-5 text-gray-400" />
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Inventario Actual</h1>
+          <p className="text-xs text-gray-500 font-medium">Gestiona tu catálogo de productos y niveles de stock.</p>
         </div>
-        <input type="text" className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md bg-white text-sm focus:ring-indigo-500 focus:border-indigo-500" placeholder="Buscar por nombre o código..." value={search} onChange={(e) => setSearch(e.target.value)} />
+        <div className="flex gap-2 w-full sm:w-auto">
+          <button 
+            onClick={exportToCSV}
+            className="flex-1 sm:flex-none inline-flex items-center justify-center px-4 py-2 bg-white border border-gray-200 text-gray-700 rounded-md shadow-sm hover:bg-gray-50 font-bold text-sm transition-all"
+          >
+            <FileDown className="mr-2 h-4 w-4 text-indigo-500" /> Exportar
+          </button>
+          {role === 'ADMIN' && (
+            <button onClick={() => handleOpenModal()} className="flex-1 sm:flex-none inline-flex items-center justify-center px-4 py-2 bg-indigo-600 text-white rounded-md shadow-lg hover:bg-indigo-700 font-bold text-sm transition-all shadow-indigo-100">
+              <Plus className="mr-2 h-4 w-4" /> Nuevo Producto
+            </button>
+          )}
+        </div>
       </div>
 
-      <div className="bg-white shadow overflow-hidden sm:rounded-lg border border-gray-200">
+      <div className="relative group">
+        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+          <Search className="h-5 w-5 text-gray-400 group-focus-within:text-indigo-500 transition-colors" />
+        </div>
+        <input type="text" className="block w-full pl-10 pr-3 py-2.5 border border-gray-200 rounded-xl bg-white text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all shadow-sm" placeholder="Buscar por nombre o código..." value={search} onChange={(e) => setSearch(e.target.value)} />
+      </div>
+
+      <div className="bg-white shadow-sm overflow-hidden sm:rounded-2xl border border-gray-100">
         <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50 text-xs font-medium text-gray-500 uppercase tracking-wider">
+          <table className="min-w-full divide-y divide-gray-100">
+            <thead className="bg-gray-50 text-[10px] font-black text-gray-400 uppercase tracking-[0.1em]">
               <tr>
-                <th className="px-6 py-3 text-left">Img</th>
-                <th className="px-6 py-3 text-left">Producto</th>
-                <th className="px-6 py-3 text-left">Categoría / Ubicación</th>
-                <th className="px-6 py-3 text-center">Stock</th>
-                <th className="px-6 py-3 text-center">Estado</th>
-                <th className="px-6 py-3 text-right">Acciones</th>
+                <th className="px-6 py-4 text-left">Img</th>
+                <th className="px-6 py-4 text-left">Producto</th>
+                <th className="px-6 py-4 text-left">Categoría / Ubicación</th>
+                <th className="px-6 py-4 text-center">Stock</th>
+                <th className="px-6 py-4 text-center">Estado</th>
+                <th className="px-6 py-4 text-right">Acciones</th>
               </tr>
             </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
+            <tbody className="bg-white divide-y divide-gray-50">
               {filteredProducts.map((product) => (
-                <tr key={product.id} className="hover:bg-gray-50 transition-colors">
+                <tr key={product.id} className="hover:bg-slate-50/50 transition-colors">
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="h-10 w-10 rounded overflow-hidden bg-gray-100 flex items-center justify-center border border-gray-200">
+                    <div className="h-12 w-12 rounded-lg overflow-hidden bg-slate-100 flex items-center justify-center border border-slate-200 shadow-inner">
                       {product.imageUrl ? (
                         <img src={product.imageUrl} alt={product.name} className="h-full w-full object-cover" />
                       ) : (
-                        <ImageIcon className="h-5 w-5 text-gray-400" />
+                        <ImageIcon className="h-5 w-5 text-slate-300" />
                       )}
                     </div>
                   </td>
                   <td className="px-6 py-4">
-                    <div className="text-sm font-medium text-gray-900">{product.name}</div>
-                    <div className="text-xs text-gray-500">Cod: {product.code}</div>
+                    <div className="text-sm font-bold text-gray-900">{product.name}</div>
+                    <div className="text-[11px] font-mono text-gray-400 mt-0.5">#{product.code}</div>
                   </td>
                   <td className="px-6 py-4">
-                    <div className="text-sm text-gray-900">{product.category}</div>
-                    <div className="text-xs text-gray-500 flex items-center mt-1"><MapPin className="w-3 h-3 mr-1" /> {product.location || 'N/A'}</div>
+                    <div className="text-sm text-gray-700 font-medium">{product.category}</div>
+                    <div className="text-[11px] text-gray-400 flex items-center mt-1"><MapPin className="w-3 h-3 mr-1 text-slate-300" /> {product.location || 'Sin asignar'}</div>
                   </td>
                   <td className="px-6 py-4 text-center">
-                    <span className="text-sm font-bold">{product.stock}</span> <span className="text-xs text-gray-500">{product.unit}</span>
+                    <span className="text-sm font-black text-slate-800">{product.stock}</span> <span className="text-[10px] text-slate-400 font-bold uppercase">{product.unit}</span>
                   </td>
                   <td className="px-6 py-4 text-center">
                     <StockBadge stock={product.stock} minStock={product.minStock} />
                   </td>
                   <td className="px-6 py-4 text-right">
                     {role === 'ADMIN' ? (
-                        <div className="flex justify-end space-x-2">
-                            <button onClick={() => handleOpenModal(product)} className="text-indigo-600 bg-indigo-50 p-2 rounded-full hover:bg-indigo-100 transition-colors"><Edit2 className="h-4 w-4" /></button>
-                            <button onClick={() => handleDelete(product.id)} className="text-red-600 bg-red-50 p-2 rounded-full hover:bg-red-100 transition-colors"><Trash2 className="h-4 w-4" /></button>
+                        <div className="flex justify-end space-x-1.5">
+                            <button onClick={() => handleOpenModal(product)} className="text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 p-2 rounded-lg transition-all" title="Editar"><Edit2 className="h-4 w-4" /></button>
+                            <button onClick={() => handleDelete(product.id)} className="text-slate-400 hover:text-red-600 hover:bg-red-50 p-2 rounded-lg transition-all" title="Eliminar"><Trash2 className="h-4 w-4" /></button>
                         </div>
-                    ) : <span className="text-gray-400 text-xs italic">Solo lectura</span>}
+                    ) : <span className="text-gray-300 text-[10px] uppercase font-black tracking-widest italic">Solo lectura</span>}
                   </td>
                 </tr>
               ))}
+              {filteredProducts.length === 0 && (
+                <tr>
+                  <td colSpan={6} className="px-6 py-12 text-center text-slate-400">
+                    <div className="flex flex-col items-center">
+                      <Search className="w-8 h-8 opacity-20 mb-2" />
+                      <p className="text-sm italic">No se encontraron productos que coincidan con la búsqueda.</p>
+                    </div>
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>
@@ -196,86 +242,108 @@ export const Inventory: React.FC<InventoryProps> = ({ role }) => {
       {isModalOpen && (
         <div className="fixed inset-0 z-50 overflow-y-auto">
           <div className="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
-            <div className="fixed inset-0 bg-gray-500 opacity-75 transition-opacity" onClick={() => setIsModalOpen(false)}></div>
-            <div className="inline-block align-bottom bg-white rounded-lg text-left shadow-xl transform transition-all sm:my-8 sm:max-w-lg w-full">
+            <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm transition-opacity" onClick={() => setIsModalOpen(false)}></div>
+            <div className="inline-block align-bottom bg-white rounded-2xl text-left shadow-2xl transform transition-all sm:my-8 sm:max-w-lg w-full overflow-hidden">
               <form onSubmit={handleSubmit}>
-                <div className="bg-white p-6 space-y-4">
-                  <h3 className="text-lg font-medium text-gray-900">{editingProduct ? 'Editar Producto' : 'Agregar Producto'}</h3>
+                <div className="bg-white p-6 space-y-5">
+                  <div className="flex justify-between items-center border-b border-slate-100 pb-4">
+                    <h3 className="text-lg font-bold text-slate-800">{editingProduct ? 'Editar Producto' : 'Nuevo Producto'}</h3>
+                    <button type="button" onClick={() => setIsModalOpen(false)} className="text-slate-400 hover:text-slate-600">✕</button>
+                  </div>
                   
-                  <div className="flex items-center space-x-4">
-                    <div className="h-24 w-24 rounded border-2 border-dashed border-gray-300 flex items-center justify-center overflow-hidden bg-slate-50 relative">
+                  <div className="flex items-center space-x-5 bg-slate-50 p-4 rounded-xl border border-slate-100">
+                    <div className="h-24 w-24 rounded-xl border-2 border-dashed border-slate-200 flex items-center justify-center overflow-hidden bg-white relative shadow-inner">
                        {formData.imageUrl ? (
                          <img src={formData.imageUrl} className="h-full w-full object-cover" />
                        ) : isUploading || isOptimizing ? (
                          <div className="flex flex-col items-center">
                             <Loader2 className="animate-spin text-indigo-500 mb-1 w-6 h-6" />
-                            <span className="text-[10px] text-gray-400 text-center">{isOptimizing ? 'Comprimiendo...' : 'Subiendo...'}</span>
+                            <span className="text-[9px] text-gray-400 text-center font-bold">{isOptimizing ? 'COMPRIMIENDO...' : 'SUBIENDO...'}</span>
                          </div>
-                       ) : <ImageIcon className="text-gray-300 w-8 h-8" />}
+                       ) : <ImageIcon className="text-slate-200 w-8 h-8" />}
                     </div>
                     <div className="flex-1">
-                      <label className="block text-sm font-medium text-gray-700">Imagen del Producto</label>
+                      <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Imagen del Producto</label>
                       <input 
                         type="file" 
                         accept="image/jpeg,image/png,image/webp" 
                         onChange={handleFileChange} 
-                        className="mt-1 block w-full text-xs text-gray-500 file:mr-4 file:py-1 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100" 
+                        className="block w-full text-[11px] text-slate-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-full file:border-0 file:text-[10px] file:font-black file:bg-indigo-50 file:text-indigo-600 hover:file:bg-indigo-100 cursor-pointer" 
                       />
-                      <p className="mt-1 text-[10px] text-gray-400 tracking-tight">JPG, PNG, WEBP (Se optimizará automáticamente)</p>
+                      <p className="mt-2 text-[9px] text-slate-400 font-medium leading-tight">Formatos: JPG, PNG, WEBP. Se optimiza a menos de 300KB automáticamente.</p>
                     </div>
                   </div>
 
                   {optimizationStats && (
-                    <div className="bg-green-50 border border-green-100 rounded-lg p-3 flex items-center justify-between animate-in fade-in slide-in-from-top-1">
+                    <div className="bg-emerald-50 border border-emerald-100 rounded-xl p-3 flex items-center justify-between animate-in fade-in slide-in-from-top-1">
                        <div className="flex items-center">
-                          <CheckCircle2 className="w-4 h-4 text-green-500 mr-2" />
-                          <div className="text-xs text-green-800">
-                             Optimizado: <span className="line-through opacity-50 mr-1">{optimizationStats.original}</span> 
+                          <CheckCircle2 className="w-4 h-4 text-emerald-500 mr-2" />
+                          <div className="text-[11px] text-emerald-800">
+                             Imagen optimizada: <span className="line-through opacity-40 mr-1">{optimizationStats.original}</span> 
                              <span className="font-bold">{optimizationStats.compressed}</span>
                           </div>
                        </div>
-                       <div className="bg-green-100 px-2 py-0.5 rounded-full text-[10px] text-green-700 font-bold flex items-center">
-                          <Zap className="w-3 h-3 mr-0.5" /> Ahorro ✓
+                       <div className="bg-emerald-100 px-2 py-0.5 rounded-full text-[9px] text-emerald-700 font-black flex items-center">
+                          <Zap className="w-3 h-3 mr-0.5" /> AHORRO OK
                        </div>
                     </div>
                   )}
 
                   <div className="grid grid-cols-2 gap-4">
-                      <input type="text" placeholder="Código" required value={formData.code} onChange={e => setFormData({...formData, code: e.target.value})} className="border p-2 text-sm rounded focus:ring-1 focus:ring-indigo-500 outline-none" />
-                      <input type="text" placeholder="Ubicación" value={formData.location} onChange={e => setFormData({...formData, location: e.target.value})} className="border p-2 text-sm rounded focus:ring-1 focus:ring-indigo-500 outline-none" />
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Código</label>
+                      <input type="text" placeholder="P001" required value={formData.code} onChange={e => setFormData({...formData, code: e.target.value})} className="w-full border border-slate-200 p-2.5 text-sm rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none transition-all" />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Ubicación</label>
+                      <input type="text" placeholder="Estante A-1" value={formData.location} onChange={e => setFormData({...formData, location: e.target.value})} className="w-full border border-slate-200 p-2.5 text-sm rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none transition-all" />
+                    </div>
                   </div>
-                  <input type="text" placeholder="Nombre" required value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} className="w-full border p-2 text-sm rounded focus:ring-1 focus:ring-indigo-500 outline-none" />
+
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Nombre del Producto</label>
+                    <input type="text" placeholder="Ej. Laptop Dell Latitude 5420" required value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} className="w-full border border-slate-200 p-2.5 text-sm rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none transition-all" />
+                  </div>
                   
-                  <div>
-                    <label className="text-xs text-gray-500 font-semibold mb-1 block">Categoría</label>
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Categoría</label>
                     <div className="flex gap-2">
-                      <select required value={formData.category} onChange={e => setFormData({...formData, category: e.target.value})} className="flex-1 border p-2 text-sm rounded focus:ring-1 focus:ring-indigo-500 outline-none">
+                      <select required value={formData.category} onChange={e => setFormData({...formData, category: e.target.value})} className="flex-1 border border-slate-200 p-2.5 text-sm rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none bg-white transition-all">
                         <option value="">Seleccione...</option>
                         {categories.map(c => <option key={c} value={c}>{c}</option>)}
                       </select>
-                      <button type="button" onClick={() => setIsAddingCategory(true)} className="bg-indigo-50 p-2 border border-indigo-200 rounded text-indigo-600 hover:bg-indigo-100"><Plus className="w-4 h-4" /></button>
+                      <button type="button" onClick={() => setIsAddingCategory(true)} className="bg-indigo-50 p-2.5 border border-indigo-100 rounded-lg text-indigo-600 hover:bg-indigo-100 transition-colors" title="Nueva Categoría"><Plus className="w-5 h-5" /></button>
                     </div>
                   </div>
 
                   {isAddingCategory && (
-                    <div className="flex gap-2 mt-2 bg-slate-50 p-2 rounded border border-dashed border-slate-300 animate-in slide-in-from-top-2">
-                      <input type="text" placeholder="Nueva Categoría..." value={newCategoryName} onChange={e => setNewCategoryName(e.target.value)} className="flex-1 border p-2 text-xs rounded outline-none" />
-                      <button type="button" onClick={handleSaveCategory} className="bg-green-600 text-white px-3 py-1 rounded text-xs font-bold shadow-sm">Agregar</button>
+                    <div className="flex gap-2 bg-indigo-50/50 p-3 rounded-xl border border-dashed border-indigo-200 animate-in slide-in-from-top-2">
+                      <input type="text" placeholder="Nombre de categoría..." value={newCategoryName} onChange={e => setNewCategoryName(e.target.value)} className="flex-1 border border-white p-2 text-xs rounded-lg outline-none shadow-sm focus:ring-2 focus:ring-indigo-500" />
+                      <button type="button" onClick={handleSaveCategory} className="bg-indigo-600 text-white px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest shadow-lg shadow-indigo-100 transition-all hover:bg-indigo-700">Agregar</button>
                     </div>
                   )}
 
                   <div className="grid grid-cols-3 gap-4">
-                      <input type="number" placeholder="Stock" required value={formData.stock} onChange={e => setFormData({...formData, stock: parseInt(e.target.value) || 0})} className="border p-2 text-sm rounded outline-none" />
-                      <input type="number" placeholder="Mínimo" required value={formData.minStock} onChange={e => setFormData({...formData, minStock: parseInt(e.target.value) || 0})} className="border p-2 text-sm rounded outline-none" />
-                      <input type="text" placeholder="Unidad" required value={formData.unit} onChange={e => setFormData({...formData, unit: e.target.value})} className="border p-2 text-sm rounded outline-none" />
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Stock</label>
+                      <input type="number" required value={formData.stock} onChange={e => setFormData({...formData, stock: parseInt(e.target.value) || 0})} className="w-full border border-slate-200 p-2.5 text-sm rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none transition-all" />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Mínimo</label>
+                      <input type="number" required value={formData.minStock} onChange={e => setFormData({...formData, minStock: parseInt(e.target.value) || 0})} className="w-full border border-slate-200 p-2.5 text-sm rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none transition-all" />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Unidad</label>
+                      <input type="text" placeholder="und/pqte" required value={formData.unit} onChange={e => setFormData({...formData, unit: e.target.value})} className="w-full border border-slate-200 p-2.5 text-sm rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none transition-all" />
+                    </div>
                   </div>
                 </div>
-                <div className="bg-gray-50 p-4 text-right space-x-2 border-t">
-                  <button type="button" onClick={() => setIsModalOpen(false)} className="text-gray-600 text-sm px-4 py-2 hover:bg-gray-100 rounded transition-colors">Cancelar</button>
+                <div className="bg-slate-50 p-5 text-right space-x-3 border-t border-slate-100">
+                  <button type="button" onClick={() => setIsModalOpen(false)} className="text-slate-500 text-[11px] font-black uppercase tracking-widest px-4 py-2 hover:bg-slate-200 rounded-lg transition-colors">Cancelar</button>
                   <button 
                     type="submit" 
                     disabled={isUploading || isOptimizing}
-                    className="bg-indigo-600 text-white px-4 py-2 rounded-md text-sm font-bold hover:bg-indigo-700 disabled:opacity-50 transition-all shadow-md"
+                    className="bg-indigo-600 text-white px-6 py-2.5 rounded-xl text-sm font-bold hover:bg-indigo-700 disabled:opacity-50 transition-all shadow-xl shadow-indigo-100 flex-shrink-0"
                   >
                     {editingProduct ? 'Guardar Cambios' : 'Crear Producto'}
                   </button>
