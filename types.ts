@@ -1,3 +1,4 @@
+
 export type TransactionType = 'INGRESO' | 'SALIDA';
 export type ContactType = 'CLIENTE' | 'PROVEEDOR' | 'OTRO';
 export type Role = 'ADMIN' | 'USER';
@@ -20,7 +21,7 @@ export interface Product {
   stock: number;
   minStock: number;
   unit: string;
-  imageUrl?: string; // New field for Supabase Storage
+  imageUrl?: string;
   updatedAt: string;
 }
 
@@ -44,4 +45,18 @@ export interface InventoryStats {
   outOfStockCount: number;
   totalMovements: number;
   totalContacts: number;
+}
+
+export interface AuditLog {
+  id: string;
+  created_at: string;
+  user_id: string;
+  user_email: string;
+  action: 'CREATE' | 'UPDATE' | 'DELETE';
+  table_name: string;
+  record_id: string;
+  record_name: string;
+  old_values: any;
+  new_values: any;
+  changes_summary: string;
 }

@@ -7,6 +7,7 @@ import { Dashboard } from './pages/Dashboard';
 import { Inventory } from './pages/Inventory';
 import { Kardex } from './pages/Kardex';
 import { Contacts } from './pages/Contacts';
+import { AuditPage } from './pages/AuditLog';
 import { Login } from './pages/Login';
 import { Role } from './types';
 import { Loader2 } from 'https://esm.sh/lucide-react@^0.561.0';
@@ -20,7 +21,6 @@ export default function App() {
 
   useEffect(() => {
     const initAuth = async () => {
-      // 1. Intentar sesión real con Supabase
       if (isSupabaseConfigured) {
         const { data: { session } } = await supabase.auth.getSession();
         if (session) {
@@ -30,7 +30,6 @@ export default function App() {
         }
       }
 
-      // 2. Intentar sesión local (Modo Demo)
       const localSession = localStorage.getItem('kardex_local_session');
       if (localSession) {
         setSession(JSON.parse(localSession));
@@ -69,6 +68,8 @@ export default function App() {
         return <Kardex />;
       case 'contacts':
         return <Contacts role={role} />;
+      case 'audit':
+        return role === 'ADMIN' ? <AuditPage /> : <Dashboard />;
       default:
         return <Dashboard />;
     }
@@ -81,6 +82,7 @@ export default function App() {
         setActiveTab={setActiveTab} 
         isOpen={isSidebarOpen} 
         setIsOpen={setIsSidebarOpen} 
+        role={role}
       />
       
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
@@ -97,7 +99,7 @@ export default function App() {
           </div>
         )}
         
-        <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">
+        <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 bg-[#fdfdfd]">
            <div className="max-w-7xl mx-auto">
              {renderContent()}
            </div>
