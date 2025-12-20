@@ -1,5 +1,6 @@
+
 import React from 'react';
-import { Menu, Package, Shield, User, LogOut } from 'lucide-react';
+import { Menu, Package, Shield, User, LogOut } from 'https://esm.sh/lucide-react@^0.561.0';
 import { Role } from '../types';
 import { supabase } from '../supabaseClient';
 
@@ -30,7 +31,6 @@ export const Navbar: React.FC<NavbarProps> = ({ onMenuClick, role, setRole, user
           </div>
 
           <div className="flex items-center space-x-4">
-            {/* Simulación de Roles (Ahora vinculado a sesión real) */}
             <div className="hidden lg:flex items-center bg-slate-100 rounded-lg p-1 mr-4">
                 <button 
                   onClick={() => setRole('ADMIN')}

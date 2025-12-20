@@ -1,15 +1,15 @@
 
 import React, { useState, useEffect } from 'react';
-import { supabase } from './supabaseClient.ts';
-import { Navbar } from './components/Navbar.tsx';
-import { Sidebar } from './components/Sidebar.tsx';
-import { Dashboard } from './pages/Dashboard.tsx';
-import { Inventory } from './pages/Inventory.tsx';
-import { Kardex } from './pages/Kardex.tsx';
-import { Contacts } from './pages/Contacts.tsx';
-import { Login } from './pages/Login.tsx';
-import { Role } from './types.ts';
-import { Loader2 } from 'lucide-react';
+import { supabase } from './supabaseClient';
+import { Navbar } from './components/Navbar';
+import { Sidebar } from './components/Sidebar';
+import { Dashboard } from './pages/Dashboard';
+import { Inventory } from './pages/Inventory';
+import { Kardex } from './pages/Kardex';
+import { Contacts } from './pages/Contacts';
+import { Login } from './pages/Login';
+import { Role } from './types';
+import { Loader2 } from 'https://esm.sh/lucide-react@^0.561.0';
 
 export default function App() {
   const [session, setSession] = useState<any>(null);
@@ -19,13 +19,11 @@ export default function App() {
   const [role, setRole] = useState<Role>('ADMIN');
 
   useEffect(() => {
-    // 1. Obtener sesión actual
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setLoading(false);
     });
 
-    // 2. Escuchar cambios en la sesión
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
     });
@@ -41,7 +39,6 @@ export default function App() {
     );
   }
 
-  // Si no hay sesión, mostrar Login
   if (!session) {
     return <Login />;
   }

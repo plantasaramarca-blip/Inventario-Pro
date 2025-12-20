@@ -3,8 +3,8 @@ import React, { useState, useEffect } from 'react';
 import { Product, Role } from '../types';
 import * as api from '../services/supabaseService';
 import { StockBadge } from '../components/StockBadge';
-import { Plus, Search, Edit2, Trash2, MapPin, ImageIcon, Loader2, CheckCircle2, Zap } from 'lucide-react';
-import imageCompression from 'browser-image-compression';
+import { Plus, Search, Edit2, Trash2, MapPin, ImageIcon, Loader2, CheckCircle2, Zap } from 'https://esm.sh/lucide-react@^0.561.0';
+import imageCompression from 'https://esm.sh/browser-image-compression@2.0.2';
 
 interface InventoryProps {
   role: Role;
@@ -28,8 +28,6 @@ export const Inventory: React.FC<InventoryProps> = ({ role }) => {
   const [newCategoryName, setNewCategoryName] = useState('');
 
   const loadData = async () => {
-    const [p, c] = await api.getProducts().then(res => [res, api.getCategories()]);
-    // El orden de carga puede variar, manejamos las promesas correctamente
     const prods = await api.getProducts();
     const cats = await api.getCategories();
     setProducts(prods);
@@ -61,11 +59,6 @@ export const Inventory: React.FC<InventoryProps> = ({ role }) => {
       return;
     }
 
-    if (file.size > 10 * 1024 * 1024) {
-      alert("La imagen original excede los 10MB.");
-      return;
-    }
-
     try {
       setIsOptimizing(true);
       setOptimizationStats(null);
@@ -74,7 +67,7 @@ export const Inventory: React.FC<InventoryProps> = ({ role }) => {
         maxSizeMB: 0.3,
         maxWidthOrHeight: 800,
         useWebWorker: true,
-        fileType: file.type as any
+        fileType: file.type
       };
 
       const compressedFile = await imageCompression(file, options);
@@ -110,7 +103,7 @@ export const Inventory: React.FC<InventoryProps> = ({ role }) => {
       if (newCategoryName.trim()) {
           await api.saveCategory(newCategoryName.trim());
           await loadData();
-          setFormData({...formData, category: newCategoryName.trim()});
+          setFormData(prev => ({...prev, category: newCategoryName.trim()}));
           setIsAddingCategory(false);
           setNewCategoryName('');
       }
@@ -143,7 +136,7 @@ export const Inventory: React.FC<InventoryProps> = ({ role }) => {
         <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
           <Search className="h-5 w-5 text-gray-400" />
         </div>
-        <input type="text" className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md bg-white text-sm" placeholder="Buscar por nombre o código..." value={search} onChange={(e) => setSearch(e.target.value)} />
+        <input type="text" className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md bg-white text-sm focus:ring-indigo-500 focus:border-indigo-500" placeholder="Buscar por nombre o código..." value={search} onChange={(e) => setSearch(e.target.value)} />
       </div>
 
       <div className="bg-white shadow overflow-hidden sm:rounded-lg border border-gray-200">
@@ -191,7 +184,7 @@ export const Inventory: React.FC<InventoryProps> = ({ role }) => {
                             <button onClick={() => handleOpenModal(product)} className="text-indigo-600 bg-indigo-50 p-2 rounded-full hover:bg-indigo-100 transition-colors"><Edit2 className="h-4 w-4" /></button>
                             <button onClick={() => handleDelete(product.id)} className="text-red-600 bg-red-50 p-2 rounded-full hover:bg-red-100 transition-colors"><Trash2 className="h-4 w-4" /></button>
                         </div>
-                    ) : <span className="text-gray-400 text-xs">Consulta</span>}
+                    ) : <span className="text-gray-400 text-xs italic">Solo lectura</span>}
                   </td>
                 </tr>
               ))}
@@ -228,7 +221,7 @@ export const Inventory: React.FC<InventoryProps> = ({ role }) => {
                         onChange={handleFileChange} 
                         className="mt-1 block w-full text-xs text-gray-500 file:mr-4 file:py-1 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100" 
                       />
-                      <p className="mt-1 text-[10px] text-gray-400 tracking-tight">JPG, PNG, WEBP (Límite 300KB tras compresión)</p>
+                      <p className="mt-1 text-[10px] text-gray-400 tracking-tight">JPG, PNG, WEBP (Se optimizará automáticamente)</p>
                     </div>
                   </div>
 
@@ -272,8 +265,8 @@ export const Inventory: React.FC<InventoryProps> = ({ role }) => {
                   )}
 
                   <div className="grid grid-cols-3 gap-4">
-                      <input type="number" placeholder="Stock" required value={formData.stock} onChange={e => setFormData({...formData, stock: parseInt(e.target.value)})} className="border p-2 text-sm rounded outline-none" />
-                      <input type="number" placeholder="Mínimo" required value={formData.minStock} onChange={e => setFormData({...formData, minStock: parseInt(e.target.value)})} className="border p-2 text-sm rounded outline-none" />
+                      <input type="number" placeholder="Stock" required value={formData.stock} onChange={e => setFormData({...formData, stock: parseInt(e.target.value) || 0})} className="border p-2 text-sm rounded outline-none" />
+                      <input type="number" placeholder="Mínimo" required value={formData.minStock} onChange={e => setFormData({...formData, minStock: parseInt(e.target.value) || 0})} className="border p-2 text-sm rounded outline-none" />
                       <input type="text" placeholder="Unidad" required value={formData.unit} onChange={e => setFormData({...formData, unit: e.target.value})} className="border p-2 text-sm rounded outline-none" />
                   </div>
                 </div>
