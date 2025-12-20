@@ -1,6 +1,6 @@
 
-import { supabase } from '../supabaseClient';
-import { Product, Movement, Contact, InventoryStats } from '../types';
+import { supabase } from '../supabaseClient.ts';
+import { Product, Movement, Contact, InventoryStats } from '../types.ts';
 
 export const getCategories = async (): Promise<string[]> => {
   const { data } = await supabase.from('categories').select('name').order('name');
