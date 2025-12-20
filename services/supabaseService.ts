@@ -1,17 +1,24 @@
 
-import { supabase } from '../supabaseClient.ts';
+import { supabase, isSupabaseConfigured } from '../supabaseClient.ts';
 import { Product, Movement, Contact, InventoryStats } from '../types.ts';
+import * as localStorageApi from './storageService.ts';
+
+// Helper para decidir qué API usar
+const useSupabase = () => isSupabaseConfigured;
 
 export const getCategories = async (): Promise<string[]> => {
+  if (!useSupabase()) return localStorageApi.getCategories();
   const { data } = await supabase.from('categories').select('name').order('name');
   return data?.map(c => c.name) || [];
 };
 
 export const saveCategory = async (name: string) => {
+  if (!useSupabase()) return localStorageApi.saveCategory(name);
   await supabase.from('categories').upsert({ name });
 };
 
 export const getProducts = async (): Promise<Product[]> => {
+  if (!useSupabase()) return localStorageApi.getProducts();
   const { data } = await supabase.from('products').select('*').order('name');
   return (data || []).map(p => ({
     id: p.id,
@@ -28,6 +35,7 @@ export const getProducts = async (): Promise<Product[]> => {
 };
 
 export const saveProduct = async (product: Partial<Product>) => {
+  if (!useSupabase()) return localStorageApi.saveProduct(product as Product);
   const payload = {
     code: product.code,
     name: product.name,
@@ -48,10 +56,12 @@ export const saveProduct = async (product: Partial<Product>) => {
 };
 
 export const deleteProduct = async (id: string) => {
+  if (!useSupabase()) return localStorageApi.deleteProduct(id);
   await supabase.from('products').delete().eq('id', id);
 };
 
 export const getContacts = async (): Promise<Contact[]> => {
+  if (!useSupabase()) return localStorageApi.getContacts();
   const { data } = await supabase.from('contacts').select('*').order('name');
   return (data || []).map(c => ({
     id: c.id,
@@ -64,6 +74,7 @@ export const getContacts = async (): Promise<Contact[]> => {
 };
 
 export const saveContact = async (contact: Partial<Contact>) => {
+  if (!useSupabase()) return localStorageApi.saveContact(contact as Contact);
   const payload = {
     name: contact.name,
     type: contact.type,
@@ -79,10 +90,12 @@ export const saveContact = async (contact: Partial<Contact>) => {
 };
 
 export const deleteContact = async (id: string) => {
+  if (!useSupabase()) return localStorageApi.deleteContact(id);
   await supabase.from('contacts').delete().eq('id', id);
 };
 
 export const getMovements = async (): Promise<Movement[]> => {
+  if (!useSupabase()) return localStorageApi.getMovements();
   const { data } = await supabase.from('movements').select('*').order('date', { ascending: false });
   return (data || []).map(m => ({
     id: m.id,
@@ -100,6 +113,8 @@ export const getMovements = async (): Promise<Movement[]> => {
 };
 
 export const registerMovement = async (movement: any) => {
+  if (!useSupabase()) return localStorageApi.registerMovement(movement);
+  
   const { data: product, error: pError } = await supabase
     .from('products')
     .select('name, stock')
@@ -116,14 +131,9 @@ export const registerMovement = async (movement: any) => {
     newStock -= movement.quantity;
   }
 
-  const { error: uError } = await supabase
-    .from('products')
-    .update({ stock: newStock })
-    .eq('id', movement.productId);
+  await supabase.from('products').update({ stock: newStock }).eq('id', movement.productId);
 
-  if (uError) throw new Error("Error al actualizar el stock");
-
-  const { error: iError } = await supabase.from('movements').insert([{
+  await supabase.from('movements').insert([{
     product_id: movement.productId,
     product_name: product.name,
     type: movement.type,
@@ -134,11 +144,10 @@ export const registerMovement = async (movement: any) => {
     contact_id: movement.contactId,
     contact_name: movement.contactName
   }]);
-
-  if (iError) throw new Error("Error al registrar movimiento");
 };
 
 export const getStats = async (): Promise<InventoryStats> => {
+  if (!useSupabase()) return localStorageApi.getStats();
   const [products, movements, contacts] = await Promise.all([
     getProducts(),
     getMovements(),
@@ -155,16 +164,19 @@ export const getStats = async (): Promise<InventoryStats> => {
 };
 
 export const uploadProductImage = async (file: File | Blob): Promise<string | null> => {
-  const fileExt = file instanceof File ? file.name.split('.').pop() : 'webp';
-  const fileName = `${Math.random().toString(36).substring(2)}.${fileExt}`;
+  if (!useSupabase()) {
+    // En modo local, usamos base64 como preview temporal
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result as string);
+      reader.readAsDataURL(file);
+    });
+  }
+  
+  const fileName = `${Math.random().toString(36).substring(2)}.webp`;
   const filePath = `products/${fileName}`;
-
-  const { error: uploadError } = await supabase.storage
-    .from('inventory-images')
-    .upload(filePath, file);
-
+  const { error: uploadError } = await supabase.storage.from('inventory-images').upload(filePath, file);
   if (uploadError) return null;
-
   const { data } = supabase.storage.from('inventory-images').getPublicUrl(filePath);
   return data.publicUrl;
 };

@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { supabase } from './supabaseClient';
+import { supabase, isSupabaseConfigured } from './supabaseClient';
 import { Navbar } from './components/Navbar';
 import { Sidebar } from './components/Sidebar';
 import { Dashboard } from './pages/Dashboard';
@@ -19,16 +19,34 @@ export default function App() {
   const [role, setRole] = useState<Role>('ADMIN');
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
+    const initAuth = async () => {
+      // 1. Intentar sesión real con Supabase
+      if (isSupabaseConfigured) {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session) {
+          setSession(session);
+          setLoading(false);
+          return;
+        }
+      }
+
+      // 2. Intentar sesión local (Modo Demo)
+      const localSession = localStorage.getItem('kardex_local_session');
+      if (localSession) {
+        setSession(JSON.parse(localSession));
+      }
+      
       setLoading(false);
-    });
+    };
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session);
-    });
+    initAuth();
 
-    return () => subscription.unsubscribe();
+    if (isSupabaseConfigured) {
+      const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+        setSession(session);
+      });
+      return () => subscription.unsubscribe();
+    }
   }, []);
 
   if (loading) {
@@ -70,8 +88,14 @@ export default function App() {
           onMenuClick={() => setIsSidebarOpen(true)} 
           role={role}
           setRole={setRole}
-          userEmail={session.user.email}
+          userEmail={session.user?.email || 'Admin Local'}
         />
+        
+        {!isSupabaseConfigured && (
+          <div className="bg-blue-600 text-white text-[10px] py-1 px-4 text-center font-bold tracking-widest uppercase">
+            ⚡ Estás trabajando en Modo Local (LocalStorage). Los datos se guardan solo en este navegador.
+          </div>
+        )}
         
         <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">
            <div className="max-w-7xl mx-auto">

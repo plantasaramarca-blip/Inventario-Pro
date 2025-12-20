@@ -2,7 +2,7 @@
 import React from 'react';
 import { Menu, Package, Shield, User, LogOut } from 'https://esm.sh/lucide-react@^0.561.0';
 import { Role } from '../types';
-import { supabase } from '../supabaseClient';
+import { supabase, isSupabaseConfigured } from '../supabaseClient';
 
 interface NavbarProps {
   onMenuClick: () => void;
@@ -13,7 +13,11 @@ interface NavbarProps {
 
 export const Navbar: React.FC<NavbarProps> = ({ onMenuClick, role, setRole, userEmail }) => {
   const handleLogout = async () => {
-    await supabase.auth.signOut();
+    if (isSupabaseConfigured) {
+      await supabase.auth.signOut();
+    }
+    localStorage.removeItem('kardex_local_session');
+    window.location.reload();
   };
 
   return (
@@ -31,7 +35,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onMenuClick, role, setRole, user
           </div>
 
           <div className="flex items-center space-x-4">
-            <div className="hidden lg:flex items-center bg-slate-100 rounded-lg p-1 mr-4">
+            <div className="hidden lg:flex items-center bg-slate-100 rounded-lg p-1 mr-4 border border-slate-200">
                 <button 
                   onClick={() => setRole('ADMIN')}
                   className={`flex items-center px-3 py-1.5 rounded-md text-xs font-bold transition-all ${role === 'ADMIN' ? 'bg-white shadow text-indigo-700' : 'text-slate-500'}`}
