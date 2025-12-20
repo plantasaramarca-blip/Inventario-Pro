@@ -1,25 +1,33 @@
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.1';
 
-// Función segura para obtener env vars
+// Función robusta para obtener variables de entorno en cualquier contexto
 const getEnv = (key: string) => {
-  try {
-    return (import.meta as any).env?.[key] || (process as any).env?.[key] || null;
-  } catch {
-    return null;
+  if (typeof window !== 'undefined') {
+    // @ts-ignore - Acceso seguro a import.meta.env de Vite
+    const viteEnv = (import.meta as any).env?.[key];
+    if (viteEnv) return viteEnv;
+
+    // @ts-ignore - Acceso seguro a process.env si existe
+    const procEnv = typeof process !== 'undefined' ? process.env?.[key] : null;
+    if (procEnv) return procEnv;
   }
+  return null;
 };
 
 const supabaseUrl = getEnv('VITE_SUPABASE_URL');
 const supabaseAnonKey = getEnv('VITE_SUPABASE_ANON_KEY');
 
+// Fallback preventivo pero informativo
 if (!supabaseUrl || !supabaseAnonKey) {
-  console.warn(
-    "⚠️ Supabase: Faltan variables de entorno. La aplicación podría no funcionar correctamente hasta que se configuren en Vercel."
+  console.error(
+    "FATAL ERROR: Las variables de entorno de Supabase no están configuradas correctamente.",
+    "\nURL detectada:", supabaseUrl,
+    "\nKey detectada:", supabaseAnonKey ? "Presente (oculta)" : "Ausente"
   );
 }
 
 export const supabase = createClient(
-  supabaseUrl || 'https://placeholder.supabase.co', 
-  supabaseAnonKey || 'placeholder-key'
+  supabaseUrl || 'https://placeholder-url-must-be-set.supabase.co', 
+  supabaseAnonKey || 'placeholder-anon-key-must-be-set'
 );
