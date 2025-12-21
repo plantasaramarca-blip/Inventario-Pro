@@ -5,7 +5,7 @@ import * as api from '../services/supabaseService';
 import { 
   ClipboardCheck, Search, Filter, Calendar, User, 
   ChevronLeft, ChevronRight, Eye, FileDown, 
-  CheckCircle, Edit, Trash2, X, Info, History
+  CheckCircle, Edit, Trash2, X, Info, History, AlertCircle
 } from 'https://esm.sh/lucide-react@^0.561.0';
 
 export const AuditPage: React.FC = () => {
@@ -18,7 +18,7 @@ export const AuditPage: React.FC = () => {
   const [filters, setFilters] = useState({
     action: 'ALL',
     tableName: 'ALL',
-    userEmail: '',
+    userEmail: '', // Por defecto vacío para ver TODO
     dateFrom: '',
     dateTo: ''
   });
@@ -74,6 +74,8 @@ export const AuditPage: React.FC = () => {
     }
   };
 
+  const hasActiveFilters = filters.action !== 'ALL' || filters.tableName !== 'ALL' || filters.userEmail !== '' || filters.dateFrom !== '' || filters.dateTo !== '';
+
   return (
     <div className="space-y-6 animate-in fade-in duration-500 pb-20">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
@@ -81,7 +83,7 @@ export const AuditPage: React.FC = () => {
           <h1 className="text-2xl font-bold text-gray-900 flex items-center">
             <ClipboardCheck className="w-7 h-7 mr-2 text-indigo-600" /> Auditoría de Sistema
           </h1>
-          <p className="text-xs text-gray-500 font-medium mt-1">Trazabilidad completa de cada acción realizada en la plataforma.</p>
+          <p className="text-xs text-gray-500 font-medium mt-1">Trazabilidad de identidades reales y acciones de base de datos.</p>
         </div>
         <button 
           onClick={exportToCSV}
@@ -95,13 +97,13 @@ export const AuditPage: React.FC = () => {
       <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 space-y-4">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
           <div className="space-y-1.5">
-            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Usuario</label>
+            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Filtrar por Email</label>
             <div className="relative">
               <User className="absolute left-3 top-3 w-4 h-4 text-slate-300" />
               <input 
                 type="text" 
-                placeholder="Email..." 
-                className="w-full pl-9 pr-3 py-2.5 bg-slate-50 border-transparent rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 focus:bg-white outline-none transition-all"
+                placeholder="Ej: user@planta.com" 
+                className="w-full pl-9 pr-3 py-2.5 bg-slate-50 border border-transparent rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 focus:bg-white outline-none transition-all shadow-inner"
                 value={filters.userEmail}
                 onChange={e => setFilters({...filters, userEmail: e.target.value})}
               />
@@ -109,9 +111,9 @@ export const AuditPage: React.FC = () => {
           </div>
 
           <div className="space-y-1.5">
-            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Acción</label>
+            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Tipo Acción</label>
             <select 
-              className="w-full p-2.5 bg-slate-50 border-transparent rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 focus:bg-white outline-none transition-all"
+              className="w-full p-2.5 bg-slate-50 border border-transparent rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 focus:bg-white outline-none transition-all shadow-inner"
               value={filters.action}
               onChange={e => setFilters({...filters, action: e.target.value})}
             >
@@ -123,9 +125,9 @@ export const AuditPage: React.FC = () => {
           </div>
 
           <div className="space-y-1.5">
-            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Módulo / Tabla</label>
+            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Módulo</label>
             <select 
-              className="w-full p-2.5 bg-slate-50 border-transparent rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 focus:bg-white outline-none transition-all"
+              className="w-full p-2.5 bg-slate-50 border border-transparent rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 focus:bg-white outline-none transition-all shadow-inner"
               value={filters.tableName}
               onChange={e => setFilters({...filters, tableName: e.target.value})}
             >
@@ -138,10 +140,10 @@ export const AuditPage: React.FC = () => {
           </div>
 
           <div className="space-y-1.5">
-            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Desde</label>
+            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Fecha Inicial</label>
             <input 
               type="date" 
-              className="w-full p-2 bg-slate-50 border-transparent rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
+              className="w-full p-2.5 bg-slate-50 border border-transparent rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 outline-none shadow-inner"
               value={filters.dateFrom}
               onChange={e => setFilters({...filters, dateFrom: e.target.value})}
             />
@@ -150,7 +152,7 @@ export const AuditPage: React.FC = () => {
           <div className="space-y-1.5 flex flex-col justify-end">
              <button 
               onClick={clearFilters}
-              className="w-full py-2.5 bg-slate-100 text-slate-500 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-200 transition-all flex items-center justify-center"
+              className={`w-full py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center justify-center ${hasActiveFilters ? 'bg-rose-50 text-rose-600 hover:bg-rose-100 border border-rose-100' : 'bg-slate-100 text-slate-400 cursor-default'}`}
              >
                <X className="w-3.5 h-3.5 mr-2" /> Limpiar Filtros
              </button>
@@ -165,23 +167,20 @@ export const AuditPage: React.FC = () => {
             <thead className="bg-slate-50">
               <tr>
                 <th className="px-6 py-4 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">Fecha y Hora</th>
-                <th className="px-6 py-4 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">Usuario</th>
-                <th className="px-6 py-4 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">Acción</th>
-                <th className="px-6 py-4 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">Registro</th>
-                <th className="px-6 py-4 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">Resumen de Cambios</th>
+                <th className="px-6 py-4 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">Identidad (Email)</th>
+                <th className="px-6 py-4 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">Operación</th>
+                <th className="px-6 py-4 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">Registro Afectado</th>
+                <th className="px-6 py-4 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">Resumen Cambios</th>
                 <th className="px-6 py-4 text-right"></th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-50">
               {loading ? (
-                <tr><td colSpan={6} className="px-6 py-20 text-center"><Loader className="w-8 h-8 animate-spin mx-auto text-indigo-500" /></td></tr>
+                <tr><td colSpan={6} className="px-6 py-20 text-center"><History className="w-8 h-8 animate-spin mx-auto text-indigo-500" /></td></tr>
               ) : logs.map((log) => (
                 <tr key={log.id} className="hover:bg-slate-50 transition-colors group">
                   <td className="px-6 py-4 whitespace-nowrap text-xs text-slate-500 font-mono">
-                    {new Date(log.created_at).toLocaleString('es-ES', { 
-                      day: '2-digit', month: '2-digit', year: 'numeric',
-                      hour: '2-digit', minute: '2-digit', second: '2-digit'
-                    })}
+                    {new Date(log.created_at).toLocaleString('es-ES')}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="text-xs font-bold text-slate-800">{log.user_email}</div>
@@ -202,7 +201,6 @@ export const AuditPage: React.FC = () => {
                     <button 
                       onClick={() => setSelectedLog(log)}
                       className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all"
-                      title="Ver Detalles"
                     >
                       <Eye className="w-4 h-4" />
                     </button>
@@ -211,9 +209,19 @@ export const AuditPage: React.FC = () => {
               ))}
               {logs.length === 0 && !loading && (
                 <tr>
-                  <td colSpan={6} className="px-6 py-20 text-center">
-                    <History className="w-12 h-12 text-slate-200 mx-auto mb-3" />
-                    <p className="text-sm text-slate-400 italic">No se encontraron registros de auditoría.</p>
+                  <td colSpan={6} className="px-6 py-24 text-center">
+                    <div className="max-w-xs mx-auto">
+                      <History className="w-12 h-12 text-slate-200 mx-auto mb-4" />
+                      <h4 className="text-sm font-bold text-slate-800">No se encontraron registros</h4>
+                      <p className="text-xs text-slate-400 mt-2 italic">
+                        {hasActiveFilters 
+                          ? "Los filtros actuales no coinciden con ninguna acción registrada." 
+                          : "Aún no se han realizado acciones auditables en el sistema."}
+                      </p>
+                      {hasActiveFilters && (
+                        <button onClick={clearFilters} className="mt-4 text-xs text-indigo-600 font-bold hover:underline">Ver todos los registros</button>
+                      )}
+                    </div>
                   </td>
                 </tr>
               )}
@@ -221,94 +229,81 @@ export const AuditPage: React.FC = () => {
           </table>
         </div>
 
-        {/* PAGINACIÓN */}
         <div className="px-6 py-4 bg-slate-50 border-t border-slate-100 flex items-center justify-between">
           <div className="text-[11px] font-bold text-slate-500 uppercase tracking-tight">
-            Página {page + 1} de {Math.ceil(count / PAGE_SIZE)} — <span className="text-indigo-600">Total: {count} logs</span>
+            Resultados: <span className="text-indigo-600">{count} logs totales</span>
           </div>
           <div className="flex space-x-2">
-            <button 
-              disabled={page === 0}
-              onClick={() => setPage(p => p - 1)}
-              className="p-2 rounded-lg bg-white border border-slate-200 text-slate-600 disabled:opacity-30 hover:bg-slate-50 transition-all shadow-sm"
-            >
-              <ChevronLeft className="w-4 h-4" />
-            </button>
-            <button 
-              disabled={(page + 1) * PAGE_SIZE >= count}
-              onClick={() => setPage(p => p + 1)}
-              className="p-2 rounded-lg bg-white border border-slate-200 text-slate-600 disabled:opacity-30 hover:bg-slate-50 transition-all shadow-sm"
-            >
-              <ChevronRight className="w-4 h-4" />
-            </button>
+            <button disabled={page === 0} onClick={() => setPage(p => p - 1)} className="p-2 rounded-lg bg-white border border-slate-200 text-slate-600 disabled:opacity-30 hover:bg-slate-50 shadow-sm transition-all"><ChevronLeft className="w-4 h-4" /></button>
+            <button disabled={(page + 1) * PAGE_SIZE >= count} onClick={() => setPage(p => p + 1)} className="p-2 rounded-lg bg-white border border-slate-200 text-slate-600 disabled:opacity-30 hover:bg-slate-50 shadow-sm transition-all"><ChevronRight className="w-4 h-4" /></button>
           </div>
         </div>
       </div>
 
-      {/* MODAL DE DETALLES (DIFF VIEWER) */}
+      {/* AVISO DE IDENTIDAD */}
+      <div className="bg-indigo-50 border border-indigo-100 p-4 rounded-2xl flex items-start">
+        <AlertCircle className="w-5 h-5 text-indigo-500 mt-0.5 mr-3 flex-shrink-0" />
+        <div>
+          <p className="text-xs text-indigo-900 font-bold">Nota sobre Identidades</p>
+          <p className="text-[10px] text-indigo-700 leading-relaxed mt-1">
+            Este sistema registra el correo real de autenticación de Supabase (quién eres en la base de datos). 
+            Los botones de "Admin / Usuario" en la barra superior son simuladores de permisos de interfaz y no afectan tu identidad en la auditoría.
+          </p>
+        </div>
+      </div>
+
+      {/* MODAL DE DETALLES */}
       {selectedLog && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 overflow-y-auto">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6">
           <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => setSelectedLog(null)}></div>
           <div className="relative bg-white rounded-3xl shadow-2xl w-full max-w-2xl overflow-hidden animate-in zoom-in-95 duration-200">
             <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-indigo-50/30">
               <div className="flex items-center">
-                <div className="p-2 bg-indigo-600 rounded-xl mr-3">
-                  <Info className="w-5 h-5 text-white" />
-                </div>
+                <div className="p-2 bg-indigo-600 rounded-xl mr-3"><Info className="w-5 h-5 text-white" /></div>
                 <div>
-                  <h3 className="text-lg font-black text-slate-800">Detalles de Operación</h3>
-                  <p className="text-[10px] text-indigo-600 font-bold uppercase tracking-widest">{selectedLog.id}</p>
+                  <h3 className="text-lg font-black text-slate-800">Detalles Técnicos</h3>
+                  <p className="text-[10px] text-indigo-600 font-bold uppercase tracking-widest">ID: {selectedLog.id.substring(0,8)}...</p>
                 </div>
               </div>
-              <button onClick={() => setSelectedLog(null)} className="p-2 text-slate-400 hover:text-slate-600">
-                <X className="w-5 h-5" />
-              </button>
+              <button onClick={() => setSelectedLog(null)} className="p-2 text-slate-400 hover:text-slate-600"><X className="w-5 h-5" /></button>
             </div>
 
-            <div className="p-8 space-y-6">
+            <div className="p-8 space-y-6 max-h-[70vh] overflow-y-auto">
                <div className="grid grid-cols-2 gap-6 bg-slate-50 p-5 rounded-2xl border border-slate-100">
                   <div className="space-y-1">
-                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Ejecutor</p>
+                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Actor Real</p>
                     <p className="text-sm font-bold text-slate-800">{selectedLog.user_email}</p>
                   </div>
                   <div className="space-y-1">
-                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Timestamp</p>
+                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Momento</p>
                     <p className="text-sm font-bold text-slate-800">{new Date(selectedLog.created_at).toLocaleString()}</p>
-                  </div>
-                  <div className="space-y-1">
-                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Módulo</p>
-                    <p className="text-sm font-bold text-indigo-600 uppercase">{selectedLog.table_name}</p>
-                  </div>
-                  <div className="space-y-1">
-                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Acción</p>
-                    <div className="mt-1">{getActionBadge(selectedLog.action)}</div>
                   </div>
                </div>
 
                <div className="space-y-3">
-                  <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center">
-                    <Filter className="w-3 h-3 mr-2" /> Cambios Detectados
-                  </h4>
+                  <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center"><Filter className="w-3 h-3 mr-2" /> Comparativa de Cambios</h4>
                   {selectedLog.action === 'UPDATE' && selectedLog.old_values && selectedLog.new_values ? (
                     <div className="border border-slate-100 rounded-2xl overflow-hidden shadow-sm">
                       <table className="w-full text-xs text-left">
-                        <thead className="bg-slate-50">
+                        <thead className="bg-slate-50 text-[9px] font-black text-slate-400 uppercase tracking-widest">
                           <tr>
-                            <th className="px-4 py-2 text-slate-400 font-black tracking-widest uppercase text-[9px]">Campo</th>
-                            <th className="px-4 py-2 text-rose-500 font-black tracking-widest uppercase text-[9px]">Anterior</th>
-                            <th className="px-4 py-2 text-emerald-600 font-black tracking-widest uppercase text-[9px]">Nuevo</th>
+                            <th className="px-4 py-2">Propiedad</th>
+                            <th className="px-4 py-2">Antes</th>
+                            <th className="px-4 py-2">Después</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-50">
                           {Object.keys(selectedLog.new_values).map(key => {
+                            // Limpiar llaves técnicas de comparación
+                            if (key === 'updated_at' || key === 'updatedAt' || key === 'id') return null;
                             const oldVal = JSON.stringify(selectedLog.old_values[key]);
                             const newVal = JSON.stringify(selectedLog.new_values[key]);
                             if (oldVal !== newVal) {
                               return (
                                 <tr key={key}>
-                                  <td className="px-4 py-3 font-bold text-slate-500">{key}</td>
-                                  <td className="px-4 py-3 bg-rose-50/30 text-rose-700">{oldVal?.replace(/"/g, '') || 'n/a'}</td>
-                                  <td className="px-4 py-3 bg-emerald-50/30 text-emerald-700 font-bold">{newVal?.replace(/"/g, '')}</td>
+                                  <td className="px-4 py-3 font-bold text-slate-500 uppercase text-[9px]">{key}</td>
+                                  <td className="px-4 py-3 bg-rose-50/50 text-rose-700">{oldVal?.replace(/"/g, '') || 'vacio'}</td>
+                                  <td className="px-4 py-3 bg-emerald-50/50 text-emerald-700 font-bold">{newVal?.replace(/"/g, '')}</td>
                                 </tr>
                               );
                             }
@@ -318,15 +313,15 @@ export const AuditPage: React.FC = () => {
                       </table>
                     </div>
                   ) : (
-                    <div className="bg-indigo-50 border border-indigo-100 p-5 rounded-2xl text-xs text-indigo-800 font-medium">
+                    <div className="bg-indigo-50 border border-indigo-100 p-5 rounded-2xl text-xs text-indigo-800 font-medium italic">
                        {selectedLog.changes_summary}
                     </div>
                   )}
                </div>
 
                <div className="space-y-2">
-                  <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Metadata Técnica (JSON)</p>
-                  <pre className="bg-slate-900 text-indigo-300 p-4 rounded-xl text-[10px] overflow-x-auto max-h-32">
+                  <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">JSON Crudo (Payload)</p>
+                  <pre className="bg-slate-900 text-indigo-300 p-4 rounded-xl text-[10px] overflow-x-auto max-h-32 shadow-inner">
                     {JSON.stringify(selectedLog.new_values || selectedLog.old_values, null, 2)}
                   </pre>
                </div>
@@ -337,5 +332,3 @@ export const AuditPage: React.FC = () => {
     </div>
   );
 };
-
-const Loader = ({ className }: { className?: string }) => <History className={className} />;
