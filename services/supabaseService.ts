@@ -108,9 +108,10 @@ export const saveProduct = async (product: Partial<Product>) => {
     return;
   }
   
+  // FIX: product.min_stock was used instead of product.minStock (1-based line 114)
   const payload = {
     code: product.code, name: product.name, category: product.category,
-    location: product.location, stock: product.stock, min_stock: product.min_stock,
+    location: product.location, stock: product.stock, min_stock: product.minStock,
     unit: product.unit, image_url: product.imageUrl, updated_at: new Date().toISOString()
   };
 

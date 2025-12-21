@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { Movement, Product, TransactionType, Contact } from '../types';
 import * as api from '../services/supabaseService';
-import { ArrowDownCircle, ArrowUpCircle, Filter, User, ImageIcon, FileDown, History, Calendar } from 'lucide-react';
+import { ArrowDownCircle, ArrowUpCircle, Filter, User, ImageIcon, FileDown, History, Calendar } from 'https://esm.sh/lucide-react@^0.561.0';
 
 export const Kardex: React.FC = () => {
   const [movements, setMovements] = useState<Movement[]>([]);

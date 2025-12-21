@@ -2,11 +2,12 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Product, Role } from '../types';
 import * as api from '../services/supabaseService';
+import { exportToExcel, formatTimestamp, getStockStatusLabel } from '../services/excelService';
 import { StockBadge } from '../components/StockBadge';
 import { 
   Plus, Search, Edit2, Trash2, MapPin, ImageIcon, 
   Loader2, CheckCircle2, Zap, FileDown, X, Filter, 
-  PackageOpen, ChevronDown 
+  PackageOpen, ChevronDown, Download, FileSpreadsheet
 } from 'https://esm.sh/lucide-react@^0.561.0';
 import imageCompression from 'https://esm.sh/browser-image-compression@2.0.2';
 
@@ -20,6 +21,7 @@ export const Inventory: React.FC<InventoryProps> = ({ role }) => {
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
+  const [exporting, setExporting] = useState(false);
   
   // States para filtros
   const [search, setSearch] = useState('');
@@ -51,7 +53,6 @@ export const Inventory: React.FC<InventoryProps> = ({ role }) => {
 
   useEffect(() => { loadData(); }, []);
 
-  // Implementación de Debounce para la búsqueda
   useEffect(() => {
     const timer = setTimeout(() => {
       setDebouncedSearch(search);
@@ -59,7 +60,6 @@ export const Inventory: React.FC<InventoryProps> = ({ role }) => {
     return () => clearTimeout(timer);
   }, [search]);
 
-  // Extraer ubicaciones únicas dinámicamente
   const uniqueLocations = useMemo(() => {
     const locations = products
       .map(p => p.location)
@@ -67,30 +67,24 @@ export const Inventory: React.FC<InventoryProps> = ({ role }) => {
     return Array.from(new Set(locations)).sort();
   }, [products]);
 
-  // LÓGICA DE FILTRADO AVANZADO (useMemo para performance)
   const filteredProducts = useMemo(() => {
     return products.filter(p => {
-      // 1. Filtro por búsqueda (Nombre, Código, Categoría, Ubicación)
       const searchMatch = !debouncedSearch || 
         p.name.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
         p.code.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
         p.category.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
         (p.location && p.location.toLowerCase().includes(debouncedSearch.toLowerCase()));
 
-      // 2. Filtro por Categoría
       const categoryMatch = selectedCategory === 'ALL' || p.category === selectedCategory;
-
-      // 3. Filtro por Ubicación
       const locationMatch = selectedLocation === 'ALL' || p.location === selectedLocation;
 
-      // 4. Filtro por Estado de Stock
       let stockMatch = true;
       if (selectedStockStatus === 'CRITICAL') stockMatch = p.stock === 0;
       else if (selectedStockStatus === 'LOW') stockMatch = p.stock > 0 && p.stock <= p.minStock;
       else if (selectedStockStatus === 'GOOD') stockMatch = p.stock > p.minStock;
 
       return searchMatch && categoryMatch && locationMatch && stockMatch;
-    });
+    }).sort((a, b) => a.name.localeCompare(b.name));
   }, [products, debouncedSearch, selectedCategory, selectedLocation, selectedStockStatus]);
 
   const clearFilters = () => {
@@ -98,6 +92,35 @@ export const Inventory: React.FC<InventoryProps> = ({ role }) => {
     setSelectedCategory('ALL');
     setSelectedLocation('ALL');
     setSelectedStockStatus('ALL');
+  };
+
+  const handleExcelExport = async () => {
+    if (filteredProducts.length === 0) {
+      alert("No hay datos para exportar con los filtros actuales.");
+      return;
+    }
+
+    setExporting(true);
+    try {
+      const dataToExport = filteredProducts.map(p => ({
+        'Código': p.code,
+        'Producto': p.name,
+        'Categoría': p.category,
+        'Stock Actual': p.stock,
+        'Unidad': p.unit,
+        'Stock Mínimo': p.minStock,
+        'Estado': getStockStatusLabel(p.stock, p.minStock),
+        'Ubicación': p.location || 'N/A',
+        'Última Actualización': new Date(p.updatedAt).toLocaleString()
+      }));
+
+      const fileName = `Inventario_${formatTimestamp(new Date())}.xlsx`;
+      exportToExcel(dataToExport, fileName, 'Inventario');
+    } catch (e: any) {
+      alert(`Error al exportar: ${e.message}`);
+    } finally {
+      setExporting(false);
+    }
   };
 
   const exportToCSV = () => {
@@ -196,13 +219,23 @@ export const Inventory: React.FC<InventoryProps> = ({ role }) => {
           <h1 className="text-2xl font-bold text-gray-900">Inventario Central</h1>
           <p className="text-xs text-gray-500 font-medium">Gestión profesional de activos y existencias.</p>
         </div>
-        <div className="flex gap-2 w-full sm:w-auto">
+        <div className="flex flex-wrap gap-2 w-full sm:w-auto">
+          <button 
+            onClick={handleExcelExport}
+            disabled={exporting}
+            className="flex-1 sm:flex-none inline-flex items-center justify-center px-4 py-2.5 bg-green-600 border border-green-700 text-white rounded-xl shadow-sm hover:bg-green-700 font-bold text-xs transition-all disabled:opacity-50"
+          >
+            {exporting ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <FileSpreadsheet className="mr-2 h-4 w-4" />}
+            {exporting ? 'Exportando...' : 'Exportar a Excel'}
+          </button>
+          
           <button 
             onClick={exportToCSV}
             className="flex-1 sm:flex-none inline-flex items-center justify-center px-4 py-2.5 bg-white border border-gray-200 text-gray-700 rounded-xl shadow-sm hover:bg-gray-50 font-bold text-xs transition-all"
           >
-            <FileDown className="mr-2 h-4 w-4 text-indigo-500" /> Exportar Filtrados
+            <Download className="mr-2 h-4 w-4 text-indigo-500" /> CSV
           </button>
+          
           {role === 'ADMIN' && (
             <button onClick={() => handleOpenModal()} className="flex-1 sm:flex-none inline-flex items-center justify-center px-4 py-2.5 bg-indigo-600 text-white rounded-xl shadow-lg hover:bg-indigo-700 font-bold text-xs transition-all shadow-indigo-100">
               <Plus className="mr-2 h-4 w-4" /> Nuevo Producto
@@ -374,7 +407,7 @@ export const Inventory: React.FC<InventoryProps> = ({ role }) => {
         </div>
       </div>
 
-      {/* MODAL SECTION (Same logic as before, but ensure consistent styling) */}
+      {/* MODAL SECTION */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 overflow-y-auto">
           <div className="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">

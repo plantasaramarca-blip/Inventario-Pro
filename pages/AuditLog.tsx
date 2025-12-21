@@ -2,16 +2,19 @@
 import React, { useState, useEffect } from 'react';
 import { AuditLog } from '../types';
 import * as api from '../services/supabaseService';
+import { exportToExcel, formatTimestamp } from '../services/excelService';
 import { 
   ClipboardCheck, Search, Filter, Calendar, User, 
   ChevronLeft, ChevronRight, Eye, FileDown, 
-  CheckCircle, Edit, Trash2, X, Info, History, AlertCircle
+  CheckCircle, Edit, Trash2, X, Info, History, AlertCircle,
+  FileSpreadsheet, Loader2
 } from 'https://esm.sh/lucide-react@^0.561.0';
 
 export const AuditPage: React.FC = () => {
   const [logs, setLogs] = useState<AuditLog[]>([]);
   const [count, setCount] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [exporting, setExporting] = useState(false);
   const [page, setPage] = useState(0);
   const [selectedLog, setSelectedLog] = useState<AuditLog | null>(null);
   
@@ -45,6 +48,37 @@ export const AuditPage: React.FC = () => {
     setPage(0);
   };
 
+  const handleExcelExport = async () => {
+    if (logs.length === 0) {
+      alert("No hay logs registrados para exportar.");
+      return;
+    }
+
+    setExporting(true);
+    try {
+      // Intentamos cargar hasta 1000 logs para el excel (más que la página actual)
+      const { data: allData } = await api.getAuditLogs(0, 1000, filters);
+      
+      const dataToExport = allData.map(l => ({
+        'Fecha/Hora': new Date(l.created_at).toLocaleString(),
+        'Usuario (Actor)': l.user_email,
+        'Acción': l.action,
+        'Módulo/Tabla': l.table_name,
+        'Registro Afectado': l.record_name,
+        'Resumen de Cambios': l.changes_summary,
+        'Valores Anteriores': JSON.stringify(l.old_values || {}),
+        'Valores Nuevos': JSON.stringify(l.new_values || {})
+      }));
+
+      const fileName = `Auditoria_${formatTimestamp(new Date())}.xlsx`;
+      exportToExcel(dataToExport, fileName, 'Auditoría');
+    } catch (e: any) {
+      alert(`Error al exportar: ${e.message}`);
+    } finally {
+      setExporting(false);
+    }
+  };
+
   const exportToCSV = () => {
     const headers = ['Fecha', 'Usuario', 'Accion', 'Tabla', 'Registro', 'Resumen'];
     const rows = logs.map(l => [
@@ -61,7 +95,7 @@ export const AuditPage: React.FC = () => {
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.setAttribute("download", `auditoria_${new Date().getTime()}.csv`);
+    link.setAttribute("download", `auditoria_reporte_${new Date().getTime()}.csv`);
     link.click();
   };
 
@@ -85,12 +119,23 @@ export const AuditPage: React.FC = () => {
           </h1>
           <p className="text-xs text-gray-500 font-medium mt-1">Trazabilidad de identidades reales y acciones de base de datos.</p>
         </div>
-        <button 
-          onClick={exportToCSV}
-          className="inline-flex items-center px-4 py-2.5 bg-white border border-slate-200 text-slate-700 rounded-xl shadow-sm hover:bg-slate-50 font-bold text-xs transition-all"
-        >
-          <FileDown className="mr-2 h-4 w-4 text-indigo-500" /> Descargar CSV
-        </button>
+        <div className="flex flex-wrap gap-2 w-full sm:w-auto">
+          <button 
+            onClick={handleExcelExport}
+            disabled={exporting}
+            className="flex-1 sm:flex-none inline-flex items-center justify-center px-4 py-2.5 bg-green-600 border border-green-700 text-white rounded-xl shadow-sm hover:bg-green-700 font-bold text-xs transition-all disabled:opacity-50"
+          >
+            {exporting ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <FileSpreadsheet className="mr-2 h-4 w-4" />}
+            {exporting ? 'Exportando...' : 'Excel'}
+          </button>
+          
+          <button 
+            onClick={exportToCSV}
+            className="flex-1 sm:flex-none inline-flex items-center px-4 py-2.5 bg-white border border-slate-200 text-slate-700 rounded-xl shadow-sm hover:bg-slate-50 font-bold text-xs transition-all"
+          >
+            <FileDown className="mr-2 h-4 w-4 text-indigo-500" /> CSV
+          </button>
+        </div>
       </div>
 
       {/* FILTROS */}
