@@ -1,5 +1,5 @@
 
-import * as XLSX from 'xlsx';
+import * as XLSX from 'https://esm.sh/xlsx@0.18.5';
 
 /**
  * Exporta un array de objetos a un archivo Excel.
