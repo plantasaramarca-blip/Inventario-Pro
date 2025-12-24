@@ -38,9 +38,6 @@ export const Inventory: React.FC<InventoryProps> = ({ role }) => {
     code: '', name: '', category: '', location: '', stock: 0, minStock: 30, criticalStock: 10, price: 0, unit: 'und', imageUrl: ''
   });
   
-  const [isAddingCategory, setIsAddingCategory] = useState(false);
-  const [newCategoryName, setNewCategoryName] = useState('');
-
   const loadData = async () => {
     setLoading(true);
     try {
@@ -63,20 +60,12 @@ export const Inventory: React.FC<InventoryProps> = ({ role }) => {
     return () => clearTimeout(timer);
   }, [search]);
 
-  const uniqueLocations = useMemo(() => {
-    const locations = products
-      .map(p => p.location)
-      .filter((loc): loc is string => !!loc);
-    return Array.from(new Set(locations)).sort();
-  }, [products]);
-
   const filteredProducts = useMemo(() => {
     return products.filter(p => {
       const searchMatch = !debouncedSearch || 
         p.name.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
         p.code.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
-        p.category.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
-        (p.location && p.location.toLowerCase().includes(debouncedSearch.toLowerCase()));
+        p.category.toLowerCase().includes(debouncedSearch.toLowerCase());
 
       const categoryMatch = selectedCategory === 'ALL' || p.category === selectedCategory;
       const locationMatch = selectedLocation === 'ALL' || p.location === selectedLocation;
@@ -102,7 +91,6 @@ export const Inventory: React.FC<InventoryProps> = ({ role }) => {
       alert("No hay datos para exportar.");
       return;
     }
-
     setExporting(true);
     try {
       const dataToExport = filteredProducts.map(p => ({
@@ -119,7 +107,6 @@ export const Inventory: React.FC<InventoryProps> = ({ role }) => {
         'Ubicación': p.location || 'N/A',
         'Última Actualización': new Date(p.updatedAt).toLocaleString()
       }));
-
       const fileName = `Inventario_${formatTimestamp(new Date())}.xlsx`;
       exportToExcel(dataToExport, fileName, 'Inventario');
     } catch (e: any) {
@@ -138,13 +125,11 @@ export const Inventory: React.FC<InventoryProps> = ({ role }) => {
       setFormData({ code: '', name: '', category: categories[0] || '', location: '', stock: 0, minStock: 30, criticalStock: 10, price: 0, unit: 'und', imageUrl: '' });
     }
     setIsModalOpen(true);
-    setIsAddingCategory(false);
   };
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-
     try {
       setIsOptimizing(true);
       const options = { maxSizeMB: 0.3, maxWidthOrHeight: 800, useWebWorker: true };
@@ -167,8 +152,6 @@ export const Inventory: React.FC<InventoryProps> = ({ role }) => {
     setIsModalOpen(false);
     loadData();
   };
-
-  const hasActiveFilters = debouncedSearch || selectedCategory !== 'ALL' || selectedLocation !== 'ALL' || selectedStockStatus !== 'ALL';
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500 pb-20">
@@ -200,7 +183,7 @@ export const Inventory: React.FC<InventoryProps> = ({ role }) => {
             onChange={e => setSearch(e.target.value)}
           />
         </div>
-        {hasActiveFilters && (
+        {(search || selectedCategory !== 'ALL' || selectedLocation !== 'ALL' || selectedStockStatus !== 'ALL') && (
           <button onClick={clearFilters} className="text-xs font-bold text-rose-600 px-4">Limpiar</button>
         )}
       </div>

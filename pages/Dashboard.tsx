@@ -15,7 +15,6 @@ import { groupProductsByStatus } from '../utils/stockUtils';
 export const Dashboard: React.FC = () => {
   const [stats, setStats] = useState<InventoryStats | null>(null);
   const [attentionProducts, setAttentionProducts] = useState<Product[]>([]);
-  const [contacts, setContacts] = useState<Contact[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   
@@ -23,17 +22,16 @@ export const Dashboard: React.FC = () => {
     setLoading(true);
     setError(null);
     try {
-      const [s, p, c] = await Promise.all([api.getStats(), api.getProducts(), api.getContacts()]);
+      const [s, p] = await Promise.all([api.getStats(), api.getProducts()]);
       
       if (s) setStats(s);
-      if (c) setContacts(c);
       
       if (p && Array.isArray(p)) {
         const groups = groupProductsByStatus(p);
         const sorted = [
-          ...(groups.sinStock || []).sort((a,b) => a.name.localeCompare(b.name)),
-          ...(groups.criticos || []).sort((a,b) => (a.stock || 0) - (b.stock || 0)),
-          ...(groups.bajos || []).sort((a,b) => (a.stock || 0) - (b.stock || 0))
+          ...(groups.sinStock || []),
+          ...(groups.criticos || []),
+          ...(groups.bajos || [])
         ].slice(0, 10);
         setAttentionProducts(sorted);
       }
@@ -67,7 +65,7 @@ export const Dashboard: React.FC = () => {
   );
 
   const chartData = stats ? [
-    { name: 'Disponibles', value: Math.max(0, stats.totalProducts - stats.lowStockCount - stats.criticalStockCount - stats.outOfStockCount), color: '#10b981' },
+    { name: 'Disponibles', value: Math.max(0, stats.totalProducts - (stats.lowStockCount || 0) - (stats.criticalStockCount || 0) - (stats.outOfStockCount || 0)), color: '#10b981' },
     { name: 'Stock Bajo', value: stats.lowStockCount || 0, color: '#f59e0b' },
     { name: 'Stock Crítico', value: stats.criticalStockCount || 0, color: '#ef4444' },
     { name: 'Sin Stock', value: stats.outOfStockCount || 0, color: '#64748b' }
