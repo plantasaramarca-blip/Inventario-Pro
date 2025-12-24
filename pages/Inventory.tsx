@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo } from 'react';
 import { Product, Role } from '../types';
 import * as api from '../services/supabaseService';
@@ -6,8 +5,8 @@ import { exportToExcel, formatTimestamp, getStockStatusLabel } from '../services
 import { StockBadge } from '../components/StockBadge';
 import { 
   Plus, Search, Edit2, ImageIcon, Loader2, FileSpreadsheet
-} from 'lucide-react';
-import imageCompression from 'browser-image-compression';
+} from 'https://esm.sh/lucide-react@0.475.0?deps=react@19.0.0';
+import imageCompression from 'https://esm.sh/browser-image-compression@2.0.2';
 
 interface InventoryProps {
   role: Role;

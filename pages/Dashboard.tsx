@@ -1,13 +1,12 @@
-
 import React, { useEffect, useState } from 'react';
 import * as api from '../services/supabaseService';
 import { InventoryStats, Product } from '../types';
 import { 
   TrendingUp, AlertTriangle, PackageX, Package, 
   Database, AlertCircle, DollarSign, Loader2
-} from 'lucide-react';
+} from 'https://esm.sh/lucide-react@0.475.0?deps=react@19.0.0';
 import { StockBadge } from '../components/StockBadge';
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip as ReTooltip, Legend } from 'recharts';
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip as ReTooltip, Legend } from 'https://esm.sh/recharts@2.15.0?deps=react@19.0.0,react-dom@19.0.0';
 import { groupProductsByStatus } from '../utils/stockUtils';
 
 export const Dashboard: React.FC = () => {
@@ -70,12 +69,6 @@ export const Dashboard: React.FC = () => {
 
   return (
     <div className="space-y-6 animate-in fade-in duration-700 pb-20">
-      {error && (
-        <div className="bg-red-50 border border-red-200 p-4 rounded-2xl flex items-center text-red-700 text-sm font-bold">
-           <AlertCircle className="w-5 h-5 mr-3" /> {error}
-        </div>
-      )}
-
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
         {cards.map((card, idx) => {
           const Icon = card.icon;
@@ -153,7 +146,7 @@ export const Dashboard: React.FC = () => {
            <h3 className="text-[10px] font-black text-slate-800 uppercase tracking-widest mb-6 flex items-center">
              <Database className="w-4 h-4 mr-2 text-indigo-500" /> Distribución de Salud
            </h3>
-           <div className="flex-1 w-full" style={{ height: '300px' }}>
+           <div className="flex-1 w-full" style={{ height: '300px', minHeight: '300px' }}>
              {stats?.totalProducts ? (
                <ResponsiveContainer width="100%" height="100%">
                  <PieChart>

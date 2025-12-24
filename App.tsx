@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { supabase, isSupabaseConfigured } from './supabaseClient';
 import { Navbar } from './components/Navbar';
@@ -10,7 +9,7 @@ import { Contacts } from './pages/Contacts';
 import { AuditPage } from './pages/AuditLog';
 import { Login } from './pages/Login';
 import { Role } from './types';
-import { Loader2 } from 'lucide-react';
+import { Loader2 } from 'https://esm.sh/lucide-react@0.475.0?deps=react@19.0.0';
 
 export default function App() {
   const [session, setSession] = useState<any>(null);

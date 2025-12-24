@@ -1,5 +1,4 @@
-
-import * as XLSX from 'xlsx';
+import * as XLSX from 'https://esm.sh/xlsx@0.18.5';
 
 export function exportToExcel(
   data: any[],
