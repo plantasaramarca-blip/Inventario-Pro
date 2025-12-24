@@ -6,10 +6,10 @@ import {
   TrendingUp, AlertTriangle, PackageX, Package, RefreshCw, 
   Database, AlertCircle, ShoppingCart, DollarSign, 
   ChevronRight, ArrowUpCircle, X, CheckCircle2, 
-  Loader2, Info, InfoIcon
-} from 'https://esm.sh/lucide-react@^0.561.0';
+  Loader2, Info
+} from 'lucide-react';
 import { StockBadge } from '../components/StockBadge';
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip as ReTooltip, Legend } from 'https://esm.sh/recharts@^3.5.1';
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip as ReTooltip, Legend } from 'recharts';
 import { groupProductsByStatus, getStockInfo } from '../utils/stockUtils';
 
 export const Dashboard: React.FC = () => {
@@ -86,7 +86,7 @@ export const Dashboard: React.FC = () => {
   );
 
   const chartData = stats ? [
-    { name: 'Disponibles', value: stats.totalProducts - stats.lowStockCount - stats.criticalStockCount - stats.outOfStockCount, color: '#10b981' },
+    { name: 'Disponibles', value: Math.max(0, stats.totalProducts - stats.lowStockCount - stats.criticalStockCount - stats.outOfStockCount), color: '#10b981' },
     { name: 'Stock Bajo', value: stats.lowStockCount, color: '#f59e0b' },
     { name: 'Stock Crítico', value: stats.criticalStockCount, color: '#ef4444' },
     { name: 'Sin Stock', value: stats.outOfStockCount, color: '#64748b' }
@@ -238,7 +238,7 @@ export const Dashboard: React.FC = () => {
            <h3 className="text-sm font-black text-slate-800 uppercase tracking-widest mb-6 flex items-center">
              <Database className="w-5 h-5 mr-2 text-indigo-500" /> Distribución de Stock
            </h3>
-           <div className="flex-1 min-h-[300px]">
+           <div className="flex-1 min-h-[300px] h-full">
              {stats?.totalProducts ? (
                <ResponsiveContainer width="100%" height="100%">
                  <PieChart>
@@ -275,7 +275,7 @@ export const Dashboard: React.FC = () => {
            </div>
            <div className="mt-6 p-4 bg-slate-50 rounded-2xl border border-slate-100">
               <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest mb-1 flex items-center">
-                <InfoIcon className="w-3 h-3 mr-1" /> Nota de Gestión
+                <Info className="w-3 h-3 mr-1" /> Nota de Gestión
               </p>
               <p className="text-[11px] text-slate-600 leading-relaxed font-medium">
                 La salud de tu almacén depende del reabastecimiento a tiempo. Revisa diariamente la sección de productos críticos.

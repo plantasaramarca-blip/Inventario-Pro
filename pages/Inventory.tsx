@@ -9,8 +9,8 @@ import {
   Loader2, CheckCircle2, Zap, FileDown, X, Filter, 
   PackageOpen, ChevronDown, Download, FileSpreadsheet, 
   DollarSign, AlertCircle, TrendingUp
-} from 'https://esm.sh/lucide-react@^0.561.0';
-import imageCompression from 'https://esm.sh/browser-image-compression@2.0.2';
+} from 'lucide-react';
+import imageCompression from 'browser-image-compression';
 
 interface InventoryProps {
   role: Role;
