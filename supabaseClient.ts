@@ -1,19 +1,16 @@
 
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.1';
+import { createClient } from '@supabase/supabase-js';
 
 const getEnv = (key: string) => {
   if (typeof window !== 'undefined') {
-    // Intento con Vite
     const viteEnv = (import.meta as any).env?.[key];
     if (viteEnv && !viteEnv.includes('placeholder')) return viteEnv;
 
-    // Intento con process.env (Vercel/Node)
     try {
       const procEnv = (process as any).env?.[key];
       if (procEnv && !procEnv.includes('placeholder')) return procEnv;
     } catch (e) {}
 
-    // Intento con window.env
     const winEnv = (window as any).env?.[key];
     if (winEnv) return winEnv;
   }

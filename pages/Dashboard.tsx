@@ -1,15 +1,13 @@
 
 import React, { useEffect, useState } from 'react';
 import * as api from '../services/supabaseService';
-import { InventoryStats, Product, Contact } from '../types';
+import { InventoryStats, Product } from '../types';
 import { 
-  TrendingUp, AlertTriangle, PackageX, Package, RefreshCw, 
-  Database, AlertCircle, ShoppingCart, DollarSign, 
-  ChevronRight, ArrowUpCircle, X, CheckCircle2, 
-  Loader2, Info
-} from 'https://esm.sh/lucide-react@0.475.0?deps=react@19.2.3';
+  TrendingUp, AlertTriangle, PackageX, Package, 
+  Database, AlertCircle, DollarSign, Loader2
+} from 'lucide-react';
 import { StockBadge } from '../components/StockBadge';
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip as ReTooltip, Legend } from 'https://esm.sh/recharts@2.15.0?deps=react@19.2.3';
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip as ReTooltip, Legend } from 'recharts';
 import { groupProductsByStatus } from '../utils/stockUtils';
 
 export const Dashboard: React.FC = () => {
@@ -23,9 +21,7 @@ export const Dashboard: React.FC = () => {
     setError(null);
     try {
       const [s, p] = await Promise.all([api.getStats(), api.getProducts()]);
-      
       if (s) setStats(s);
-      
       if (p && Array.isArray(p)) {
         const groups = groupProductsByStatus(p);
         const sorted = [
@@ -37,7 +33,7 @@ export const Dashboard: React.FC = () => {
       }
     } catch (err: any) {
       console.error("Dashboard Fetch Error:", err);
-      setError("No se pudieron cargar las estadísticas.");
+      setError("Error al cargar datos del servidor.");
     } finally {
       setLoading(false);
     }
@@ -51,16 +47,8 @@ export const Dashboard: React.FC = () => {
     <div className="h-[60vh] flex items-center justify-center">
       <div className="flex flex-col items-center">
         <Loader2 className="animate-spin h-10 w-10 text-indigo-600 mb-4" />
-        <p className="text-slate-400 text-xs font-black uppercase tracking-widest">Analizando Almacén...</p>
+        <p className="text-slate-400 text-xs font-black uppercase tracking-widest">Sincronizando Almacén...</p>
       </div>
-    </div>
-  );
-
-  if (error) return (
-    <div className="p-10 text-center bg-red-50 rounded-3xl border border-red-100 max-w-md mx-auto my-20">
-      <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
-      <p className="text-red-800 font-bold">{error}</p>
-      <button onClick={fetchData} className="mt-4 bg-red-600 text-white px-6 py-2 rounded-xl text-xs font-bold uppercase">Reintentar</button>
     </div>
   );
 
@@ -69,7 +57,7 @@ export const Dashboard: React.FC = () => {
     { name: 'Stock Bajo', value: stats.lowStockCount || 0, color: '#f59e0b' },
     { name: 'Stock Crítico', value: stats.criticalStockCount || 0, color: '#ef4444' },
     { name: 'Sin Stock', value: stats.outOfStockCount || 0, color: '#64748b' }
-  ] : [];
+  ].filter(d => d.value > 0) : [];
 
   const cards = [
     { title: 'Valor Inventario', value: `S/ ${(stats?.totalValue || 0).toLocaleString()}`, icon: DollarSign, color: 'bg-indigo-600', sub: 'Valorizado total' },
@@ -82,6 +70,12 @@ export const Dashboard: React.FC = () => {
 
   return (
     <div className="space-y-6 animate-in fade-in duration-700 pb-20">
+      {error && (
+        <div className="bg-red-50 border border-red-200 p-4 rounded-2xl flex items-center text-red-700 text-sm font-bold">
+           <AlertCircle className="w-5 h-5 mr-3" /> {error}
+        </div>
+      )}
+
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
         {cards.map((card, idx) => {
           const Icon = card.icon;
@@ -116,8 +110,7 @@ export const Dashboard: React.FC = () => {
                 Prioridad de Reabastecimiento
               </h3>
            </div>
-           
-           <div className="overflow-x-auto -mx-6">
+           <div className="overflow-x-auto">
              <table className="w-full">
                <thead className="text-[9px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-50">
                  <tr>
@@ -131,11 +124,11 @@ export const Dashboard: React.FC = () => {
                    <tr key={p.id} className="group hover:bg-slate-50/50 transition-colors">
                      <td className="px-6 py-4">
                         <div className="flex items-center space-x-3">
-                           <div className="w-10 h-10 rounded-xl bg-slate-100 flex-shrink-0 border border-slate-200 overflow-hidden shadow-inner">
-                             {p.imageUrl ? <img src={p.imageUrl} className="w-full h-full object-cover" /> : <Package className="w-5 h-5 m-auto text-slate-300" />}
+                           <div className="w-10 h-10 rounded-xl bg-slate-100 flex-shrink-0 border border-slate-200 overflow-hidden shadow-inner flex items-center justify-center">
+                             {p.imageUrl ? <img src={p.imageUrl} className="w-full h-full object-cover" /> : <Package className="w-5 h-5 text-slate-300" />}
                            </div>
                            <div>
-                              <p className="text-xs font-bold text-slate-800 group-hover:text-indigo-600 transition-colors">{p.name}</p>
+                              <p className="text-xs font-bold text-slate-800">{p.name}</p>
                               <p className="text-[9px] text-slate-400 font-black uppercase tracking-widest leading-none mt-1">{p.location || 'SIN UBICACIÓN'}</p>
                            </div>
                         </div>
@@ -156,11 +149,11 @@ export const Dashboard: React.FC = () => {
            </div>
         </div>
 
-        <div className="bg-white shadow-sm rounded-3xl p-6 border border-slate-100 flex flex-col min-h-[400px]">
+        <div className="bg-white shadow-sm rounded-3xl p-6 border border-slate-100 flex flex-col min-h-[450px]">
            <h3 className="text-[10px] font-black text-slate-800 uppercase tracking-widest mb-6 flex items-center">
              <Database className="w-4 h-4 mr-2 text-indigo-500" /> Distribución de Salud
            </h3>
-           <div className="flex-1">
+           <div className="flex-1 w-full" style={{ height: '300px' }}>
              {stats?.totalProducts ? (
                <ResponsiveContainer width="100%" height="100%">
                  <PieChart>
@@ -191,7 +184,7 @@ export const Dashboard: React.FC = () => {
              ) : (
                 <div className="h-full flex flex-col items-center justify-center text-slate-200 opacity-50">
                    <Package className="w-12 h-12 mb-2" />
-                   <p className="text-[10px] font-black uppercase tracking-widest">Sin datos</p>
+                   <p className="text-[10px] font-black uppercase tracking-widest">Sin datos suficientes</p>
                 </div>
              )}
            </div>

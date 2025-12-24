@@ -10,7 +10,7 @@ import { Contacts } from './pages/Contacts';
 import { AuditPage } from './pages/AuditLog';
 import { Login } from './pages/Login';
 import { Role } from './types';
-import { Loader2 } from 'https://esm.sh/lucide-react@0.475.0?deps=react@19.2.3';
+import { Loader2 } from 'lucide-react';
 
 export default function App() {
   const [session, setSession] = useState<any>(null);
@@ -95,7 +95,7 @@ export default function App() {
         
         {!isSupabaseConfigured && (
           <div className="bg-blue-600 text-white text-[10px] py-1 px-4 text-center font-bold tracking-widest uppercase">
-            ⚡ Estás trabajando en Modo Local (LocalStorage). Los datos se guardan solo en este navegador.
+            ⚡ Modo Local: Los datos se guardan solo en este navegador.
           </div>
         )}
         

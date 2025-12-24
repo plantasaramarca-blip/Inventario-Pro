@@ -5,35 +5,25 @@ import * as api from '../services/supabaseService';
 import { exportToExcel, formatTimestamp, getStockStatusLabel } from '../services/excelService';
 import { StockBadge } from '../components/StockBadge';
 import { 
-  Plus, Search, Edit2, Trash2, MapPin, ImageIcon, 
-  Loader2, CheckCircle2, Zap, FileDown, X, Filter, 
-  PackageOpen, ChevronDown, Download, FileSpreadsheet, 
-  DollarSign, AlertCircle, TrendingUp
-} from 'https://esm.sh/lucide-react@0.475.0?deps=react@19.2.3';
-import imageCompression from 'https://esm.sh/browser-image-compression@2.0.2';
+  Plus, Search, Edit2, ImageIcon, Loader2, FileSpreadsheet
+} from 'lucide-react';
+import imageCompression from 'browser-image-compression';
 
 interface InventoryProps {
   role: Role;
 }
-
-type StockStatusFilter = 'ALL' | 'CRITICAL' | 'LOW' | 'GOOD';
 
 export const Inventory: React.FC<InventoryProps> = ({ role }) => {
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [exporting, setExporting] = useState(false);
-  
   const [search, setSearch] = useState('');
-  const [debouncedSearch, setDebouncedSearch] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState('ALL');
-  const [selectedLocation, setSelectedLocation] = useState('ALL');
-  const [selectedStockStatus, setSelectedStockStatus] = useState<StockStatusFilter>('ALL');
-
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [isOptimizing, setIsOptimizing] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  
   const [formData, setFormData] = useState<Partial<Product>>({
     code: '', name: '', category: '', location: '', stock: 0, minStock: 30, criticalStock: 10, price: 0, unit: 'und', imageUrl: ''
   });
@@ -42,8 +32,8 @@ export const Inventory: React.FC<InventoryProps> = ({ role }) => {
     setLoading(true);
     try {
       const [prods, cats] = await Promise.all([api.getProducts(), api.getCategories()]);
-      setProducts(prods);
-      setCategories(cats);
+      setProducts(prods || []);
+      setCategories(cats || []);
     } catch (e) {
       console.error(e);
     } finally {
@@ -53,64 +43,28 @@ export const Inventory: React.FC<InventoryProps> = ({ role }) => {
 
   useEffect(() => { loadData(); }, []);
 
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setDebouncedSearch(search);
-    }, 300);
-    return () => clearTimeout(timer);
-  }, [search]);
-
   const filteredProducts = useMemo(() => {
-    return products.filter(p => {
-      const searchMatch = !debouncedSearch || 
-        p.name.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
-        p.code.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
-        p.category.toLowerCase().includes(debouncedSearch.toLowerCase());
-
-      const categoryMatch = selectedCategory === 'ALL' || p.category === selectedCategory;
-      const locationMatch = selectedLocation === 'ALL' || p.location === selectedLocation;
-
-      let stockMatch = true;
-      if (selectedStockStatus === 'CRITICAL') stockMatch = p.stock <= p.criticalStock;
-      else if (selectedStockStatus === 'LOW') stockMatch = p.stock > p.criticalStock && p.stock <= p.minStock;
-      else if (selectedStockStatus === 'GOOD') stockMatch = p.stock > p.minStock;
-
-      return searchMatch && categoryMatch && locationMatch && stockMatch;
-    }).sort((a, b) => a.name.localeCompare(b.name));
-  }, [products, debouncedSearch, selectedCategory, selectedLocation, selectedStockStatus]);
-
-  const clearFilters = () => {
-    setSearch('');
-    setSelectedCategory('ALL');
-    setSelectedLocation('ALL');
-    setSelectedStockStatus('ALL');
-  };
+    return products.filter(p => 
+      p.name.toLowerCase().includes(search.toLowerCase()) || 
+      p.code.toLowerCase().includes(search.toLowerCase())
+    ).sort((a, b) => a.name.localeCompare(b.name));
+  }, [products, search]);
 
   const handleExcelExport = async () => {
-    if (filteredProducts.length === 0) {
-      alert("No hay datos para exportar.");
-      return;
-    }
+    if (filteredProducts.length === 0) return;
     setExporting(true);
     try {
       const dataToExport = filteredProducts.map(p => ({
         'Código': p.code,
         'Producto': p.name,
-        'Categoría': p.category,
-        'Stock Actual': p.stock,
-        'Unidad': p.unit,
-        'Precio Unit.': p.price,
-        'Valor Total': p.stock * p.price,
-        'Stock Mínimo': p.minStock,
-        'Stock Crítico': p.criticalStock,
-        'Estado': getStockStatusLabel(p.stock, p.minStock),
-        'Ubicación': p.location || 'N/A',
-        'Última Actualización': new Date(p.updatedAt).toLocaleString()
+        'Stock': p.stock,
+        'Precio': p.price,
+        'Estado': getStockStatusLabel(p.stock, p.minStock)
       }));
       const fileName = `Inventario_${formatTimestamp(new Date())}.xlsx`;
       exportToExcel(dataToExport, fileName, 'Inventario');
     } catch (e: any) {
-      alert(`Error al exportar: ${e.message}`);
+      alert(`Error: ${e.message}`);
     } finally {
       setExporting(false);
     }
@@ -122,7 +76,7 @@ export const Inventory: React.FC<InventoryProps> = ({ role }) => {
       setFormData(product);
     } else {
       setEditingProduct(null);
-      setFormData({ code: '', name: '', category: categories[0] || '', location: '', stock: 0, minStock: 30, criticalStock: 10, price: 0, unit: 'und', imageUrl: '' });
+      setFormData({ code: '', name: '', category: categories[0] || 'General', location: '', stock: 0, minStock: 30, criticalStock: 10, price: 0, unit: 'und', imageUrl: '' });
     }
     setIsModalOpen(true);
   };
@@ -153,15 +107,21 @@ export const Inventory: React.FC<InventoryProps> = ({ role }) => {
     loadData();
   };
 
+  if (loading) return (
+    <div className="h-[40vh] flex items-center justify-center">
+      <Loader2 className="animate-spin w-8 h-8 text-indigo-500" />
+    </div>
+  );
+
   return (
-    <div className="space-y-6 animate-in fade-in duration-500 pb-20">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+    <div className="space-y-6 pb-20">
+      <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Inventario Central</h1>
-          <p className="text-xs text-gray-500 font-medium">Administración de stock y activos.</p>
+          <h1 className="text-2xl font-bold text-gray-900">Inventario</h1>
+          <p className="text-xs text-gray-500">Gestión de catálogo y stock.</p>
         </div>
         <div className="flex gap-2">
-          <button onClick={handleExcelExport} disabled={exporting} className="bg-green-600 text-white px-4 py-2 rounded-xl text-xs font-bold flex items-center">
+          <button onClick={handleExcelExport} className="bg-green-600 text-white px-4 py-2 rounded-xl text-xs font-bold flex items-center">
             <FileSpreadsheet className="w-4 h-4 mr-2" /> Excel
           </button>
           {role === 'ADMIN' && (
@@ -172,20 +132,15 @@ export const Inventory: React.FC<InventoryProps> = ({ role }) => {
         </div>
       </div>
 
-      <div className="bg-white p-4 rounded-2xl border border-slate-100 flex flex-col md:flex-row gap-4">
-        <div className="flex-1 relative">
-          <Search className="absolute left-3 top-3 w-4 h-4 text-slate-400" />
-          <input 
-            type="text" 
-            className="w-full pl-10 pr-4 py-2 bg-slate-50 rounded-xl text-sm outline-none" 
-            placeholder="Buscar..." 
-            value={search} 
-            onChange={e => setSearch(e.target.value)}
-          />
-        </div>
-        {(search || selectedCategory !== 'ALL' || selectedLocation !== 'ALL' || selectedStockStatus !== 'ALL') && (
-          <button onClick={clearFilters} className="text-xs font-bold text-rose-600 px-4">Limpiar</button>
-        )}
+      <div className="bg-white p-4 rounded-2xl border border-slate-100 relative">
+        <Search className="absolute left-7 top-7 w-4 h-4 text-slate-400" />
+        <input 
+          type="text" 
+          className="w-full pl-10 pr-4 py-2 bg-slate-50 rounded-xl text-sm outline-none" 
+          placeholder="Buscar producto por nombre o código..." 
+          value={search} 
+          onChange={e => setSearch(e.target.value)}
+        />
       </div>
 
       <div className="bg-white rounded-2xl border border-slate-100 overflow-hidden">
@@ -204,8 +159,8 @@ export const Inventory: React.FC<InventoryProps> = ({ role }) => {
                 <tr key={p.id} className="hover:bg-slate-50/50">
                   <td className="px-6 py-4">
                     <div className="flex items-center space-x-3">
-                      <div className="w-10 h-10 bg-slate-100 rounded-lg overflow-hidden">
-                        {p.imageUrl && <img src={p.imageUrl} className="w-full h-full object-cover" />}
+                      <div className="w-10 h-10 bg-slate-100 rounded-lg overflow-hidden flex items-center justify-center">
+                        {p.imageUrl ? <img src={p.imageUrl} className="w-full h-full object-cover" /> : <ImageIcon className="text-slate-300 w-5 h-5" />}
                       </div>
                       <div>
                         <p className="font-bold">{p.name}</p>
@@ -240,12 +195,15 @@ export const Inventory: React.FC<InventoryProps> = ({ role }) => {
               <input type="text" placeholder="Nombre" required className="w-full p-3 bg-slate-50 rounded-xl outline-none" value={formData.name || ''} onChange={e => setFormData({...formData, name: e.target.value})} />
               <input type="text" placeholder="Código" required className="w-full p-3 bg-slate-50 rounded-xl outline-none" value={formData.code || ''} onChange={e => setFormData({...formData, code: e.target.value})} />
               <div className="grid grid-cols-2 gap-4">
-                <input type="number" placeholder="Stock" required className="w-full p-3 bg-slate-50 rounded-xl outline-none" value={formData.stock || 0} onChange={e => setFormData({...formData, stock: Number(e.target.value)})} />
+                <input type="number" placeholder="Stock Inicial" required className="w-full p-3 bg-slate-50 rounded-xl outline-none" value={formData.stock || 0} onChange={e => setFormData({...formData, stock: Number(e.target.value)})} />
                 <input type="number" placeholder="Precio" required className="w-full p-3 bg-slate-50 rounded-xl outline-none" value={formData.price || 0} onChange={e => setFormData({...formData, price: Number(e.target.value)})} />
               </div>
-              <input type="file" onChange={handleFileChange} className="text-xs" />
+              <div className="flex items-center space-x-2">
+                <label className="text-xs font-bold text-slate-400">IMAGEN:</label>
+                <input type="file" onChange={handleFileChange} className="text-xs flex-1" />
+              </div>
               <button type="submit" disabled={isUploading || isOptimizing} className="w-full bg-indigo-600 text-white py-4 rounded-xl font-bold uppercase shadow-lg disabled:opacity-50">
-                {isUploading ? 'Subiendo...' : 'Guardar'}
+                {isUploading ? 'Subiendo...' : (isOptimizing ? 'Optimizando...' : 'Guardar Producto')}
               </button>
             </div>
           </form>
