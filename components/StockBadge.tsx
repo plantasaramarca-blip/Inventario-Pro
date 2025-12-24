@@ -1,33 +1,20 @@
+
 import React from 'react';
+import { getStockInfo } from '../utils/stockUtils';
 
 interface StockBadgeProps {
   stock: number;
   minStock: number;
+  criticalStock?: number;
 }
 
-export const StockBadge: React.FC<StockBadgeProps> = ({ stock, minStock }) => {
-  let colorClass = '';
-  let label = '';
-  let dotClass = '';
-
-  if (stock === 0) {
-    colorClass = 'bg-red-100 text-red-800 border-red-200';
-    dotClass = 'bg-red-500';
-    label = 'Sin Stock';
-  } else if (stock <= minStock) {
-    colorClass = 'bg-yellow-100 text-yellow-800 border-yellow-200';
-    dotClass = 'bg-yellow-500';
-    label = 'Stock Bajo';
-  } else {
-    colorClass = 'bg-green-100 text-green-800 border-green-200';
-    dotClass = 'bg-green-500';
-    label = 'Disponible';
-  }
+export const StockBadge: React.FC<StockBadgeProps> = ({ stock, minStock, criticalStock = 10 }) => {
+  const info = getStockInfo(stock, minStock, criticalStock);
 
   return (
-    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${colorClass}`}>
-      <span className={`w-2 h-2 mr-1.5 rounded-full ${dotClass} animate-pulse`}></span>
-      {label}
+    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-widest border ${info.bgColor} ${info.textColor} border-transparent shadow-sm`}>
+      <span className={`w-1.5 h-1.5 mr-1.5 rounded-full ${info.dotColor} ${info.status === 'CRITICO' || info.status === 'SIN_STOCK' ? 'animate-pulse' : ''}`}></span>
+      {info.label}
     </span>
   );
 };

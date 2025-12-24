@@ -5,9 +5,6 @@ import * as localStorageApi from './storageService.ts';
 
 const useSupabase = () => isSupabaseConfigured;
 
-/**
- * Sistema de Auditoría Unificado
- */
 export const logAuditAction = async (
   action: 'CREATE' | 'UPDATE' | 'DELETE',
   tableName: string,
@@ -27,7 +24,6 @@ export const logAuditAction = async (
     }
   }
 
-  // Generar un resumen legible automáticamente si no se provee
   let summary = '';
   if (action === 'CREATE') summary = `Creó nuevo registro en ${tableName}: ${recordName}`;
   else if (action === 'DELETE') summary = `Eliminó registro de ${tableName}: ${recordName}`;
@@ -35,7 +31,6 @@ export const logAuditAction = async (
     const changes: string[] = [];
     const keys = Object.keys(newValues);
     keys.forEach(key => {
-      // Evitar comparar campos técnicos o iguales
       if (key !== 'updated_at' && key !== 'updatedAt' && JSON.stringify(oldValues[key]) !== JSON.stringify(newValues[key])) {
         changes.push(`${key} (${oldValues[key] || 'vacío'} → ${newValues[key]})`);
       }
@@ -87,32 +82,54 @@ export const getAuditLogs = async (page = 0, limit = 50, filters: any = {}): Pro
   return { data: data || [], count: count || 0 };
 };
 
-// --- CRUD PRODUCTS ---
 export const getProducts = async (): Promise<Product[]> => {
   if (!useSupabase()) return localStorageApi.getProducts();
   const { data } = await supabase.from('products').select('*').order('name');
   return (data || []).map(p => ({
-    id: p.id, code: p.code, name: p.name, category: p.category, 
-    location: p.location, stock: p.stock, minStock: p.min_stock, 
-    unit: p.unit, imageUrl: p.image_url, updatedAt: p.updated_at
+    id: p.id, 
+    code: p.code, 
+    name: p.name, 
+    category: p.category, 
+    location: p.location, 
+    stock: p.stock || 0, 
+    minStock: p.min_stock ?? 30, 
+    criticalStock: p.critical_stock ?? 10,
+    price: Number(p.price) || 0,
+    unit: p.unit || 'und', 
+    imageUrl: p.image_url, 
+    updatedAt: p.updated_at
   }));
 };
 
 export const saveProduct = async (product: Partial<Product>) => {
   if (!useSupabase()) {
     const id = product.id || crypto.randomUUID();
-    const p = { ...product, id, updatedAt: new Date().toISOString() } as Product;
+    const p = { 
+      ...product, 
+      id, 
+      minStock: product.minStock ?? 30, 
+      criticalStock: product.criticalStock ?? 10,
+      price: product.price ?? 0,
+      updatedAt: new Date().toISOString() 
+    } as Product;
     const old = product.id ? localStorageApi.getProducts().find(x => x.id === product.id) : null;
     localStorageApi.saveProduct(p);
     await logAuditAction(product.id ? 'UPDATE' : 'CREATE', 'products', id, p.name, old, p);
     return;
   }
   
-  // FIX: product.min_stock was used instead of product.minStock (1-based line 114)
   const payload = {
-    code: product.code, name: product.name, category: product.category,
-    location: product.location, stock: product.stock, min_stock: product.minStock,
-    unit: product.unit, image_url: product.imageUrl, updated_at: new Date().toISOString()
+    code: product.code, 
+    name: product.name, 
+    category: product.category,
+    location: product.location, 
+    stock: product.stock, 
+    min_stock: product.minStock ?? 30,
+    critical_stock: product.criticalStock ?? 10,
+    price: product.price ?? 0,
+    unit: product.unit, 
+    image_url: product.imageUrl, 
+    updated_at: new Date().toISOString()
   };
 
   if (product.id) {
@@ -137,7 +154,6 @@ export const deleteProduct = async (id: string) => {
   if (old) await logAuditAction('DELETE', 'products', id, (old as any).name, old, null);
 };
 
-// --- CRUD CONTACTS ---
 export const getContacts = async (): Promise<Contact[]> => {
   if (!useSupabase()) return localStorageApi.getContacts();
   const { data } = await supabase.from('contacts').select('*').order('name');
@@ -178,7 +194,6 @@ export const deleteContact = async (id: string) => {
   if (old) await logAuditAction('DELETE', 'contacts', id, (old as any).name, old, null);
 };
 
-// --- MOVEMENTS ---
 export const getMovements = async (): Promise<Movement[]> => {
   if (!useSupabase()) return localStorageApi.getMovements();
   const { data } = await supabase.from('movements').select('*').order('date', { ascending: false });
@@ -205,9 +220,15 @@ export const registerMovement = async (movement: any) => {
 
   await supabase.from('products').update({ stock: newStock }).eq('id', movement.productId);
   const payload = {
-    product_id: movement.productId, product_name: product.name, type: movement.type,
-    quantity: movement.quantity, dispatcher: movement.dispatcher, reason: movement.reason,
-    balance_after: newStock, contact_id: movement.contactId, contact_name: movement.contactName,
+    product_id: movement.productId, 
+    product_name: product.name, 
+    type: movement.type,
+    quantity: movement.quantity, 
+    dispatcher: movement.dispatcher, 
+    reason: movement.reason,
+    balance_after: newStock, 
+    contact_id: movement.contactId, 
+    contact_name: movement.contactName,
     date: new Date().toISOString()
   };
 
@@ -218,12 +239,19 @@ export const registerMovement = async (movement: any) => {
 export const getStats = async (): Promise<InventoryStats> => {
   if (!useSupabase()) return localStorageApi.getStats();
   const [products, movements, contacts] = await Promise.all([getProducts(), getMovements(), getContacts()]);
+  
+  const critical = products.filter(p => p.stock > 0 && p.stock <= p.criticalStock).length;
+  const low = products.filter(p => p.stock > p.criticalStock && p.stock <= p.minStock).length;
+  const totalValue = products.reduce((sum, p) => sum + ((p.stock || 0) * (p.price || 0)), 0);
+
   return {
     totalProducts: products.length,
-    lowStockCount: products.filter(p => p.stock > 0 && p.stock <= p.minStock).length,
+    lowStockCount: low,
+    criticalStockCount: critical,
     outOfStockCount: products.filter(p => p.stock === 0).length,
     totalMovements: movements.length,
-    totalContacts: contacts.length
+    totalContacts: contacts.length,
+    totalValue: totalValue
   };
 };
 
@@ -243,30 +271,22 @@ export const uploadProductImage = async (file: File | Blob): Promise<string | nu
   return data.publicUrl;
 };
 
-// --- CATEGORIES ---
-// Fix for missing getCategories in Inventory.tsx
 export const getCategories = async (): Promise<string[]> => {
   if (!useSupabase()) return localStorageApi.getCategories();
   const { data, error } = await supabase.from('categories').select('name').order('name');
-  if (error) {
-     console.error("Error fetching categories from Supabase, falling back to local:", error);
-     return localStorageApi.getCategories();
-  }
+  if (error) return localStorageApi.getCategories();
   return (data || []).map(c => c.name);
 };
 
-// Fix for missing saveCategory in Inventory.tsx
 export const saveCategory = async (category: string) => {
   if (!useSupabase()) {
     localStorageApi.saveCategory(category);
     await logAuditAction('CREATE', 'categories', category, category, null, { name: category });
     return;
   }
-  
   const { data: existing } = await supabase.from('categories').select('*').eq('name', category).maybeSingle();
   if (!existing) {
     const { data: inserted, error } = await supabase.from('categories').insert([{ name: category }]).select().single();
-    if (error) throw error;
     if (inserted) await logAuditAction('CREATE', 'categories', inserted.id, inserted.name, null, { name: category });
   }
 };

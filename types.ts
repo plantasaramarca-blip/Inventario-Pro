@@ -19,7 +19,9 @@ export interface Product {
   category: string;
   location: string;
   stock: number;
-  minStock: number;
+  minStock: number;      // Stock Bajo (Amarillo)
+  criticalStock: number; // Stock Crítico (Rojo)
+  price: number;         // Precio unitario para valorización
   unit: string;
   imageUrl?: string;
   updatedAt: string;
@@ -42,9 +44,11 @@ export interface Movement {
 export interface InventoryStats {
   totalProducts: number;
   lowStockCount: number;
+  criticalStockCount: number; // Nuevo
   outOfStockCount: number;
   totalMovements: number;
   totalContacts: number;
+  totalValue: number;         // Nuevo
 }
 
 export interface AuditLog {

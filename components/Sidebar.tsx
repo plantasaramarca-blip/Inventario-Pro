@@ -1,7 +1,8 @@
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { LayoutDashboard, Boxes, ClipboardList, Users, ClipboardCheck } from 'https://esm.sh/lucide-react@^0.561.0';
 import { Role } from '../types';
+import * as api from '../services/supabaseService';
 
 interface SidebarProps {
   activeTab: string;
@@ -12,9 +13,25 @@ interface SidebarProps {
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, isOpen, setIsOpen, role }) => {
+  const [counts, setCounts] = useState({ critical: 0, low: 0 });
+
+  useEffect(() => {
+    const updateCounts = async () => {
+      const stats = await api.getStats();
+      setCounts({ 
+        critical: (stats.criticalStockCount || 0) + (stats.outOfStockCount || 0), 
+        low: stats.lowStockCount || 0 
+      });
+    };
+    updateCounts();
+    // Suscribirse a cambios (opcional, por ahora polling o refresco manual)
+    const interval = setInterval(updateCounts, 30000); // Cada 30 seg
+    return () => clearInterval(interval);
+  }, [activeTab]);
+
   const menuItems = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, adminOnly: false },
-    { id: 'inventory', label: 'Inventario', icon: Boxes, adminOnly: false },
+    { id: 'inventory', label: 'Inventario', icon: Boxes, adminOnly: false, hasBadge: true },
     { id: 'kardex', label: 'Kardex / Movimientos', icon: ClipboardList, adminOnly: false },
     { id: 'contacts', label: 'CRM / Contactos', icon: Users, adminOnly: false },
     { id: 'audit', label: 'Auditoría', icon: ClipboardCheck, adminOnly: true },
@@ -60,7 +77,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, isOpe
                       setIsOpen(false);
                     }}
                     className={`
-                      group flex w-full items-center px-4 py-3.5 text-xs font-bold rounded-2xl transition-all duration-200
+                      group flex w-full items-center px-4 py-3.5 text-xs font-bold rounded-2xl transition-all duration-200 relative
                       ${isActive 
                         ? 'bg-indigo-600 text-white shadow-xl shadow-indigo-500/30' 
                         : 'text-slate-400 hover:bg-slate-800/50 hover:text-white'}
@@ -68,6 +85,12 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, isOpe
                   >
                     <Icon className={`mr-3 h-4.5 w-4.5 flex-shrink-0 ${isActive ? 'text-white' : 'text-slate-500 group-hover:text-white'}`} />
                     <span className="uppercase tracking-widest">{item.label}</span>
+                    
+                    {item.hasBadge && (counts.critical > 0 || counts.low > 0) && (
+                      <span className={`ml-auto px-2 py-0.5 rounded-full text-[9px] font-black ${counts.critical > 0 ? 'bg-red-500 text-white animate-pulse' : 'bg-amber-500 text-white'}`}>
+                        {counts.critical > 0 ? counts.critical : counts.low}
+                      </span>
+                    )}
                   </button>
                 );
               })}
@@ -83,7 +106,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, isOpe
                   <p className="text-[11px] font-bold text-indigo-300">{role}</p>
                 </div>
              </div>
-             <p className="text-[9px] text-slate-600 font-medium text-center mt-4 tracking-widest uppercase">v1.2.0 TraceReady</p>
+             <p className="text-[9px] text-slate-600 font-medium text-center mt-4 tracking-widest uppercase">v1.5.0 InsightEngine</p>
           </div>
         </div>
       </div>
