@@ -7,9 +7,9 @@ import {
   Database, AlertCircle, ShoppingCart, DollarSign, 
   ChevronRight, ArrowUpCircle, X, CheckCircle2, 
   Loader2, Info
-} from 'lucide-react';
+} from 'https://esm.sh/lucide-react@^0.561.0';
 import { StockBadge } from '../components/StockBadge';
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip as ReTooltip, Legend } from 'recharts';
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip as ReTooltip, Legend } from 'https://esm.sh/recharts@^3.5.1';
 import { groupProductsByStatus, getStockInfo } from '../utils/stockUtils';
 
 export const Dashboard: React.FC = () => {
