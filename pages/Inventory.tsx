@@ -9,8 +9,8 @@ import {
   Loader2, CheckCircle2, Zap, FileDown, X, Filter, 
   PackageOpen, ChevronDown, Download, FileSpreadsheet, 
   DollarSign, AlertCircle, TrendingUp
-} from 'lucide-react';
-import imageCompression from 'browser-image-compression';
+} from 'https://esm.sh/lucide-react@0.475.0?deps=react@19.2.3';
+import imageCompression from 'https://esm.sh/browser-image-compression@2.0.2';
 
 interface InventoryProps {
   role: Role;
@@ -43,10 +43,15 @@ export const Inventory: React.FC<InventoryProps> = ({ role }) => {
 
   const loadData = async () => {
     setLoading(true);
-    const [prods, cats] = await Promise.all([api.getProducts(), api.getCategories()]);
-    setProducts(prods);
-    setCategories(cats);
-    setLoading(false);
+    try {
+      const [prods, cats] = await Promise.all([api.getProducts(), api.getCategories()]);
+      setProducts(prods);
+      setCategories(cats);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => { loadData(); }, []);
@@ -249,14 +254,16 @@ export const Inventory: React.FC<InventoryProps> = ({ role }) => {
           <form onSubmit={handleSubmit} className="relative bg-white rounded-3xl p-8 w-full max-w-md shadow-2xl">
             <h3 className="text-lg font-black uppercase mb-6">{editingProduct ? 'Editar Producto' : 'Nuevo Producto'}</h3>
             <div className="space-y-4">
-              <input type="text" placeholder="Nombre" required className="w-full p-3 bg-slate-50 rounded-xl outline-none" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} />
-              <input type="text" placeholder="Código" required className="w-full p-3 bg-slate-50 rounded-xl outline-none" value={formData.code} onChange={e => setFormData({...formData, code: e.target.value})} />
+              <input type="text" placeholder="Nombre" required className="w-full p-3 bg-slate-50 rounded-xl outline-none" value={formData.name || ''} onChange={e => setFormData({...formData, name: e.target.value})} />
+              <input type="text" placeholder="Código" required className="w-full p-3 bg-slate-50 rounded-xl outline-none" value={formData.code || ''} onChange={e => setFormData({...formData, code: e.target.value})} />
               <div className="grid grid-cols-2 gap-4">
-                <input type="number" placeholder="Stock" required className="w-full p-3 bg-slate-50 rounded-xl outline-none" value={formData.stock} onChange={e => setFormData({...formData, stock: Number(e.target.value)})} />
-                <input type="number" placeholder="Precio" required className="w-full p-3 bg-slate-50 rounded-xl outline-none" value={formData.price} onChange={e => setFormData({...formData, price: Number(e.target.value)})} />
+                <input type="number" placeholder="Stock" required className="w-full p-3 bg-slate-50 rounded-xl outline-none" value={formData.stock || 0} onChange={e => setFormData({...formData, stock: Number(e.target.value)})} />
+                <input type="number" placeholder="Precio" required className="w-full p-3 bg-slate-50 rounded-xl outline-none" value={formData.price || 0} onChange={e => setFormData({...formData, price: Number(e.target.value)})} />
               </div>
               <input type="file" onChange={handleFileChange} className="text-xs" />
-              <button type="submit" className="w-full bg-indigo-600 text-white py-4 rounded-xl font-bold uppercase shadow-lg">Guardar</button>
+              <button type="submit" disabled={isUploading || isOptimizing} className="w-full bg-indigo-600 text-white py-4 rounded-xl font-bold uppercase shadow-lg disabled:opacity-50">
+                {isUploading ? 'Subiendo...' : 'Guardar'}
+              </button>
             </div>
           </form>
         </div>

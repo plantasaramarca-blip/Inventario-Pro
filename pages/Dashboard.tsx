@@ -7,9 +7,9 @@ import {
   Database, AlertCircle, ShoppingCart, DollarSign, 
   ChevronRight, ArrowUpCircle, X, CheckCircle2, 
   Loader2, Info
-} from 'lucide-react';
+} from 'https://esm.sh/lucide-react@0.475.0?deps=react@19.2.3';
 import { StockBadge } from '../components/StockBadge';
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip as ReTooltip, Legend } from 'recharts';
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip as ReTooltip, Legend } from 'https://esm.sh/recharts@2.15.0?deps=react@19.2.3';
 import { groupProductsByStatus } from '../utils/stockUtils';
 
 export const Dashboard: React.FC = () => {
@@ -19,10 +19,6 @@ export const Dashboard: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   
-  const [quickEntryProduct, setQuickEntryProduct] = useState<Product | null>(null);
-  const [quickEntryForm, setQuickEntryForm] = useState({ quantity: 1, dispatcher: '', contactId: '', reason: 'Abastecimiento Directo' });
-  const [quickEntryLoading, setQuickEntryLoading] = useState(false);
-
   const fetchData = async () => {
     setLoading(true);
     setError(null);
@@ -59,6 +55,14 @@ export const Dashboard: React.FC = () => {
         <Loader2 className="animate-spin h-10 w-10 text-indigo-600 mb-4" />
         <p className="text-slate-400 text-xs font-black uppercase tracking-widest">Analizando Almacén...</p>
       </div>
+    </div>
+  );
+
+  if (error) return (
+    <div className="p-10 text-center bg-red-50 rounded-3xl border border-red-100 max-w-md mx-auto my-20">
+      <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
+      <p className="text-red-800 font-bold">{error}</p>
+      <button onClick={fetchData} className="mt-4 bg-red-600 text-white px-6 py-2 rounded-xl text-xs font-bold uppercase">Reintentar</button>
     </div>
   );
 

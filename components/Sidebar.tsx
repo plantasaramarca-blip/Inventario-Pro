@@ -1,6 +1,6 @@
 
 import React, { useEffect, useState } from 'react';
-import { LayoutDashboard, Boxes, ClipboardList, Users, ClipboardCheck } from 'lucide-react';
+import { LayoutDashboard, Boxes, ClipboardList, Users, ClipboardCheck } from 'https://esm.sh/lucide-react@0.475.0?deps=react@19.2.3';
 import { Role } from '../types';
 import * as api from '../services/supabaseService';
 
@@ -65,7 +65,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, isOpe
                     onClick={() => { setActiveTab(item.id); setIsOpen(false); }}
                     className={`group flex w-full items-center px-4 py-3.5 text-xs font-bold rounded-2xl transition-all ${isActive ? 'bg-indigo-600 text-white shadow-xl' : 'text-slate-400 hover:bg-slate-800/50 hover:text-white'}`}
                   >
-                    <Icon className={`mr-3 h-4.5 w-4.5 ${isActive ? 'text-white' : 'text-slate-500'}`} />
+                    <Icon className={`mr-3 h-5 w-5 ${isActive ? 'text-white' : 'text-slate-500'}`} />
                     <span className="uppercase tracking-widest">{item.label}</span>
                     {item.hasBadge && (counts.critical > 0 || counts.low > 0) && (
                       <span className={`ml-auto px-2 py-0.5 rounded-full text-[9px] ${counts.critical > 0 ? 'bg-red-500 animate-pulse' : 'bg-amber-500'}`}>
