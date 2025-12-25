@@ -1,12 +1,11 @@
-
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'https://esm.sh/react@19.0.0';
 import { Movement, Product, TransactionType, Contact } from '../types';
 import * as api from '../services/supabaseService';
 import { exportToExcel, formatTimestamp } from '../services/excelService';
 import { 
   ArrowDownCircle, ArrowUpCircle, Filter, User, ImageIcon, 
   FileDown, History, Calendar, FileSpreadsheet, Loader2, X 
-} from 'https://esm.sh/lucide-react@0.475.0?deps=react@19.2.3';
+} from 'https://esm.sh/lucide-react@0.475.0?deps=react@19.0.0';
 
 export const Kardex: React.FC = () => {
   const [movements, setMovements] = useState<Movement[]>([]);

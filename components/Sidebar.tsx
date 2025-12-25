@@ -1,6 +1,5 @@
-
-import React, { useEffect, useState } from 'react';
-import { LayoutDashboard, Boxes, ClipboardList, Users, ClipboardCheck } from 'https://esm.sh/lucide-react@0.475.0?deps=react@19.2.3';
+import React, { useEffect, useState } from 'https://esm.sh/react@19.0.0';
+import { LayoutDashboard, Boxes, ClipboardList, Users, ClipboardCheck } from 'https://esm.sh/lucide-react@0.475.0?deps=react@19.0.0';
 import { Role } from '../types';
 import * as api from '../services/supabaseService';
 

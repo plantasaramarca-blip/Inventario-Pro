@@ -1,6 +1,5 @@
-
-import React from 'react';
-import { Menu, Package, Shield, User, LogOut } from 'https://esm.sh/lucide-react@0.475.0?deps=react@19.2.3';
+import React from 'https://esm.sh/react@19.0.0';
+import { Menu, Package, Shield, User, LogOut } from 'https://esm.sh/lucide-react@0.475.0?deps=react@19.0.0';
 import { Role } from '../types';
 import { supabase, isSupabaseConfigured } from '../supabaseClient';
 
