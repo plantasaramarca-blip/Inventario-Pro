@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'https://esm.sh/react@19.0.0';
 import { Product, Role } from '../types';
 import * as api from '../services/supabaseService';
 import { exportToExcel, formatTimestamp, getStockStatusLabel } from '../services/excelService';
@@ -113,7 +113,7 @@ export const Inventory: React.FC<InventoryProps> = ({ role }) => {
   );
 
   return (
-    <div className="space-y-6 pb-20">
+    <div className="space-y-6 pb-20 animate-in fade-in duration-500">
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Inventario</h1>
@@ -131,18 +131,18 @@ export const Inventory: React.FC<InventoryProps> = ({ role }) => {
         </div>
       </div>
 
-      <div className="bg-white p-4 rounded-2xl border border-slate-100 relative">
+      <div className="bg-white p-4 rounded-2xl border border-slate-100 relative shadow-sm">
         <Search className="absolute left-7 top-7 w-4 h-4 text-slate-400" />
         <input 
           type="text" 
-          className="w-full pl-10 pr-4 py-2 bg-slate-50 rounded-xl text-sm outline-none" 
+          className="w-full pl-10 pr-4 py-2 bg-slate-50 rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-500 transition-all" 
           placeholder="Buscar producto por nombre o código..." 
           value={search} 
           onChange={e => setSearch(e.target.value)}
         />
       </div>
 
-      <div className="bg-white rounded-2xl border border-slate-100 overflow-hidden">
+      <div className="bg-white rounded-2xl border border-slate-100 overflow-hidden shadow-sm">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="bg-slate-50 text-[10px] font-black uppercase text-slate-400">
@@ -155,31 +155,39 @@ export const Inventory: React.FC<InventoryProps> = ({ role }) => {
             </thead>
             <tbody className="divide-y divide-slate-50">
               {filteredProducts.map(p => (
-                <tr key={p.id} className="hover:bg-slate-50/50">
+                <tr key={p.id} className="hover:bg-slate-50/50 transition-colors">
                   <td className="px-6 py-4">
                     <div className="flex items-center space-x-3">
-                      <div className="w-10 h-10 bg-slate-100 rounded-lg overflow-hidden flex items-center justify-center">
+                      <div className="w-10 h-10 bg-slate-100 rounded-lg overflow-hidden flex items-center justify-center border border-slate-200">
                         {p.imageUrl ? <img src={p.imageUrl} className="w-full h-full object-cover" /> : <ImageIcon className="text-slate-300 w-5 h-5" />}
                       </div>
                       <div>
-                        <p className="font-bold">{p.name}</p>
-                        <p className="text-[10px] text-slate-400">#{p.code}</p>
+                        <p className="font-bold text-slate-800">{p.name}</p>
+                        <p className="text-[10px] text-slate-400 font-bold">#{p.code}</p>
                       </div>
                     </div>
                   </td>
-                  <td className="px-6 py-4 text-center font-bold">{p.stock} {p.unit}</td>
+                  <td className="px-6 py-4 text-center">
+                    <span className="font-black text-slate-700">{p.stock}</span>
+                    <span className="text-[10px] text-slate-400 font-bold ml-1 uppercase">{p.unit}</span>
+                  </td>
                   <td className="px-6 py-4 text-center">
                     <StockBadge stock={p.stock} minStock={p.minStock} criticalStock={p.criticalStock} />
                   </td>
                   <td className="px-6 py-4 text-right">
                     {role === 'ADMIN' && (
-                      <button onClick={() => handleOpenModal(p)} className="p-2 text-slate-400 hover:text-indigo-600">
+                      <button onClick={() => handleOpenModal(p)} className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all">
                         <Edit2 className="w-4 h-4" />
                       </button>
                     )}
                   </td>
                 </tr>
               ))}
+              {filteredProducts.length === 0 && (
+                <tr>
+                  <td colSpan={4} className="py-20 text-center text-slate-300 italic text-sm">No se encontraron productos.</td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>
@@ -189,21 +197,32 @@ export const Inventory: React.FC<InventoryProps> = ({ role }) => {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => setIsModalOpen(false)}></div>
           <form onSubmit={handleSubmit} className="relative bg-white rounded-3xl p-8 w-full max-w-md shadow-2xl">
-            <h3 className="text-lg font-black uppercase mb-6">{editingProduct ? 'Editar Producto' : 'Nuevo Producto'}</h3>
+            <h3 className="text-lg font-black uppercase mb-6 text-slate-800">{editingProduct ? 'Editar Producto' : 'Nuevo Producto'}</h3>
             <div className="space-y-4">
-              <input type="text" placeholder="Nombre" required className="w-full p-3 bg-slate-50 rounded-xl outline-none" value={formData.name || ''} onChange={e => setFormData({...formData, name: e.target.value})} />
-              <input type="text" placeholder="Código" required className="w-full p-3 bg-slate-50 rounded-xl outline-none" value={formData.code || ''} onChange={e => setFormData({...formData, code: e.target.value})} />
+              <input type="text" placeholder="Nombre" required className="w-full p-3 bg-slate-50 border border-transparent rounded-xl outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all" value={formData.name || ''} onChange={e => setFormData({...formData, name: e.target.value})} />
+              <input type="text" placeholder="Código" required className="w-full p-3 bg-slate-50 border border-transparent rounded-xl outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all" value={formData.code || ''} onChange={e => setFormData({...formData, code: e.target.value})} />
               <div className="grid grid-cols-2 gap-4">
-                <input type="number" placeholder="Stock Inicial" required className="w-full p-3 bg-slate-50 rounded-xl outline-none" value={formData.stock || 0} onChange={e => setFormData({...formData, stock: Number(e.target.value)})} />
-                <input type="number" placeholder="Precio" required className="w-full p-3 bg-slate-50 rounded-xl outline-none" value={formData.price || 0} onChange={e => setFormData({...formData, price: Number(e.target.value)})} />
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black text-slate-400 uppercase ml-1">Stock</label>
+                  <input type="number" placeholder="0" required className="w-full p-3 bg-slate-50 border border-transparent rounded-xl outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all" value={formData.stock || 0} onChange={e => setFormData({...formData, stock: Number(e.target.value)})} />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black text-slate-400 uppercase ml-1">Precio Unit.</label>
+                  <input type="number" step="0.01" placeholder="0.00" required className="w-full p-3 bg-slate-50 border border-transparent rounded-xl outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all" value={formData.price || 0} onChange={e => setFormData({...formData, price: Number(e.target.value)})} />
+                </div>
               </div>
-              <div className="flex items-center space-x-2">
-                <label className="text-xs font-bold text-slate-400">IMAGEN:</label>
-                <input type="file" onChange={handleFileChange} className="text-xs flex-1" />
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-slate-400 uppercase ml-1">Imagen del Producto</label>
+                <div className="flex items-center space-x-3 p-3 bg-slate-50 rounded-xl border border-dashed border-slate-200">
+                  <input type="file" accept="image/*" onChange={handleFileChange} className="text-xs flex-1 file:mr-4 file:py-1 file:px-2 file:rounded-md file:border-0 file:text-[10px] file:font-black file:uppercase file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100" />
+                </div>
               </div>
-              <button type="submit" disabled={isUploading || isOptimizing} className="w-full bg-indigo-600 text-white py-4 rounded-xl font-bold uppercase shadow-lg disabled:opacity-50">
-                {isUploading ? 'Subiendo...' : (isOptimizing ? 'Optimizando...' : 'Guardar Producto')}
-              </button>
+              <div className="flex gap-3 pt-4">
+                <button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 text-slate-400 text-xs font-black uppercase tracking-widest">Cancelar</button>
+                <button type="submit" disabled={isUploading || isOptimizing} className="flex-[2] bg-indigo-600 text-white py-4 rounded-xl font-bold uppercase shadow-lg disabled:opacity-50 hover:bg-indigo-700 transition-all">
+                  {isUploading ? 'Subiendo...' : (isOptimizing ? 'Optimizando...' : 'Guardar Producto')}
+                </button>
+              </div>
             </div>
           </form>
         </div>
