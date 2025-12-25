@@ -21,25 +21,22 @@ export default function App() {
   useEffect(() => {
     const initAuth = async () => {
       try {
-        // Intentar obtener sesión de Supabase si está configurado
         if (isSupabaseConfigured) {
-          const { data: { session: currentSession }, error } = await supabase.auth.getSession();
-          if (currentSession && !error) {
+          const { data: { session: currentSession } } = await supabase.auth.getSession();
+          if (currentSession) {
             setSession(currentSession);
             setLoading(false);
             return;
           }
         }
 
-        // Si no hay Supabase o falló, intentar sesión local
         const localSession = localStorage.getItem('kardex_local_session');
         if (localSession) {
           setSession(JSON.parse(localSession));
         }
       } catch (err) {
-        console.error("Auth Initialization Error:", err);
+        console.error("Auth Error:", err);
       } finally {
-        // Asegurar que siempre se quite el estado de carga
         setLoading(false);
       }
     };
@@ -57,10 +54,7 @@ export default function App() {
   if (loading) {
     return (
       <div className="h-screen flex items-center justify-center bg-slate-50">
-        <div className="flex flex-col items-center">
-          <Loader2 className="animate-spin w-12 h-12 text-indigo-600 mb-4" />
-          <p className="text-xs font-black text-slate-400 uppercase tracking-widest">Iniciando Sistema...</p>
-        </div>
+        <Loader2 className="animate-spin w-10 h-10 text-indigo-600" />
       </div>
     );
   }
@@ -94,12 +88,12 @@ export default function App() {
           onMenuClick={() => setIsSidebarOpen(true)} 
           role={role}
           setRole={setRole}
-          userEmail={session.user?.email || 'Administrador Local'}
+          userEmail={session.user?.email || 'Admin Local'}
         />
         
         {!isSupabaseConfigured && (
-          <div className="bg-amber-500 text-white text-[9px] py-1 px-4 text-center font-black tracking-widest uppercase">
-            ⚠️ Modo Offline: Los datos solo se guardan en este dispositivo.
+          <div className="bg-blue-600 text-white text-[10px] py-1 px-4 text-center font-bold tracking-widest uppercase">
+            ⚡ Modo Local: Los datos se guardan solo en este navegador.
           </div>
         )}
         
