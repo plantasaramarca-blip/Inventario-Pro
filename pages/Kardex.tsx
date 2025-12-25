@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo } from 'https://esm.sh/react@19.0.0';
 import { Movement, Product, TransactionType, Contact, Destination } from '../types';
 import * as api from '../services/supabaseService';
@@ -5,10 +6,14 @@ import { exportToExcel, formatTimestamp } from '../services/excelService';
 import { formatCurrency } from '../utils/currencyUtils';
 import { 
   ArrowDownCircle, ArrowUpCircle, Filter, User, ImageIcon, 
-  DollarSign, TrendingUp, Calendar, FileSpreadsheet, Loader2, X, MapPin, Building2, ShoppingBag, Info
+  DollarSign, TrendingUp, Calendar, FileSpreadsheet, Loader2, X, MapPin, Building2, ShoppingBag, Info, AlertTriangle, ArrowRight, Settings
 } from 'https://esm.sh/lucide-react@0.475.0?deps=react@19.0.0';
 
-export const Kardex: React.FC = () => {
+interface KardexProps {
+  onNavigateToDestinos?: () => void;
+}
+
+export const Kardex: React.FC<KardexProps> = ({ onNavigateToDestinos }) => {
   const [movements, setMovements] = useState<Movement[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [destinos, setDestinos] = useState<Destination[]>([]);
@@ -56,7 +61,15 @@ export const Kardex: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedProductId) return setError("Selecciona un producto");
-    if (type === 'SALIDA' && !selectedDestinoId) return setError("Selecciona un destino de salida");
+    
+    if (type === 'SALIDA') {
+      if (destinos.length === 0) {
+        return setError("⚠️ Debes configurar al menos un destino antes de registrar salidas.");
+      }
+      if (!selectedDestinoId) {
+        return setError("Selecciona un destino de salida");
+      }
+    }
     
     const destinoObj = destinos.find(d => d.id === selectedDestinoId);
     
@@ -160,6 +173,12 @@ export const Kardex: React.FC = () => {
                     <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Sincronizando Historial...</p>
                   </td>
                 </tr>
+              ) : movements.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="py-20 text-center text-slate-400 uppercase text-[10px] font-black tracking-widest">
+                    No hay movimientos registrados
+                  </td>
+                </tr>
               ) : movements.map((m) => (
                 <tr key={m.id} className="hover:bg-slate-50/50 transition-colors group">
                   <td className="px-6 py-4">
@@ -225,13 +244,36 @@ export const Kardex: React.FC = () => {
                   {type === 'SALIDA' && (
                     <div className="space-y-1">
                       <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Centro de Costo / Destino *</label>
-                      <select required className="w-full border-none p-4 text-sm font-bold rounded-2xl bg-indigo-50 text-indigo-700 outline-none focus:ring-2 focus:ring-indigo-500" value={selectedDestinoId} onChange={e => setSelectedDestinoId(e.target.value)}>
-                        <option value="">¿A dónde va este producto?</option>
-                        {destinos.map(d => (
-                          <option key={d.id} value={d.id}>{d.name} ({d.type})</option>
-                        ))}
-                      </select>
-                      <p className="text-[9px] text-slate-400 font-bold ml-1 uppercase">Obligatorio para trazabilidad de inventario</p>
+                      
+                      {destinos.length === 0 ? (
+                        <div className="p-5 bg-amber-50 border border-amber-100 rounded-3xl flex flex-col items-center text-center space-y-3">
+                           <AlertTriangle className="w-8 h-8 text-amber-500" />
+                           <div>
+                             <p className="text-[10px] font-black text-amber-700 uppercase tracking-tight">No hay destinos configurados</p>
+                             <p className="text-[9px] text-amber-600 font-bold leading-tight mt-1">Debes configurar al menos una sucursal o punto de venta para procesar despachos.</p>
+                           </div>
+                           <button 
+                             type="button" 
+                             onClick={() => {
+                               setIsModalOpen(false);
+                               onNavigateToDestinos?.();
+                             }}
+                             className="flex items-center gap-2 px-4 py-2 bg-amber-600 text-white text-[9px] font-black uppercase rounded-xl hover:bg-amber-700 transition-colors"
+                           >
+                             <Settings className="w-3 h-3" /> Configurar Destinos <ArrowRight className="w-3 h-3" />
+                           </button>
+                        </div>
+                      ) : (
+                        <>
+                          <select required className="w-full border-none p-4 text-sm font-bold rounded-2xl bg-indigo-50 text-indigo-700 outline-none focus:ring-2 focus:ring-indigo-500" value={selectedDestinoId} onChange={e => setSelectedDestinoId(e.target.value)}>
+                            <option value="">¿A dónde va este producto?</option>
+                            {destinos.map(d => (
+                              <option key={d.id} value={d.id}>{d.name} ({d.type})</option>
+                            ))}
+                          </select>
+                          <p className="text-[9px] text-slate-400 font-bold ml-1 uppercase tracking-tighter">Campo obligatorio para trazabilidad de inventario</p>
+                        </>
+                      )}
                     </div>
                   )}
 
@@ -242,18 +284,22 @@ export const Kardex: React.FC = () => {
                     </div>
                     <div className="space-y-1">
                       <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Responsable</label>
-                      <input type="text" placeholder="Nombre de quien despacha" required className="w-full p-4 text-sm font-bold rounded-2xl bg-slate-50 outline-none" value={dispatcher} onChange={e => setDispatcher(e.target.value)} />
+                      <input type="text" placeholder="Quien despacha" required className="w-full p-4 text-sm font-bold rounded-2xl bg-slate-50 outline-none" value={dispatcher} onChange={e => setDispatcher(e.target.value)} />
                     </div>
                   </div>
 
                   <div className="space-y-1">
                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Referencia / Glosa</label>
-                    <input type="text" placeholder="Ej: Factura #123 / Guía #45 / Consumo TI" required className="w-full p-4 text-sm font-medium rounded-2xl bg-slate-50 outline-none" value={reason} onChange={e => setReason(e.target.value)} />
+                    <input type="text" placeholder="Ej: Factura #123 / Guía #45" required className="w-full p-4 text-sm font-medium rounded-2xl bg-slate-50 outline-none" value={reason} onChange={e => setReason(e.target.value)} />
                   </div>
 
                   <div className="flex gap-4 pt-6">
                     <button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 text-slate-400 text-[10px] font-black uppercase tracking-[0.2em] py-4">Cancelar</button>
-                    <button type="submit" className={`flex-[2] py-4 rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] text-white shadow-xl ${type === 'INGRESO' ? 'bg-indigo-600 shadow-indigo-100' : 'bg-rose-600 shadow-rose-200'}`}>
+                    <button 
+                      type="submit" 
+                      disabled={type === 'SALIDA' && destinos.length === 0}
+                      className={`flex-[2] py-4 rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] text-white shadow-xl disabled:opacity-50 disabled:cursor-not-allowed ${type === 'INGRESO' ? 'bg-indigo-600 shadow-indigo-100' : 'bg-rose-600 shadow-rose-200'}`}
+                    >
                       Confirmar Movimiento
                     </button>
                   </div>

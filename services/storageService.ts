@@ -24,13 +24,8 @@ const seedData = () => {
     localStorage.setItem(AUDIT_KEY, JSON.stringify([]));
   }
   if (!localStorage.getItem(DESTINOS_KEY)) {
-    const defaultDestinos: Destination[] = [
-      { id: '1', name: 'Cliente Final', type: 'cliente', description: 'Venta directa a consumidor', active: true, createdAt: new Date().toISOString() },
-      { id: '2', name: 'Sucursal Lima', type: 'sucursal', description: 'Oficina Central', active: true, createdAt: new Date().toISOString() },
-      { id: '3', name: 'Sucursal Arequipa', type: 'sucursal', description: 'Almacén Sur', active: true, createdAt: new Date().toISOString() },
-      { id: '4', name: 'Uso Interno', type: 'interno', description: 'Consumo para operaciones', active: true, createdAt: new Date().toISOString() }
-    ];
-    localStorage.setItem(DESTINOS_KEY, JSON.stringify(defaultDestinos));
+    // AJUSTE 1: Tabla de destinos inicia vacía por defecto
+    localStorage.setItem(DESTINOS_KEY, JSON.stringify([]));
   }
 };
 
@@ -44,6 +39,16 @@ export const saveDestino = (destino: Destination): void => {
   const idx = destinos.findIndex(d => d.id === destino.id);
   if (idx >= 0) destinos[idx] = destino;
   else destinos.push(destino);
+  localStorage.setItem(DESTINOS_KEY, JSON.stringify(destinos));
+};
+
+export const deleteDestino = (id: string): void => {
+  const movements = getMovements();
+  const hasMovements = movements.some(m => m.destinationId === id);
+  if (hasMovements) {
+    throw new Error('No se puede eliminar este destino porque tiene movimientos registrados. Puede desactivarlo en su lugar.');
+  }
+  const destinos = getDestinos().filter(d => d.id !== id);
   localStorage.setItem(DESTINOS_KEY, JSON.stringify(destinos));
 };
 

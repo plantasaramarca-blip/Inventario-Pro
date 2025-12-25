@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'https://esm.sh/react@19.0.0';
 import { supabase, isSupabaseConfigured } from './supabaseClient';
 import { Navbar } from './components/Navbar';
@@ -6,6 +7,7 @@ import { Dashboard } from './pages/Dashboard';
 import { Inventory } from './pages/Inventory';
 import { Kardex } from './pages/Kardex';
 import { Contacts } from './pages/Contacts';
+import { Destinos } from './pages/Destinos';
 import { AuditPage } from './pages/AuditLog';
 import { Login } from './pages/Login';
 import { Role } from './types';
@@ -29,18 +31,11 @@ export default function App() {
             return;
           }
         }
-
         const localSession = localStorage.getItem('kardex_local_session');
-        if (localSession) {
-          setSession(JSON.parse(localSession));
-        }
-      } catch (err) {
-        console.error("Auth Error:", err);
-      } finally {
-        setLoading(false);
-      }
+        if (localSession) setSession(JSON.parse(localSession));
+      } catch (err) {} 
+      finally { setLoading(false); }
     };
-
     initAuth();
 
     if (isSupabaseConfigured) {
@@ -51,22 +46,19 @@ export default function App() {
     }
   }, []);
 
-  if (loading) {
-    return (
-      <div className="h-screen flex items-center justify-center bg-slate-50">
-        <Loader2 className="animate-spin w-10 h-10 text-indigo-600" />
-      </div>
-    );
-  }
+  if (loading) return (
+    <div className="h-screen flex items-center justify-center bg-slate-50">
+      <Loader2 className="animate-spin w-10 h-10 text-indigo-600" />
+    </div>
+  );
 
-  if (!session) {
-    return <Login />;
-  }
+  if (!session) return <Login />;
 
   const renderContent = () => {
     switch (activeTab) {
       case 'inventory': return <Inventory role={role} />;
-      case 'kardex': return <Kardex />;
+      case 'kardex': return <Kardex onNavigateToDestinos={() => setActiveTab('destinos')} />;
+      case 'destinos': return <Destinos />;
       case 'contacts': return <Contacts role={role} />;
       case 'audit': return role === 'ADMIN' ? <AuditPage /> : <Dashboard />;
       default: return <Dashboard />;
@@ -82,7 +74,6 @@ export default function App() {
         setIsOpen={setIsSidebarOpen} 
         role={role}
       />
-      
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         <Navbar 
           onMenuClick={() => setIsSidebarOpen(true)} 
@@ -90,17 +81,13 @@ export default function App() {
           setRole={setRole}
           userEmail={session.user?.email || 'Admin Local'}
         />
-        
         {!isSupabaseConfigured && (
           <div className="bg-blue-600 text-white text-[10px] py-1 px-4 text-center font-bold tracking-widest uppercase">
             ⚡ Modo Local: Los datos se guardan solo en este navegador.
           </div>
         )}
-        
         <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 bg-[#fdfdfd]">
-           <div className="max-w-7xl mx-auto">
-             {renderContent()}
-           </div>
+           <div className="max-w-7xl mx-auto">{renderContent()}</div>
         </main>
       </div>
     </div>

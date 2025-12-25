@@ -1,7 +1,11 @@
 import React, { useState, useEffect } from 'https://esm.sh/react@19.0.0';
 import { Destination, DestinationType } from '../types';
 import * as api from '../services/supabaseService';
-import { Plus, MapPin, Building2, ShoppingBag, UserCheck, Edit2, Trash2, Check, X, Search, Loader2, Info } from 'https://esm.sh/lucide-react@0.475.0?deps=react@19.0.0';
+import { 
+  Plus, MapPin, Building2, ShoppingBag, UserCheck, Edit2, 
+  Trash2, Check, X, Search, Loader2, Info, MoreVertical, 
+  AlertCircle, ToggleLeft, ToggleRight
+} from 'https://esm.sh/lucide-react@0.475.0?deps=react@19.0.0';
 
 export const Destinos: React.FC = () => {
   const [destinos, setDestinos] = useState<Destination[]>([]);
@@ -9,6 +13,7 @@ export const Destinos: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [search, setSearch] = useState('');
   const [editingDestino, setEditingDestino] = useState<Destination | null>(null);
+  const [activeMenu, setActiveMenu] = useState<string | null>(null);
   
   const [formData, setFormData] = useState<Partial<Destination>>({
     name: '',
@@ -36,6 +41,7 @@ export const Destinos: React.FC = () => {
       setFormData({ name: '', type: 'sucursal', description: '', active: true });
     }
     setIsModalOpen(true);
+    setActiveMenu(null);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -48,6 +54,19 @@ export const Destinos: React.FC = () => {
   const handleToggleActive = async (destino: Destination) => {
     await api.saveDestino({ ...destino, active: !destino.active });
     loadData();
+    setActiveMenu(null);
+  };
+
+  const handleDelete = async (id: string) => {
+    if (!confirm('¿Está seguro de eliminar este destino permanentemente? Esta acción no se puede deshacer.')) return;
+    
+    try {
+      await api.deleteDestino(id);
+      loadData();
+      setActiveMenu(null);
+    } catch (error: any) {
+      alert(error.message || 'Error al eliminar');
+    }
   };
 
   const getTypeIcon = (type: string) => {
@@ -97,15 +116,48 @@ export const Destinos: React.FC = () => {
             <Loader2 className="animate-spin w-10 h-10 mx-auto text-indigo-500" />
             <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-4">Cargando Directorio...</p>
           </div>
+        ) : destinos.length === 0 ? (
+          <div className="col-span-full py-20 text-center bg-white rounded-3xl border border-dashed border-slate-200">
+             <MapPin className="w-12 h-12 text-slate-200 mx-auto mb-4" />
+             <p className="text-sm font-black text-slate-400 uppercase tracking-[0.2em]">No hay destinos registrados</p>
+             <button onClick={() => handleOpenModal()} className="mt-4 text-[10px] font-black text-indigo-600 uppercase hover:underline">Crear el primero ahora</button>
+          </div>
         ) : destinos.filter(d => d.name.toLowerCase().includes(search.toLowerCase())).map(d => (
-          <div key={d.id} className={`bg-white p-6 rounded-3xl border border-slate-100 shadow-sm hover:shadow-md transition-all flex flex-col justify-between ${!d.active ? 'opacity-50 grayscale' : ''}`}>
+          <div key={d.id} className={`bg-white p-6 rounded-3xl border border-slate-100 shadow-sm hover:shadow-md transition-all flex flex-col justify-between relative ${!d.active ? 'opacity-50 grayscale' : ''}`}>
+             
+             {/* Menú de acciones AJUSTE 2 */}
+             <div className="absolute top-6 right-6">
+                <button 
+                  onClick={() => setActiveMenu(activeMenu === d.id ? null : d.id)}
+                  className="p-2 text-slate-300 hover:text-slate-600 rounded-lg"
+                >
+                  <MoreVertical className="w-5 h-5" />
+                </button>
+                
+                {activeMenu === d.id && (
+                  <div className="absolute right-0 mt-2 w-48 bg-white rounded-2xl shadow-2xl border border-slate-100 z-10 overflow-hidden animate-in zoom-in-95 duration-150">
+                    <button onClick={() => handleOpenModal(d)} className="w-full text-left px-4 py-3 text-[10px] font-black uppercase text-slate-600 hover:bg-slate-50 flex items-center">
+                      <Edit2 className="w-3.5 h-3.5 mr-3 text-indigo-500" /> Editar
+                    </button>
+                    <button onClick={() => handleToggleActive(d)} className="w-full text-left px-4 py-3 text-[10px] font-black uppercase text-slate-600 hover:bg-slate-50 flex items-center">
+                      {d.active ? <ToggleRight className="w-3.5 h-3.5 mr-3 text-emerald-500" /> : <ToggleLeft className="w-3.5 h-3.5 mr-3 text-slate-400" />}
+                      {d.active ? 'Desactivar' : 'Activar'}
+                    </button>
+                    <div className="h-[1px] bg-slate-100"></div>
+                    <button onClick={() => handleDelete(d.id)} className="w-full text-left px-4 py-3 text-[10px] font-black uppercase text-rose-600 hover:bg-rose-50 flex items-center">
+                      <Trash2 className="w-3.5 h-3.5 mr-3" /> Eliminar
+                    </button>
+                  </div>
+                )}
+             </div>
+
              <div className="flex justify-between items-start mb-6">
                 <div className={`p-3 rounded-2xl border ${getTypeColor(d.type)}`}>
                   {getTypeIcon(d.type)}
                 </div>
-                <button onClick={() => handleToggleActive(d)} className={`px-2 py-1 rounded-lg text-[8px] font-black uppercase tracking-widest border transition-all ${d.active ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-slate-50 text-slate-400 border-slate-200'}`}>
+                <div className={`px-2 py-1 rounded-lg text-[8px] font-black uppercase tracking-widest border ${d.active ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-slate-50 text-slate-400 border-slate-200'}`}>
                   {d.active ? 'Activo' : 'Inactivo'}
-                </button>
+                </div>
              </div>
              
              <div>
@@ -114,16 +166,10 @@ export const Destinos: React.FC = () => {
                    <span className="mr-2 px-1.5 py-0.5 bg-slate-100 rounded">{d.type}</span>
                 </div>
                 {d.description && (
-                  <p className="text-xs text-slate-500 font-medium line-clamp-2 italic">
+                  <p className="text-xs text-slate-500 font-medium line-clamp-2 italic leading-relaxed">
                     "{d.description}"
                   </p>
                 )}
-             </div>
-
-             <div className="mt-8 pt-4 border-t border-slate-50 flex justify-end space-x-2">
-                <button onClick={() => handleOpenModal(d)} className="p-2 text-slate-300 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl transition-all">
-                   <Edit2 className="w-4 h-4" />
-                </button>
              </div>
           </div>
         ))}

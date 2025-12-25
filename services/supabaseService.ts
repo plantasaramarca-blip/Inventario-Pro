@@ -127,6 +127,33 @@ export const saveDestino = async (destino: Partial<Destination>) => {
   else await supabase.from('destinos').insert([payload]);
 };
 
+// AJUSTE 2: Función de eliminación con chequeo de movimientos
+export const deleteDestino = async (id: string) => {
+  if (!useSupabase()) {
+    localStorageApi.deleteDestino(id);
+    return;
+  }
+  
+  // Verificar si tiene movimientos registrados en Supabase
+  const { data: movements, error: checkError } = await supabase
+    .from('movements')
+    .select('id')
+    .eq('destino_id', id)
+    .limit(1);
+    
+  if (checkError) throw checkError;
+  
+  if (movements && movements.length > 0) {
+    throw new Error('No se puede eliminar este destino porque tiene movimientos registrados. Puede desactivarlo en su lugar.');
+  }
+
+  const { error } = await supabase.from('destinos').delete().eq('id', id);
+  if (error) {
+    console.error('Error eliminando destino:', error);
+    throw error;
+  }
+};
+
 export const saveProduct = async (product: Partial<Product>) => {
   if (!useSupabase()) {
     const id = product.id || crypto.randomUUID();
