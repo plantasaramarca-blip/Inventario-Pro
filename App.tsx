@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'https://esm.sh/react@19.0.0';
 import { supabase, isSupabaseConfigured } from './supabaseClient';
 import { Navbar } from './components/Navbar';
 import { Sidebar } from './components/Sidebar';
@@ -21,9 +21,9 @@ export default function App() {
   useEffect(() => {
     const initAuth = async () => {
       if (isSupabaseConfigured) {
-        const { data: { session } } = await supabase.auth.getSession();
-        if (session) {
-          setSession(session);
+        const { data: { session: currentSession } } = await supabase.auth.getSession();
+        if (currentSession) {
+          setSession(currentSession);
           setLoading(false);
           return;
         }
@@ -61,16 +61,11 @@ export default function App() {
 
   const renderContent = () => {
     switch (activeTab) {
-      case 'inventory':
-        return <Inventory role={role} />;
-      case 'kardex':
-        return <Kardex />;
-      case 'contacts':
-        return <Contacts role={role} />;
-      case 'audit':
-        return role === 'ADMIN' ? <AuditPage /> : <Dashboard />;
-      default:
-        return <Dashboard />;
+      case 'inventory': return <Inventory role={role} />;
+      case 'kardex': return <Kardex />;
+      case 'contacts': return <Contacts role={role} />;
+      case 'audit': return role === 'ADMIN' ? <AuditPage /> : <Dashboard />;
+      default: return <Dashboard />;
     }
   };
 

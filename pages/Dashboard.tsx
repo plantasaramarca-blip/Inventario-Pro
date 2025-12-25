@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'https://esm.sh/react@19.0.0';
 import * as api from '../services/supabaseService';
 import { InventoryStats, Product } from '../types';
 import { 
@@ -32,7 +32,7 @@ export const Dashboard: React.FC = () => {
       }
     } catch (err: any) {
       console.error("Dashboard Fetch Error:", err);
-      setError("Error al cargar datos del servidor.");
+      setError("Error al conectar con el servidor de datos.");
     } finally {
       setLoading(false);
     }
