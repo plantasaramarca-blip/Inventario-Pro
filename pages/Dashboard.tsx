@@ -32,7 +32,7 @@ export const Dashboard: React.FC = () => {
       }
     } catch (err: any) {
       console.error("Dashboard Fetch Error:", err);
-      setError("Error al conectar con el servidor de datos.");
+      setError("Error al conectar con la base de datos.");
     } finally {
       setLoading(false);
     }
@@ -46,7 +46,7 @@ export const Dashboard: React.FC = () => {
     <div className="h-[60vh] flex items-center justify-center">
       <div className="flex flex-col items-center">
         <Loader2 className="animate-spin h-10 w-10 text-indigo-600 mb-4" />
-        <p className="text-slate-400 text-xs font-black uppercase tracking-widest">Sincronizando Almacén...</p>
+        <p className="text-slate-400 text-xs font-black uppercase tracking-widest">Sincronizando Dashboard...</p>
       </div>
     </div>
   );
@@ -69,6 +69,12 @@ export const Dashboard: React.FC = () => {
 
   return (
     <div className="space-y-6 animate-in fade-in duration-700 pb-20">
+      {error && (
+        <div className="bg-red-50 border border-red-200 p-4 rounded-2xl flex items-center text-red-700 text-sm font-bold">
+          <AlertCircle className="w-5 h-5 mr-3" /> {error}
+        </div>
+      )}
+
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
         {cards.map((card, idx) => {
           const Icon = card.icon;
@@ -147,7 +153,7 @@ export const Dashboard: React.FC = () => {
              <Database className="w-4 h-4 mr-2 text-indigo-500" /> Distribución de Salud
            </h3>
            <div className="flex-1 w-full" style={{ height: '300px', minHeight: '300px' }}>
-             {stats?.totalProducts ? (
+             {stats && stats.totalProducts > 0 ? (
                <ResponsiveContainer width="100%" height="100%">
                  <PieChart>
                     <Pie
@@ -177,7 +183,7 @@ export const Dashboard: React.FC = () => {
              ) : (
                 <div className="h-full flex flex-col items-center justify-center text-slate-200 opacity-50">
                    <Package className="w-12 h-12 mb-2" />
-                   <p className="text-[10px] font-black uppercase tracking-widest">Sin datos suficientes</p>
+                   <p className="text-[10px] font-black uppercase tracking-widest">Esperando datos...</p>
                 </div>
              )}
            </div>
