@@ -1,4 +1,3 @@
-
 import { supabase, isSupabaseConfigured } from '../supabaseClient.ts';
 import { Product, Movement, Contact, InventoryStats, AuditLog } from '../types.ts';
 import * as localStorageApi from './storageService.ts';
@@ -61,27 +60,6 @@ export const logAuditAction = async (
   }
 };
 
-export const getAuditLogs = async (page = 0, limit = 50, filters: any = {}): Promise<{ data: AuditLog[], count: number }> => {
-  if (!useSupabase()) return localStorageApi.getAuditLogs(page, limit);
-  
-  let query = supabase.from('audit_logs').select('*', { count: 'exact' });
-  
-  if (filters.action && filters.action !== 'ALL') query = query.eq('action', filters.action);
-  if (filters.tableName && filters.tableName !== 'ALL') query = query.eq('table_name', filters.tableName);
-  if (filters.userEmail && filters.userEmail.trim() !== '') {
-    query = query.ilike('user_email', `%${filters.userEmail.trim()}%`);
-  }
-  if (filters.dateFrom) query = query.gte('created_at', filters.dateFrom);
-  if (filters.dateTo) query = query.lte('created_at', filters.dateTo + 'T23:59:59');
-
-  const { data, count, error } = await query
-    .order('created_at', { ascending: false })
-    .range(page * limit, (page + 1) * limit - 1);
-
-  if (error) throw error;
-  return { data: data || [], count: count || 0 };
-};
-
 export const getProducts = async (): Promise<Product[]> => {
   if (!useSupabase()) return localStorageApi.getProducts();
   const { data } = await supabase.from('products').select('*').order('name');
@@ -94,7 +72,10 @@ export const getProducts = async (): Promise<Product[]> => {
     stock: p.stock || 0, 
     minStock: p.min_stock ?? 30, 
     criticalStock: p.critical_stock ?? 10,
-    price: Number(p.price) || 0,
+    price: Number(p.precio_compra || p.price) || 0,
+    purchasePrice: Number(p.precio_compra || p.price) || 0,
+    salePrice: p.precio_venta ? Number(p.precio_venta) : undefined,
+    currency: p.moneda || 'PEN',
     unit: p.unit || 'und', 
     imageUrl: p.image_url, 
     updatedAt: p.updated_at
@@ -107,9 +88,10 @@ export const saveProduct = async (product: Partial<Product>) => {
     const p = { 
       ...product, 
       id, 
+      purchasePrice: product.purchasePrice ?? product.price ?? 0,
+      price: product.purchasePrice ?? product.price ?? 0,
       minStock: product.minStock ?? 30, 
       criticalStock: product.criticalStock ?? 10,
-      price: product.price ?? 0,
       updatedAt: new Date().toISOString() 
     } as Product;
     const old = product.id ? localStorageApi.getProducts().find(x => x.id === product.id) : null;
@@ -126,7 +108,9 @@ export const saveProduct = async (product: Partial<Product>) => {
     stock: product.stock, 
     min_stock: product.minStock ?? 30,
     critical_stock: product.criticalStock ?? 10,
-    price: product.price ?? 0,
+    precio_compra: product.purchasePrice,
+    precio_venta: product.salePrice,
+    moneda: product.currency || 'PEN',
     unit: product.unit, 
     image_url: product.imageUrl, 
     updated_at: new Date().toISOString()
@@ -142,6 +126,71 @@ export const saveProduct = async (product: Partial<Product>) => {
   }
 };
 
+export const registerMovement = async (movement: any) => {
+  if (!useSupabase()) {
+    const m = localStorageApi.registerMovement(movement);
+    if (movement.updatedPrice) {
+      const prods = localStorageApi.getProducts();
+      const idx = prods.findIndex(p => p.id === movement.productId);
+      if (idx !== -1) {
+        prods[idx].purchasePrice = movement.updatedPrice;
+        prods[idx].price = movement.updatedPrice;
+        localStorageApi.saveProduct(prods[idx]);
+      }
+    }
+    await logAuditAction('CREATE', 'movements', m.id, `${m.type} - ${m.productName}`, null, m);
+    return;
+  }
+  
+  const { data: product, error: pError } = await supabase.from('products').select('name, stock, precio_compra').eq('id', movement.productId).single();
+  if (pError || !product) throw new Error("Producto no encontrado");
+
+  let newStock = product.stock + (movement.type === 'INGRESO' ? movement.quantity : -movement.quantity);
+  if (movement.type === 'SALIDA' && product.stock < movement.quantity) throw new Error("Stock insuficiente");
+
+  const productUpdate: any = { stock: newStock };
+  if (movement.updatedPrice && movement.type === 'INGRESO') {
+    productUpdate.precio_compra = movement.updatedPrice;
+  }
+
+  await supabase.from('products').update(productUpdate).eq('id', movement.productId);
+  
+  const payload = {
+    product_id: movement.productId, 
+    product_name: product.name, 
+    type: movement.type,
+    quantity: movement.quantity, 
+    dispatcher: movement.dispatcher, 
+    reason: movement.reason,
+    balance_after: newStock, 
+    contact_id: movement.contactId, 
+    contact_name: movement.contactName,
+    date: new Date().toISOString()
+  };
+
+  const { data: inserted } = await supabase.from('movements').insert([payload]).select().single();
+  if (inserted) await logAuditAction('CREATE', 'movements', inserted.id, `${movement.type} - ${product.name}`, null, payload);
+};
+
+export const getStats = async (): Promise<InventoryStats> => {
+  if (!useSupabase()) return localStorageApi.getStats();
+  const [products, movements, contacts] = await Promise.all([getProducts(), getMovements(), getContacts()]);
+  
+  const critical = products.filter(p => p.stock > 0 && p.stock <= p.criticalStock).length;
+  const low = products.filter(p => p.stock > p.criticalStock && p.stock <= p.minStock).length;
+  const totalValue = products.reduce((sum, p) => sum + ((p.stock || 0) * (p.purchasePrice || 0)), 0);
+
+  return {
+    totalProducts: products.length,
+    lowStockCount: low,
+    criticalStockCount: critical,
+    outOfStockCount: products.filter(p => p.stock === 0).length,
+    totalMovements: movements.length,
+    totalContacts: contacts.length,
+    totalValue: totalValue
+  };
+};
+
 export const deleteProduct = async (id: string) => {
   if (!useSupabase()) {
     const old = localStorageApi.getProducts().find(x => x.id === id);
@@ -152,6 +201,21 @@ export const deleteProduct = async (id: string) => {
   const { data: old } = await supabase.from('products').select('*').eq('id', id).single();
   await supabase.from('products').delete().eq('id', id);
   if (old) await logAuditAction('DELETE', 'products', id, (old as any).name, old, null);
+};
+
+export const getAuditLogs = async (page = 0, limit = 50, filters: any = {}): Promise<{ data: AuditLog[], count: number }> => {
+  if (!useSupabase()) return localStorageApi.getAuditLogs(page, limit);
+  let query = supabase.from('audit_logs').select('*', { count: 'exact' });
+  if (filters.action && filters.action !== 'ALL') query = query.eq('action', filters.action);
+  if (filters.tableName && filters.tableName !== 'ALL') query = query.eq('table_name', filters.tableName);
+  if (filters.userEmail && filters.userEmail.trim() !== '') {
+    query = query.ilike('user_email', `%${filters.userEmail.trim()}%`);
+  }
+  const { data, count, error } = await query
+    .order('created_at', { ascending: false })
+    .range(page * limit, (page + 1) * limit - 1);
+  if (error) throw error;
+  return { data: data || [], count: count || 0 };
 };
 
 export const getContacts = async (): Promise<Contact[]> => {
@@ -203,56 +267,6 @@ export const getMovements = async (): Promise<Movement[]> => {
     dispatcher: m.dispatcher, reason: m.reason, balanceAfter: m.balance_after,
     contactId: m.contact_id, contactName: m.contact_name
   }));
-};
-
-export const registerMovement = async (movement: any) => {
-  if (!useSupabase()) {
-    const m = localStorageApi.registerMovement(movement);
-    await logAuditAction('CREATE', 'movements', m.id, `${m.type} - ${m.productName}`, null, m);
-    return;
-  }
-  
-  const { data: product, error: pError } = await supabase.from('products').select('name, stock').eq('id', movement.productId).single();
-  if (pError || !product) throw new Error("Producto no encontrado");
-
-  let newStock = product.stock + (movement.type === 'INGRESO' ? movement.quantity : -movement.quantity);
-  if (movement.type === 'SALIDA' && product.stock < movement.quantity) throw new Error("Stock insuficiente");
-
-  await supabase.from('products').update({ stock: newStock }).eq('id', movement.productId);
-  const payload = {
-    product_id: movement.productId, 
-    product_name: product.name, 
-    type: movement.type,
-    quantity: movement.quantity, 
-    dispatcher: movement.dispatcher, 
-    reason: movement.reason,
-    balance_after: newStock, 
-    contact_id: movement.contactId, 
-    contact_name: movement.contactName,
-    date: new Date().toISOString()
-  };
-
-  const { data: inserted } = await supabase.from('movements').insert([payload]).select().single();
-  if (inserted) await logAuditAction('CREATE', 'movements', inserted.id, `${movement.type} - ${product.name}`, null, payload);
-};
-
-export const getStats = async (): Promise<InventoryStats> => {
-  if (!useSupabase()) return localStorageApi.getStats();
-  const [products, movements, contacts] = await Promise.all([getProducts(), getMovements(), getContacts()]);
-  
-  const critical = products.filter(p => p.stock > 0 && p.stock <= p.criticalStock).length;
-  const low = products.filter(p => p.stock > p.criticalStock && p.stock <= p.minStock).length;
-  const totalValue = products.reduce((sum, p) => sum + ((p.stock || 0) * (p.price || 0)), 0);
-
-  return {
-    totalProducts: products.length,
-    lowStockCount: low,
-    criticalStockCount: critical,
-    outOfStockCount: products.filter(p => p.stock === 0).length,
-    totalMovements: movements.length,
-    totalContacts: contacts.length,
-    totalValue: totalValue
-  };
 };
 
 export const uploadProductImage = async (file: File | Blob): Promise<string | null> => {

@@ -1,4 +1,3 @@
-
 import { Product, Movement, InventoryStats, Contact, AuditLog } from '../types';
 
 const PRODUCTS_KEY = 'kardex_products';
@@ -139,7 +138,9 @@ export const getStats = (): InventoryStats => {
   
   const critical = products.filter(p => p.stock > 0 && p.stock <= (p.criticalStock || 10)).length;
   const low = products.filter(p => p.stock > (p.criticalStock || 10) && p.stock <= (p.minStock || 30)).length;
-  const totalValue = products.reduce((sum, p) => sum + (p.stock * (p.price || 0)), 0);
+  
+  // Usar purchasePrice si existe, sino price para compatibilidad
+  const totalValue = products.reduce((sum, p) => sum + (p.stock * (p.purchasePrice || p.price || 0)), 0);
 
   return {
     totalProducts: products.length,

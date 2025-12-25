@@ -1,4 +1,3 @@
-
 export type TransactionType = 'INGRESO' | 'SALIDA';
 export type ContactType = 'CLIENTE' | 'PROVEEDOR' | 'OTRO';
 export type Role = 'ADMIN' | 'USER';
@@ -21,7 +20,10 @@ export interface Product {
   stock: number;
   minStock: number;      // Stock Bajo (Amarillo)
   criticalStock: number; // Stock Crítico (Rojo)
-  price: number;         // Precio unitario para valorización
+  price: number;         // Alias para purchasePrice (compatibilidad)
+  purchasePrice: number; // Precio de compra unitario
+  salePrice?: number;    // Precio de venta unitario
+  currency: 'PEN' | 'USD' | 'EUR';
   unit: string;
   imageUrl?: string;
   updatedAt: string;
@@ -39,16 +41,17 @@ export interface Movement {
   balanceAfter: number;
   contactId?: string;
   contactName?: string;
+  updatedPrice?: number; // Precio de compra actualizado en este movimiento
 }
 
 export interface InventoryStats {
   totalProducts: number;
   lowStockCount: number;
-  criticalStockCount: number; // Nuevo
+  criticalStockCount: number;
   outOfStockCount: number;
   totalMovements: number;
   totalContacts: number;
-  totalValue: number;         // Nuevo
+  totalValue: number;         // Basado en purchasePrice * stock
 }
 
 export interface AuditLog {

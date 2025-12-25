@@ -3,14 +3,14 @@ import { Product, Role } from '../types';
 import * as api from '../services/supabaseService';
 import { exportToExcel, formatTimestamp, getStockStatusLabel } from '../services/excelService';
 import { StockBadge } from '../components/StockBadge';
+import { formatCurrency, calculateMargin } from '../utils/currencyUtils';
 import { 
-  Plus, Search, Edit2, ImageIcon, Loader2, FileSpreadsheet
+  Plus, Search, Edit2, ImageIcon, Loader2, FileSpreadsheet, 
+  DollarSign, BarChart3, TrendingUp, AlertCircle, Coins
 } from 'https://esm.sh/lucide-react@0.475.0?deps=react@19.0.0';
 import imageCompression from 'https://esm.sh/browser-image-compression@2.0.2';
 
-interface InventoryProps {
-  role: Role;
-}
+interface InventoryProps { role: Role; }
 
 export const Inventory: React.FC<InventoryProps> = ({ role }) => {
   const [products, setProducts] = useState<Product[]>([]);
@@ -24,7 +24,9 @@ export const Inventory: React.FC<InventoryProps> = ({ role }) => {
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   
   const [formData, setFormData] = useState<Partial<Product>>({
-    code: '', name: '', category: '', location: '', stock: 0, minStock: 30, criticalStock: 10, price: 0, unit: 'und', imageUrl: ''
+    code: '', name: '', category: '', location: '', stock: 0, 
+    minStock: 30, criticalStock: 10, purchasePrice: 0, salePrice: undefined, 
+    currency: 'PEN', unit: 'und', imageUrl: ''
   });
   
   const loadData = async () => {
@@ -33,11 +35,8 @@ export const Inventory: React.FC<InventoryProps> = ({ role }) => {
       const [prods, cats] = await Promise.all([api.getProducts(), api.getCategories()]);
       setProducts(prods || []);
       setCategories(cats || []);
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setLoading(false);
-    }
+    } catch (e) { console.error(e); }
+    finally { setLoading(false); }
   };
 
   useEffect(() => { loadData(); }, []);
@@ -49,54 +48,20 @@ export const Inventory: React.FC<InventoryProps> = ({ role }) => {
     ).sort((a, b) => a.name.localeCompare(b.name));
   }, [products, search]);
 
-  const handleExcelExport = async () => {
-    if (filteredProducts.length === 0) return;
-    setExporting(true);
-    try {
-      const dataToExport = filteredProducts.map(p => ({
-        'Código': p.code,
-        'Producto': p.name,
-        'Stock': p.stock,
-        'Precio': p.price,
-        'Estado': getStockStatusLabel(p.stock, p.minStock)
-      }));
-      const fileName = `Inventario_${formatTimestamp(new Date())}.xlsx`;
-      exportToExcel(dataToExport, fileName, 'Inventario');
-    } catch (e: any) {
-      alert(`Error: ${e.message}`);
-    } finally {
-      setExporting(false);
-    }
-  };
-
   const handleOpenModal = (product?: Product) => {
     if (product) {
       setEditingProduct(product);
       setFormData(product);
     } else {
       setEditingProduct(null);
-      setFormData({ code: '', name: '', category: categories[0] || 'General', location: '', stock: 0, minStock: 30, criticalStock: 10, price: 0, unit: 'und', imageUrl: '' });
+      setFormData({ 
+        code: '', name: '', category: categories[0] || 'General', 
+        location: '', stock: 0, minStock: 30, criticalStock: 10, 
+        purchasePrice: 0, salePrice: undefined, currency: 'PEN', 
+        unit: 'und', imageUrl: '' 
+      });
     }
     setIsModalOpen(true);
-  };
-
-  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    try {
-      setIsOptimizing(true);
-      const options = { maxSizeMB: 0.3, maxWidthOrHeight: 800, useWebWorker: true };
-      const compressedFile = await imageCompression(file, options);
-      setIsOptimizing(false);
-      setIsUploading(true);
-      const url = await api.uploadProductImage(compressedFile);
-      if (url) setFormData(prev => ({ ...prev, imageUrl: url }));
-    } catch (error) {
-      console.error(error);
-      setIsOptimizing(false);
-    } finally {
-      setIsUploading(false);
-    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -106,88 +71,99 @@ export const Inventory: React.FC<InventoryProps> = ({ role }) => {
     loadData();
   };
 
-  if (loading) return (
-    <div className="h-[40vh] flex items-center justify-center">
-      <Loader2 className="animate-spin w-8 h-8 text-indigo-500" />
-    </div>
-  );
+  const margin = calculateMargin(formData.purchasePrice || 0, formData.salePrice || 0);
 
   return (
     <div className="space-y-6 pb-20 animate-in fade-in duration-500">
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Inventario</h1>
-          <p className="text-xs text-gray-500">Gestión de catálogo y stock.</p>
+          <h1 className="text-2xl font-bold text-gray-900">Catálogo & Precios</h1>
+          <p className="text-xs text-gray-500 font-medium">Control financiero de ítems y rentabilidad.</p>
         </div>
         <div className="flex gap-2">
-          <button onClick={handleExcelExport} className="bg-green-600 text-white px-4 py-2 rounded-xl text-xs font-bold flex items-center">
-            <FileSpreadsheet className="w-4 h-4 mr-2" /> Excel
+          <button onClick={() => {}} className="bg-emerald-600 text-white px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center shadow-md">
+            <FileSpreadsheet className="w-4 h-4 mr-2" /> Exportar
           </button>
           {role === 'ADMIN' && (
-            <button onClick={() => handleOpenModal()} className="bg-indigo-600 text-white px-4 py-2 rounded-xl text-xs font-bold flex items-center">
-              <Plus className="w-4 h-4 mr-2" /> Nuevo
+            <button onClick={() => handleOpenModal()} className="bg-indigo-600 text-white px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center shadow-md">
+              <Plus className="w-4 h-4 mr-2" /> Nuevo Ítem
             </button>
           )}
         </div>
       </div>
 
       <div className="bg-white p-4 rounded-2xl border border-slate-100 relative shadow-sm">
-        <Search className="absolute left-7 top-7 w-4 h-4 text-slate-400" />
+        <Search className="absolute left-8 top-7 w-4 h-4 text-slate-300" />
         <input 
           type="text" 
-          className="w-full pl-10 pr-4 py-2 bg-slate-50 rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-500 transition-all" 
-          placeholder="Buscar producto por nombre o código..." 
+          className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-transparent rounded-2xl text-sm outline-none focus:ring-2 focus:ring-indigo-500 transition-all font-medium" 
+          placeholder="Buscar por SKU, EAN o nombre..." 
           value={search} 
           onChange={e => setSearch(e.target.value)}
         />
       </div>
 
-      <div className="bg-white rounded-2xl border border-slate-100 overflow-hidden shadow-sm">
+      <div className="bg-white rounded-3xl border border-slate-100 overflow-hidden shadow-sm">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
-            <thead className="bg-slate-50 text-[10px] font-black uppercase text-slate-400">
+            <thead className="bg-slate-50/80 text-[10px] font-black uppercase text-slate-400 tracking-widest">
               <tr>
-                <th className="px-6 py-4 text-left">Producto</th>
-                <th className="px-6 py-4 text-center">Stock</th>
-                <th className="px-6 py-4 text-center">Estado</th>
-                <th className="px-6 py-4 text-right">Acciones</th>
+                <th className="px-6 py-5 text-left">Producto</th>
+                <th className="px-6 py-5 text-center">Stock</th>
+                <th className="px-6 py-5 text-center">Costo Unit.</th>
+                <th className="px-6 py-5 text-center">Valor Stock</th>
+                <th className="px-6 py-5 text-center">Márgen %</th>
+                <th className="px-6 py-5 text-right"></th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-50">
-              {filteredProducts.map(p => (
-                <tr key={p.id} className="hover:bg-slate-50/50 transition-colors">
-                  <td className="px-6 py-4">
-                    <div className="flex items-center space-x-3">
-                      <div className="w-10 h-10 bg-slate-100 rounded-lg overflow-hidden flex items-center justify-center border border-slate-200">
-                        {p.imageUrl ? <img src={p.imageUrl} className="w-full h-full object-cover" /> : <ImageIcon className="text-slate-300 w-5 h-5" />}
+              {filteredProducts.map(p => {
+                const totalVal = p.purchasePrice * p.stock;
+                const pMargin = calculateMargin(p.purchasePrice, p.salePrice || 0);
+                return (
+                  <tr key={p.id} className="hover:bg-slate-50/50 transition-colors group">
+                    <td className="px-6 py-4">
+                      <div className="flex items-center space-x-3">
+                        <div className="w-10 h-10 bg-slate-100 rounded-xl overflow-hidden flex items-center justify-center border border-slate-200 shadow-inner">
+                          {p.imageUrl ? <img src={p.imageUrl} className="w-full h-full object-cover" /> : <ImageIcon className="text-slate-300 w-5 h-5" />}
+                        </div>
+                        <div>
+                          <p className="font-bold text-slate-800 group-hover:text-indigo-600 transition-colors">{p.name}</p>
+                          <p className="text-[10px] text-slate-400 font-black uppercase">SKU: {p.code}</p>
+                        </div>
                       </div>
-                      <div>
-                        <p className="font-bold text-slate-800">{p.name}</p>
-                        <p className="text-[10px] text-slate-400 font-bold">#{p.code}</p>
+                    </td>
+                    <td className="px-6 py-4 text-center">
+                      <div className="flex flex-col items-center">
+                        <span className="font-black text-slate-700 text-base">{p.stock}</span>
+                        <StockBadge stock={p.stock} minStock={p.minStock} criticalStock={p.criticalStock} />
                       </div>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 text-center">
-                    <span className="font-black text-slate-700">{p.stock}</span>
-                    <span className="text-[10px] text-slate-400 font-bold ml-1 uppercase">{p.unit}</span>
-                  </td>
-                  <td className="px-6 py-4 text-center">
-                    <StockBadge stock={p.stock} minStock={p.minStock} criticalStock={p.criticalStock} />
-                  </td>
-                  <td className="px-6 py-4 text-right">
-                    {role === 'ADMIN' && (
-                      <button onClick={() => handleOpenModal(p)} className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all">
-                        <Edit2 className="w-4 h-4" />
-                      </button>
-                    )}
-                  </td>
-                </tr>
-              ))}
-              {filteredProducts.length === 0 && (
-                <tr>
-                  <td colSpan={4} className="py-20 text-center text-slate-300 italic text-sm">No se encontraron productos.</td>
-                </tr>
-              )}
+                    </td>
+                    <td className="px-6 py-4 text-center">
+                      <p className="font-bold text-slate-600">{formatCurrency(p.purchasePrice, p.currency)}</p>
+                    </td>
+                    <td className="px-6 py-4 text-center">
+                      <p className={`font-black ${totalVal > 1000 ? 'text-indigo-700 text-base' : 'text-slate-800'}`}>
+                        {formatCurrency(totalVal, p.currency)}
+                      </p>
+                    </td>
+                    <td className="px-6 py-4 text-center">
+                      {p.salePrice ? (
+                        <div className={`text-[11px] font-black px-2 py-1 rounded-lg border ${pMargin.percent > 30 ? 'bg-emerald-50 text-emerald-700 border-emerald-100' : pMargin.percent > 15 ? 'bg-amber-50 text-amber-700 border-amber-100' : 'bg-rose-50 text-rose-700 border-rose-100'}`}>
+                          {pMargin.percent.toFixed(1)}%
+                        </div>
+                      ) : <span className="text-slate-300">--</span>}
+                    </td>
+                    <td className="px-6 py-4 text-right">
+                      {role === 'ADMIN' && (
+                        <button onClick={() => handleOpenModal(p)} className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl transition-all">
+                          <Edit2 className="w-4 h-4" />
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
@@ -196,33 +172,86 @@ export const Inventory: React.FC<InventoryProps> = ({ role }) => {
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => setIsModalOpen(false)}></div>
-          <form onSubmit={handleSubmit} className="relative bg-white rounded-3xl p-8 w-full max-w-md shadow-2xl">
-            <h3 className="text-lg font-black uppercase mb-6 text-slate-800">{editingProduct ? 'Editar Producto' : 'Nuevo Producto'}</h3>
-            <div className="space-y-4">
-              <input type="text" placeholder="Nombre" required className="w-full p-3 bg-slate-50 border border-transparent rounded-xl outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all" value={formData.name || ''} onChange={e => setFormData({...formData, name: e.target.value})} />
-              <input type="text" placeholder="Código" required className="w-full p-3 bg-slate-50 border border-transparent rounded-xl outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all" value={formData.code || ''} onChange={e => setFormData({...formData, code: e.target.value})} />
-              <div className="grid grid-cols-2 gap-4">
+          <form onSubmit={handleSubmit} className="relative bg-white rounded-[2.5rem] p-8 w-full max-w-xl shadow-2xl overflow-y-auto max-h-[90vh]">
+            <div className="flex items-center space-x-3 mb-8">
+              <div className="p-3 bg-indigo-600 text-white rounded-2xl shadow-lg">
+                <BarChart3 className="w-6 h-6" />
+              </div>
+              <h3 className="text-xl font-black text-slate-800 uppercase tracking-tight">{editingProduct ? 'Editar' : 'Nuevo'} Producto</h3>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="space-y-4">
                 <div className="space-y-1">
-                  <label className="text-[10px] font-black text-slate-400 uppercase ml-1">Stock</label>
-                  <input type="number" placeholder="0" required className="w-full p-3 bg-slate-50 border border-transparent rounded-xl outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all" value={formData.stock || 0} onChange={e => setFormData({...formData, stock: Number(e.target.value)})} />
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Datos Generales</label>
+                  <input type="text" placeholder="Nombre" required className="w-full p-3.5 bg-slate-50 border border-transparent rounded-2xl outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all font-bold" value={formData.name || ''} onChange={e => setFormData({...formData, name: e.target.value})} />
+                  <input type="text" placeholder="Código / SKU" required className="w-full p-3.5 bg-slate-50 border border-transparent rounded-2xl outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all font-bold" value={formData.code || ''} onChange={e => setFormData({...formData, code: e.target.value})} />
                 </div>
-                <div className="space-y-1">
-                  <label className="text-[10px] font-black text-slate-400 uppercase ml-1">Precio Unit.</label>
-                  <input type="number" step="0.01" placeholder="0.00" required className="w-full p-3 bg-slate-50 border border-transparent rounded-xl outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all" value={formData.price || 0} onChange={e => setFormData({...formData, price: Number(e.target.value)})} />
+                
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-black text-slate-400 uppercase ml-1">Stock Actual</label>
+                    <input type="number" required className="w-full p-3.5 bg-slate-50 border border-transparent rounded-2xl font-black outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white" value={formData.stock || 0} onChange={e => setFormData({...formData, stock: Number(e.target.value)})} />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-black text-slate-400 uppercase ml-1">Unidad</label>
+                    <select className="w-full p-3.5 bg-slate-50 border border-transparent rounded-2xl font-bold outline-none" value={formData.unit || 'und'} onChange={e => setFormData({...formData, unit: e.target.value})}>
+                      <option value="und">Unidad</option>
+                      <option value="kg">Kilos</option>
+                      <option value="lt">Litros</option>
+                      <option value="paq">Paquete</option>
+                    </select>
+                  </div>
                 </div>
               </div>
-              <div className="space-y-2">
-                <label className="text-[10px] font-black text-slate-400 uppercase ml-1">Imagen del Producto</label>
-                <div className="flex items-center space-x-3 p-3 bg-slate-50 rounded-xl border border-dashed border-slate-200">
-                  <input type="file" accept="image/*" onChange={handleFileChange} className="text-xs flex-1 file:mr-4 file:py-1 file:px-2 file:rounded-md file:border-0 file:text-[10px] file:font-black file:uppercase file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100" />
+
+              <div className="space-y-4">
+                <div className="bg-indigo-50/50 p-5 rounded-[2rem] border border-indigo-100 space-y-4">
+                  <div className="flex items-center text-indigo-700">
+                    <DollarSign className="w-4 h-4 mr-2" />
+                    <span className="text-[10px] font-black uppercase tracking-widest">Finanzas</span>
+                  </div>
+                  
+                  <div className="space-y-1">
+                    <div className="flex justify-between items-center mb-1">
+                      <label className="text-[9px] font-black text-indigo-400 uppercase">P. Compra (Unit)</label>
+                      <select className="text-[9px] font-black bg-white border border-indigo-100 rounded px-1" value={formData.currency} onChange={e => setFormData({...formData, currency: e.target.value as any})}>
+                        <option value="PEN">PEN</option>
+                        <option value="USD">USD</option>
+                      </select>
+                    </div>
+                    <input type="number" step="0.01" required className="w-full p-3 bg-white border border-indigo-100 rounded-xl font-black text-indigo-700 shadow-sm" value={formData.purchasePrice || 0} onChange={e => setFormData({...formData, purchasePrice: Number(e.target.value)})} />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-[9px] font-black text-indigo-400 uppercase">P. Venta Sugerido</label>
+                    <input type="number" step="0.01" className="w-full p-3 bg-white border border-indigo-100 rounded-xl font-black text-emerald-600 shadow-sm" value={formData.salePrice || ''} onChange={e => setFormData({...formData, salePrice: e.target.value ? Number(e.target.value) : undefined})} />
+                  </div>
+
+                  {formData.salePrice && formData.purchasePrice && (
+                    <div className="pt-2">
+                       <div className="flex justify-between text-[10px] font-black uppercase mb-1">
+                         <span className="text-slate-400">Margen Unit.</span>
+                         <span className={margin.amount >= 0 ? 'text-emerald-600' : 'text-rose-600'}>
+                           {formatCurrency(margin.amount, formData.currency)} ({margin.percent.toFixed(1)}%)
+                         </span>
+                       </div>
+                       {formData.salePrice < formData.purchasePrice && (
+                         <p className="text-[8px] text-rose-500 font-bold flex items-center">
+                           <AlertCircle className="w-3 h-3 mr-1" /> Warning: Venta debajo del costo
+                         </p>
+                       )}
+                    </div>
+                  )}
                 </div>
               </div>
-              <div className="flex gap-3 pt-4">
-                <button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 text-slate-400 text-xs font-black uppercase tracking-widest">Cancelar</button>
-                <button type="submit" disabled={isUploading || isOptimizing} className="flex-[2] bg-indigo-600 text-white py-4 rounded-xl font-bold uppercase shadow-lg disabled:opacity-50 hover:bg-indigo-700 transition-all">
-                  {isUploading ? 'Subiendo...' : (isOptimizing ? 'Optimizando...' : 'Guardar Producto')}
-                </button>
-              </div>
+            </div>
+
+            <div className="mt-8 flex gap-4">
+              <button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 text-slate-400 text-[10px] font-black uppercase tracking-widest py-4 border border-slate-100 rounded-2xl hover:bg-slate-50 transition-all">Cancelar</button>
+              <button type="submit" className="flex-[2] bg-indigo-600 text-white text-[10px] font-black uppercase tracking-[0.2em] py-4 rounded-2xl shadow-xl shadow-indigo-200 hover:bg-indigo-700 transition-all">
+                {editingProduct ? 'Actualizar Producto' : 'Guardar Nuevo'}
+              </button>
             </div>
           </form>
         </div>
