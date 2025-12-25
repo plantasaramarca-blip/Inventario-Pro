@@ -103,8 +103,28 @@ export const getProducts = async (): Promise<Product[]> => {
     purchasePrice: Number(p.precio_compra || p.price) || 0,
     salePrice: p.precio_venta ? Number(p.precio_venta) : undefined,
     currency: p.moneda || 'PEN',
-    unit: p.unit || 'und', imageUrl: p.image_url, updatedAt: p.updated_at
+    unit: p.unit || 'und', imageUrl: p.image_url, updatedAt: p.updated_at,
+    qr_code: p.qr_code
   }));
+};
+
+export const getProductById = async (id: string): Promise<Product | null> => {
+  if (!useSupabase()) {
+    const p = localStorageApi.getProducts().find(x => x.id === id);
+    return p || null;
+  }
+  const { data } = await supabase.from('products').select('*').eq('id', id).single();
+  if (!data) return null;
+  return {
+    id: data.id, code: data.code, name: data.name, category: data.category, location: data.location, 
+    stock: data.stock || 0, minStock: data.min_stock ?? 30, criticalStock: data.critical_stock ?? 10,
+    price: Number(data.precio_compra || data.price) || 0,
+    purchasePrice: Number(data.precio_compra || data.price) || 0,
+    salePrice: data.precio_venta ? Number(data.precio_venta) : undefined,
+    currency: data.moneda || 'PEN',
+    unit: data.unit || 'und', imageUrl: data.image_url, updatedAt: data.updated_at,
+    qr_code: data.qr_code
+  };
 };
 
 export const getDestinos = async (): Promise<Destination[]> => {
@@ -127,14 +147,12 @@ export const saveDestino = async (destino: Partial<Destination>) => {
   else await supabase.from('destinos').insert([payload]);
 };
 
-// AJUSTE 2: Función de eliminación con chequeo de movimientos
 export const deleteDestino = async (id: string) => {
   if (!useSupabase()) {
     localStorageApi.deleteDestino(id);
     return;
   }
   
-  // Verificar si tiene movimientos registrados en Supabase
   const { data: movements, error: checkError } = await supabase
     .from('movements')
     .select('id')
@@ -157,8 +175,16 @@ export const deleteDestino = async (id: string) => {
 export const saveProduct = async (product: Partial<Product>) => {
   if (!useSupabase()) {
     const id = product.id || crypto.randomUUID();
+    // Generar QR para modo local
+    let qr = product.qr_code;
+    if (!qr) {
+       const existing = localStorageApi.getProducts();
+       const nextNum = existing.length + 1;
+       qr = `PROD-${String(nextNum).padStart(4, '0')}`;
+    }
     const p = { 
-      ...product, id, purchasePrice: product.purchasePrice ?? product.price ?? 0,
+      ...product, id, qr_code: qr,
+      purchasePrice: product.purchasePrice ?? product.price ?? 0,
       price: product.purchasePrice ?? product.price ?? 0,
       minStock: product.minStock ?? 30, criticalStock: product.criticalStock ?? 10,
       updatedAt: new Date().toISOString() 
@@ -168,13 +194,28 @@ export const saveProduct = async (product: Partial<Product>) => {
     await logAuditAction(product.id ? 'UPDATE' : 'CREATE', 'products', id, p.name, old, p);
     return;
   }
+
+  // Lógica de autogeneración de QR en Supabase si es nuevo
+  let qrCode = product.qr_code;
+  if (!product.id && !qrCode) {
+    const { data: lastProd } = await supabase.from('products').select('qr_code').order('created_at', { ascending: false }).limit(1).single();
+    let nextNum = 1;
+    if (lastProd?.qr_code) {
+      const match = lastProd.qr_code.match(/PROD-(\d+)/);
+      if (match) nextNum = parseInt(match[1]) + 1;
+    }
+    qrCode = `PROD-${String(nextNum).padStart(4, '0')}`;
+  }
+
   const payload = {
     code: product.code, name: product.name, category: product.category,
     location: product.location, stock: product.stock, min_stock: product.minStock ?? 30,
     critical_stock: product.criticalStock ?? 10, precio_compra: product.purchasePrice,
     precio_venta: product.salePrice, moneda: product.currency || 'PEN',
-    unit: product.unit, image_url: product.imageUrl, updated_at: new Date().toISOString()
+    unit: product.unit, image_url: product.imageUrl, updated_at: new Date().toISOString(),
+    qr_code: qrCode
   };
+
   if (product.id) {
     const { data: old } = await supabase.from('products').select('*').eq('id', product.id).single();
     await supabase.from('products').update(payload).eq('id', product.id);

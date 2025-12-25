@@ -37,6 +37,8 @@ export interface Product {
   unit: string;
   imageUrl?: string;
   updatedAt: string;
+  qr_code?: string;
+  qr_data?: string;
 }
 
 export interface Movement {

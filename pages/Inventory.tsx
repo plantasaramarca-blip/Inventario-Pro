@@ -3,12 +3,12 @@ import { Product, Role } from '../types';
 import * as api from '../services/supabaseService';
 import { exportToExcel, formatTimestamp, getStockStatusLabel } from '../services/excelService';
 import { StockBadge } from '../components/StockBadge';
+import { ProductQRCode } from '../components/ProductQRCode';
 import { formatCurrency, calculateMargin } from '../utils/currencyUtils';
 import { 
   Plus, Search, Edit2, ImageIcon, Loader2, FileSpreadsheet, 
-  DollarSign, BarChart3, TrendingUp, AlertCircle, Coins, MapPin, Tag
+  DollarSign, BarChart3, TrendingUp, AlertCircle, Coins, MapPin, Tag, QrCode
 } from 'https://esm.sh/lucide-react@0.475.0?deps=react@19.0.0';
-import imageCompression from 'https://esm.sh/browser-image-compression@2.0.2';
 
 interface InventoryProps { role: Role; }
 
@@ -16,10 +16,13 @@ export const Inventory: React.FC<InventoryProps> = ({ role }) => {
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
-  const [exporting, setExporting] = useState(false);
   const [search, setSearch] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  
+  // Estados para QR
+  const [showQRModal, setShowQRModal] = useState(false);
+  const [selectedProductForQR, setSelectedProductForQR] = useState<Product | null>(null);
   
   const [formData, setFormData] = useState<any>({
     code: '', name: '', category: '', location: '', stock: '', 
@@ -62,6 +65,11 @@ export const Inventory: React.FC<InventoryProps> = ({ role }) => {
       });
     }
     setIsModalOpen(true);
+  };
+
+  const handleOpenQR = (product: Product) => {
+    setSelectedProductForQR(product);
+    setShowQRModal(true);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -135,7 +143,8 @@ export const Inventory: React.FC<InventoryProps> = ({ role }) => {
                         </div>
                         <div>
                           <p className="font-bold text-slate-800 group-hover:text-indigo-600 transition-colors">{p.name}</p>
-                          <p className="text-[10px] text-slate-400 font-black uppercase">SKU: {p.code}</p>
+                          <p className="text-[10px] text-slate-400 font-black uppercase tracking-tighter">SKU: {p.code}</p>
+                          <p className="text-[9px] text-indigo-500 font-black uppercase tracking-widest">{p.qr_code}</p>
                         </div>
                       </div>
                     </td>
@@ -171,11 +180,16 @@ export const Inventory: React.FC<InventoryProps> = ({ role }) => {
                       ) : <span className="text-slate-300">--</span>}
                     </td>
                     <td className="px-6 py-4 text-right">
-                      {role === 'ADMIN' && (
-                        <button onClick={() => handleOpenModal(p)} className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl transition-all">
-                          <Edit2 className="w-4 h-4" />
+                      <div className="flex items-center justify-end space-x-1">
+                        <button onClick={() => handleOpenQR(p)} title="Generar QR" className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl transition-all">
+                          <QrCode className="w-4 h-4" />
                         </button>
-                      )}
+                        {role === 'ADMIN' && (
+                          <button onClick={() => handleOpenModal(p)} title="Editar" className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl transition-all">
+                            <Edit2 className="w-4 h-4" />
+                          </button>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 );
@@ -280,6 +294,17 @@ export const Inventory: React.FC<InventoryProps> = ({ role }) => {
             </div>
           </form>
         </div>
+      )}
+
+      {/* MODAL QR AJUSTE PASO 4 */}
+      {showQRModal && selectedProductForQR && (
+        <ProductQRCode 
+          product={selectedProductForQR} 
+          onClose={() => {
+            setShowQRModal(false);
+            setSelectedProductForQR(null);
+          }} 
+        />
       )}
     </div>
   );
