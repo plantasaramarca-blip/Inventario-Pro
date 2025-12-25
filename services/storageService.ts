@@ -1,10 +1,11 @@
-import { Product, Movement, InventoryStats, Contact, AuditLog } from '../types';
+import { Product, Movement, InventoryStats, Contact, AuditLog, Destination } from '../types';
 
 const PRODUCTS_KEY = 'kardex_products';
 const MOVEMENTS_KEY = 'kardex_movements';
 const CONTACTS_KEY = 'kardex_contacts';
 const CATEGORIES_KEY = 'kardex_categories';
 const AUDIT_KEY = 'kardex_audit';
+const DESTINOS_KEY = 'kardex_destinos';
 
 const seedData = () => {
   if (!localStorage.getItem(CATEGORIES_KEY)) {
@@ -22,6 +23,28 @@ const seedData = () => {
   if (!localStorage.getItem(AUDIT_KEY)) {
     localStorage.setItem(AUDIT_KEY, JSON.stringify([]));
   }
+  if (!localStorage.getItem(DESTINOS_KEY)) {
+    const defaultDestinos: Destination[] = [
+      { id: '1', name: 'Cliente Final', type: 'cliente', description: 'Venta directa a consumidor', active: true, createdAt: new Date().toISOString() },
+      { id: '2', name: 'Sucursal Lima', type: 'sucursal', description: 'Oficina Central', active: true, createdAt: new Date().toISOString() },
+      { id: '3', name: 'Sucursal Arequipa', type: 'sucursal', description: 'Almacén Sur', active: true, createdAt: new Date().toISOString() },
+      { id: '4', name: 'Uso Interno', type: 'interno', description: 'Consumo para operaciones', active: true, createdAt: new Date().toISOString() }
+    ];
+    localStorage.setItem(DESTINOS_KEY, JSON.stringify(defaultDestinos));
+  }
+};
+
+export const getDestinos = (): Destination[] => {
+  seedData();
+  return JSON.parse(localStorage.getItem(DESTINOS_KEY) || '[]');
+};
+
+export const saveDestino = (destino: Destination): void => {
+  const destinos = getDestinos();
+  const idx = destinos.findIndex(d => d.id === destino.id);
+  if (idx >= 0) destinos[idx] = destino;
+  else destinos.push(destino);
+  localStorage.setItem(DESTINOS_KEY, JSON.stringify(destinos));
 };
 
 export const getAuditLogs = (page = 0, limit = 50) => {
@@ -100,7 +123,7 @@ export const getMovements = (): Movement[] => {
   return JSON.parse(localStorage.getItem(MOVEMENTS_KEY) || '[]');
 };
 
-export const registerMovement = (movement: Omit<Movement, 'id' | 'balanceAfter' | 'productName'>): Movement => {
+export const registerMovement = (movement: any): Movement => {
   const products = getProducts();
   const productIndex = products.findIndex(p => p.id === movement.productId);
   if (productIndex === -1) throw new Error("Producto no encontrado");
@@ -123,6 +146,7 @@ export const registerMovement = (movement: Omit<Movement, 'id' | 'balanceAfter' 
     id: Date.now().toString(),
     productName: product.name,
     balanceAfter: newStock,
+    date: new Date().toISOString()
   };
 
   const movements = getMovements();
@@ -139,7 +163,6 @@ export const getStats = (): InventoryStats => {
   const critical = products.filter(p => p.stock > 0 && p.stock <= (p.criticalStock || 10)).length;
   const low = products.filter(p => p.stock > (p.criticalStock || 10) && p.stock <= (p.minStock || 30)).length;
   
-  // Usar purchasePrice si existe, sino price para compatibilidad
   const totalValue = products.reduce((sum, p) => sum + (p.stock * (p.purchasePrice || p.price || 0)), 0);
 
   return {

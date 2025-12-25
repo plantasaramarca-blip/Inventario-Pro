@@ -1,6 +1,16 @@
 export type TransactionType = 'INGRESO' | 'SALIDA';
 export type ContactType = 'CLIENTE' | 'PROVEEDOR' | 'OTRO';
 export type Role = 'ADMIN' | 'USER';
+export type DestinationType = 'cliente' | 'sucursal' | 'interno';
+
+export interface Destination {
+  id: string;
+  name: string;
+  type: DestinationType;
+  description?: string;
+  active: boolean;
+  createdAt: string;
+}
 
 export interface Contact {
   id: string;
@@ -18,11 +28,11 @@ export interface Product {
   category: string;
   location: string;
   stock: number;
-  minStock: number;      // Stock Bajo (Amarillo)
-  criticalStock: number; // Stock Crítico (Rojo)
-  price: number;         // Alias para purchasePrice (compatibilidad)
-  purchasePrice: number; // Precio de compra unitario
-  salePrice?: number;    // Precio de venta unitario
+  minStock: number;
+  criticalStock: number;
+  price: number;
+  purchasePrice: number;
+  salePrice?: number;
   currency: 'PEN' | 'USD' | 'EUR';
   unit: string;
   imageUrl?: string;
@@ -41,7 +51,10 @@ export interface Movement {
   balanceAfter: number;
   contactId?: string;
   contactName?: string;
-  updatedPrice?: number; // Precio de compra actualizado en este movimiento
+  updatedPrice?: number;
+  destinationId?: string;
+  destinationName?: string;
+  destinationType?: DestinationType;
 }
 
 export interface InventoryStats {
@@ -51,7 +64,7 @@ export interface InventoryStats {
   outOfStockCount: number;
   totalMovements: number;
   totalContacts: number;
-  totalValue: number;         // Basado en purchasePrice * stock
+  totalValue: number;
 }
 
 export interface AuditLog {
