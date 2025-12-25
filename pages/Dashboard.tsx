@@ -18,7 +18,6 @@ export const Dashboard: React.FC = () => {
     setLoading(true);
     setError(null);
     try {
-      // Llamadas seguras al API
       const [s, p] = await Promise.all([
         api.getStats().catch(e => { console.error("Stats Error:", e); return null; }),
         api.getProducts().catch(e => { console.error("Products Error:", e); return []; })
@@ -73,20 +72,20 @@ export const Dashboard: React.FC = () => {
         </div>
       )}
 
-      {/* Tarjetas Informativas */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
+      {/* Tarjetas Informativas: Responsive Grid (2 col en mobile, 3 en tablet, 6 en desktop) */}
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 sm:gap-4">
         {cards.map((card, idx) => {
           const Icon = card.icon;
           return (
-            <div key={idx} className="bg-white shadow-sm rounded-3xl p-5 border border-slate-100 transition-all hover:shadow-md">
+            <div key={idx} className="bg-white shadow-sm rounded-2xl sm:rounded-3xl p-3 sm:p-5 border border-slate-100 transition-all hover:shadow-md">
                <div className="flex flex-col h-full justify-between">
-                  <div className={`p-2 rounded-xl w-fit ${card.color} text-white mb-4 shadow-md`}>
-                     <Icon className="h-4 w-4" />
+                  <div className={`p-1.5 sm:p-2 rounded-lg sm:rounded-xl w-fit ${card.color} text-white mb-2 sm:mb-4 shadow-md`}>
+                     <Icon className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                   </div>
                   <div>
-                    <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">{card.title}</h3>
-                    <p className="text-xl font-black text-slate-800 tracking-tighter">{card.value}</p>
-                    <p className="text-[9px] text-slate-400 font-bold mt-1 uppercase">{card.sub}</p>
+                    <h3 className="text-[8px] sm:text-[10px] font-black text-slate-400 uppercase tracking-widest mb-0.5 sm:mb-1">{card.title}</h3>
+                    <p className="text-sm sm:text-xl font-black text-slate-800 tracking-tighter truncate">{card.value}</p>
+                    <p className="text-[8px] sm:text-[9px] text-slate-400 font-bold mt-0.5 sm:mt-1 uppercase">{card.sub}</p>
                   </div>
                </div>
             </div>
@@ -95,7 +94,7 @@ export const Dashboard: React.FC = () => {
       </div>
 
       {/* Tabla de Prioridad */}
-      <div className="bg-white shadow-sm rounded-3xl p-6 border border-slate-100 overflow-hidden">
+      <div className="bg-white shadow-sm rounded-3xl p-4 sm:p-6 border border-slate-100 overflow-hidden">
         <div className="flex items-center mb-6">
           <Database className="w-5 h-5 mr-3 text-indigo-500" />
           <h3 className="text-xs font-black text-slate-800 uppercase tracking-[0.15em]">Prioridad de Almacén</h3>
@@ -105,30 +104,30 @@ export const Dashboard: React.FC = () => {
           <table className="w-full">
             <thead className="text-[9px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-50">
               <tr>
-                <th className="px-6 py-3 text-left">Producto</th>
-                <th className="px-6 py-3 text-center">Stock Actual</th>
-                <th className="px-6 py-3 text-center">Estado</th>
+                <th className="px-4 py-3 text-left">Producto</th>
+                <th className="px-4 py-3 text-center">Stock</th>
+                <th className="px-4 py-3 text-center">Estado</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-50">
               {attentionProducts.length > 0 ? attentionProducts.map(p => (
                 <tr key={p.id} className="hover:bg-slate-50 transition-colors">
-                  <td className="px-6 py-4">
+                  <td className="px-4 py-4">
                     <div className="flex items-center space-x-3">
-                      <div className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center border border-slate-200 overflow-hidden">
+                      <div className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center border border-slate-200 overflow-hidden flex-shrink-0">
                         {p.imageUrl ? <img src={p.imageUrl} className="w-full h-full object-cover" /> : <Package className="w-4 h-4 text-slate-300" />}
                       </div>
-                      <div>
-                        <p className="text-xs font-bold text-slate-800">{p.name}</p>
-                        <p className="text-[9px] text-slate-400 font-black uppercase tracking-widest">{p.code}</p>
+                      <div className="min-w-0">
+                        <p className="text-xs font-bold text-slate-800 truncate">{p.name}</p>
+                        <p className="text-[9px] text-slate-400 font-black uppercase tracking-widest truncate">{p.code}</p>
                       </div>
                     </div>
                   </td>
-                  <td className="px-6 py-4 text-center">
+                  <td className="px-4 py-4 text-center">
                     <span className="text-xs font-black text-slate-700">{p.stock}</span>
                     <span className="text-[9px] text-slate-400 font-bold ml-1 uppercase">{p.unit}</span>
                   </td>
-                  <td className="px-6 py-4 text-center">
+                  <td className="px-4 py-4 text-center">
                     <StockBadge stock={p.stock} minStock={p.minStock} criticalStock={p.criticalStock} />
                   </td>
                 </tr>
