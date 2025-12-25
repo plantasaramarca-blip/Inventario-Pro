@@ -6,7 +6,7 @@ import { StockBadge } from '../components/StockBadge';
 import { formatCurrency, calculateMargin } from '../utils/currencyUtils';
 import { 
   Plus, Search, Edit2, ImageIcon, Loader2, FileSpreadsheet, 
-  DollarSign, BarChart3, TrendingUp, AlertCircle, Coins
+  DollarSign, BarChart3, TrendingUp, AlertCircle, Coins, MapPin, Tag
 } from 'https://esm.sh/lucide-react@0.475.0?deps=react@19.0.0';
 import imageCompression from 'https://esm.sh/browser-image-compression@2.0.2';
 
@@ -19,12 +19,10 @@ export const Inventory: React.FC<InventoryProps> = ({ role }) => {
   const [exporting, setExporting] = useState(false);
   const [search, setSearch] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [isUploading, setIsUploading] = useState(false);
-  const [isOptimizing, setIsOptimizing] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   
-  const [formData, setFormData] = useState<Partial<Product>>({
-    code: '', name: '', category: '', location: '', stock: 0, 
+  const [formData, setFormData] = useState<any>({
+    code: '', name: '', category: '', location: '', stock: '', 
     minStock: 30, criticalStock: 10, purchasePrice: 0, salePrice: undefined, 
     currency: 'PEN', unit: 'und', imageUrl: ''
   });
@@ -44,19 +42,21 @@ export const Inventory: React.FC<InventoryProps> = ({ role }) => {
   const filteredProducts = useMemo(() => {
     return products.filter(p => 
       p.name.toLowerCase().includes(search.toLowerCase()) || 
-      p.code.toLowerCase().includes(search.toLowerCase())
+      p.code.toLowerCase().includes(search.toLowerCase()) ||
+      p.category.toLowerCase().includes(search.toLowerCase()) ||
+      p.location.toLowerCase().includes(search.toLowerCase())
     ).sort((a, b) => a.name.localeCompare(b.name));
   }, [products, search]);
 
   const handleOpenModal = (product?: Product) => {
     if (product) {
       setEditingProduct(product);
-      setFormData(product);
+      setFormData({ ...product });
     } else {
       setEditingProduct(null);
       setFormData({ 
         code: '', name: '', category: categories[0] || 'General', 
-        location: '', stock: 0, minStock: 30, criticalStock: 10, 
+        location: '', stock: '', minStock: 30, criticalStock: 10, 
         purchasePrice: 0, salePrice: undefined, currency: 'PEN', 
         unit: 'und', imageUrl: '' 
       });
@@ -66,7 +66,11 @@ export const Inventory: React.FC<InventoryProps> = ({ role }) => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    await api.saveProduct(formData);
+    const payload = {
+      ...formData,
+      stock: formData.stock === '' ? 0 : Number(formData.stock)
+    };
+    await api.saveProduct(payload);
     setIsModalOpen(false);
     loadData();
   };
@@ -97,7 +101,7 @@ export const Inventory: React.FC<InventoryProps> = ({ role }) => {
         <input 
           type="text" 
           className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-transparent rounded-2xl text-sm outline-none focus:ring-2 focus:ring-indigo-500 transition-all font-medium" 
-          placeholder="Buscar por SKU, EAN o nombre..." 
+          placeholder="Buscar por SKU, Nombre, Categoría o Ubicación..." 
           value={search} 
           onChange={e => setSearch(e.target.value)}
         />
@@ -109,6 +113,8 @@ export const Inventory: React.FC<InventoryProps> = ({ role }) => {
             <thead className="bg-slate-50/80 text-[10px] font-black uppercase text-slate-400 tracking-widest">
               <tr>
                 <th className="px-6 py-5 text-left">Producto</th>
+                <th className="px-6 py-5 text-left">Categoría</th>
+                <th className="px-6 py-5 text-left">Ubicación</th>
                 <th className="px-6 py-5 text-center">Stock</th>
                 <th className="px-6 py-5 text-center">Costo Unit.</th>
                 <th className="px-6 py-5 text-center">Valor Stock</th>
@@ -132,6 +138,16 @@ export const Inventory: React.FC<InventoryProps> = ({ role }) => {
                           <p className="text-[10px] text-slate-400 font-black uppercase">SKU: {p.code}</p>
                         </div>
                       </div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <span className="inline-flex items-center px-2 py-1 bg-slate-100 text-slate-600 text-[10px] font-bold rounded-lg uppercase">
+                        <Tag className="w-2.5 h-2.5 mr-1" /> {p.category}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4">
+                      <span className="text-xs text-slate-500 font-medium flex items-center">
+                        <MapPin className="w-3 h-3 mr-1 text-slate-300" /> {p.location || 'Sin asignar'}
+                      </span>
                     </td>
                     <td className="px-6 py-4 text-center">
                       <div className="flex flex-col items-center">
@@ -184,14 +200,28 @@ export const Inventory: React.FC<InventoryProps> = ({ role }) => {
               <div className="space-y-4">
                 <div className="space-y-1">
                   <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Datos Generales</label>
-                  <input type="text" placeholder="Nombre" required className="w-full p-3.5 bg-slate-50 border border-transparent rounded-2xl outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all font-bold" value={formData.name || ''} onChange={e => setFormData({...formData, name: e.target.value})} />
+                  <input type="text" placeholder="Nombre del Producto" required className="w-full p-3.5 bg-slate-50 border border-transparent rounded-2xl outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all font-bold" value={formData.name || ''} onChange={e => setFormData({...formData, name: e.target.value})} />
                   <input type="text" placeholder="Código / SKU" required className="w-full p-3.5 bg-slate-50 border border-transparent rounded-2xl outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all font-bold" value={formData.code || ''} onChange={e => setFormData({...formData, code: e.target.value})} />
+                  <div className="grid grid-cols-2 gap-2">
+                     <select className="w-full p-3.5 bg-slate-50 border border-transparent rounded-2xl font-bold outline-none" value={formData.category || ''} onChange={e => setFormData({...formData, category: e.target.value})}>
+                       <option value="">Categoría...</option>
+                       {categories.map(c => <option key={c} value={c}>{c}</option>)}
+                     </select>
+                     <input type="text" placeholder="Ubicación" className="w-full p-3.5 bg-slate-50 border border-transparent rounded-2xl outline-none focus:ring-2 focus:ring-indigo-500 transition-all font-bold" value={formData.location || ''} onChange={e => setFormData({...formData, location: e.target.value})} />
+                  </div>
                 </div>
                 
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-1">
                     <label className="text-[10px] font-black text-slate-400 uppercase ml-1">Stock Actual</label>
-                    <input type="number" required className="w-full p-3.5 bg-slate-50 border border-transparent rounded-2xl font-black outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white" value={formData.stock || 0} onChange={e => setFormData({...formData, stock: Number(e.target.value)})} />
+                    <input 
+                      type="number" 
+                      placeholder="Ingrese stock inicial" 
+                      className="w-full p-3.5 bg-slate-50 border border-transparent rounded-2xl font-black outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white" 
+                      value={formData.stock} 
+                      onChange={e => setFormData({...formData, stock: e.target.value})} 
+                    />
+                    <p className="text-[8px] text-slate-400 font-bold uppercase ml-1">Dejar vacío para iniciar en 0</p>
                   </div>
                   <div className="space-y-1">
                     <label className="text-[10px] font-black text-slate-400 uppercase ml-1">Unidad</label>
@@ -236,11 +266,6 @@ export const Inventory: React.FC<InventoryProps> = ({ role }) => {
                            {formatCurrency(margin.amount, formData.currency)} ({margin.percent.toFixed(1)}%)
                          </span>
                        </div>
-                       {formData.salePrice < formData.purchasePrice && (
-                         <p className="text-[8px] text-rose-500 font-bold flex items-center">
-                           <AlertCircle className="w-3 h-3 mr-1" /> Warning: Venta debajo del costo
-                         </p>
-                       )}
                     </div>
                   )}
                 </div>
