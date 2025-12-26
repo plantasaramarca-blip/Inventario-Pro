@@ -7,7 +7,7 @@ import { ProductQRCode } from '../components/ProductQRCode.tsx';
 import { formatCurrency } from '../utils/currencyUtils.ts';
 import { 
   Plus, Search, Edit2, ImageIcon, Loader2, QrCode, 
-  X, Trash2, Save, Package, Camera, Settings, MapPin, Tag, Filter
+  X, Trash2, Save, Package, Camera, MapPin, Tag, CheckCircle2
 } from 'https://esm.sh/lucide-react@0.475.0?deps=react@19.2.3';
 
 interface InventoryProps { role: Role; }
@@ -17,6 +17,7 @@ export const Inventory: React.FC<InventoryProps> = ({ role }) => {
   const [categories, setCategories] = useState<CategoryMaster[]>([]);
   const [locations, setLocations] = useState<LocationMaster[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isOptimizing, setIsOptimizing] = useState(false); // Estado para la barra de optimización
   const [search, setSearch] = useState('');
   
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -89,7 +90,7 @@ export const Inventory: React.FC<InventoryProps> = ({ role }) => {
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      // Optimización de peso de imagen vía Canvas antes de guardar
+      setIsOptimizing(true); // Iniciar barra de optimización
       const reader = new FileReader();
       reader.onload = (event) => {
         const img = new Image();
@@ -101,8 +102,12 @@ export const Inventory: React.FC<InventoryProps> = ({ role }) => {
           canvas.height = img.height * scale;
           const ctx = canvas.getContext('2d');
           ctx?.drawImage(img, 0, 0, canvas.width, canvas.height);
-          const dataUrl = canvas.toDataURL('image/jpeg', 0.7); // 70% calidad para ahorrar espacio
-          setFormData({ ...formData, imageUrl: dataUrl });
+          const dataUrl = canvas.toDataURL('image/jpeg', 0.6); // 60% para máximo ahorro de storage
+          
+          setTimeout(() => { // Pequeño delay para que se vea el feedback
+            setFormData({ ...formData, imageUrl: dataUrl });
+            setIsOptimizing(false); // Terminar optimización
+          }, 800);
         };
         img.src = event.target?.result as string;
       };
@@ -250,7 +255,6 @@ export const Inventory: React.FC<InventoryProps> = ({ role }) => {
         </div>
       </div>
 
-      {/* MODAL PRODUCTO (Sigue igual, optimizado para cámara) */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => setIsModalOpen(false)}></div>
@@ -269,7 +273,12 @@ export const Inventory: React.FC<InventoryProps> = ({ role }) => {
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
               <div className="lg:col-span-1 space-y-4">
                 <div className="aspect-square bg-slate-50 rounded-[3rem] border-2 border-dashed border-slate-200 flex flex-col items-center justify-center relative overflow-hidden group">
-                  {formData.imageUrl ? (
+                  {isOptimizing ? (
+                    <div className="absolute inset-0 bg-white/80 backdrop-blur-sm z-10 flex flex-col items-center justify-center gap-3">
+                      <Loader2 className="animate-spin text-indigo-600 w-8 h-8" />
+                      <p className="text-[10px] font-black text-indigo-600 uppercase tracking-widest animate-pulse">Optimizando imagen...</p>
+                    </div>
+                  ) : formData.imageUrl ? (
                     <img src={formData.imageUrl} className="w-full h-full object-cover" />
                   ) : (
                     <div className="text-center p-6">
@@ -279,14 +288,20 @@ export const Inventory: React.FC<InventoryProps> = ({ role }) => {
                   )}
                   <button 
                     type="button"
+                    disabled={isOptimizing}
                     onClick={() => fileInputRef.current?.click()}
                     className="absolute inset-0 bg-indigo-600/60 text-white opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-2 font-black uppercase text-xs"
                   >
                     <Camera className="w-8 h-8" />
-                    Capturar
+                    {formData.imageUrl ? 'Cambiar Foto' : 'Capturar'}
                   </button>
                   <input type="file" accept="image/*" capture="environment" className="hidden" ref={fileInputRef} onChange={handleFileChange} />
                 </div>
+                {formData.imageUrl && !isOptimizing && (
+                  <div className="flex items-center justify-center gap-2 text-[10px] font-black text-emerald-600 uppercase bg-emerald-50 py-2 rounded-xl border border-emerald-100">
+                    <CheckCircle2 className="w-3 h-3" /> Imagen Optimizada
+                  </div>
+                )}
               </div>
 
               <div className="lg:col-span-2 space-y-6">
