@@ -88,7 +88,7 @@ export const getProducts = async (): Promise<Product[]> => {
     salePrice: p.precio_venta ? Number(p.precio_venta) : undefined,
     currency: p.moneda || 'PEN',
     unit: p.unit || 'und', imageUrl: p.image_url, updatedAt: p.updated_at,
-    qr_code: p.qr_code || p.code // Fallback al código si no hay QR
+    qr_code: p.qr_code || p.code
   }));
 };
 
@@ -116,7 +116,6 @@ export const saveProduct = async (product: Partial<Product>) => {
     return;
   }
 
-  // Lógica de QR con captura de error para evitar el 400
   let qrCode = product.qr_code;
   if (!product.id && !qrCode) {
     try {
@@ -134,7 +133,7 @@ export const saveProduct = async (product: Partial<Product>) => {
       }
       qrCode = `PROD-${String(nextNum).padStart(6, '0')}`;
     } catch (e) {
-      qrCode = product.code || `P-${Date.now()}`; // Fallback total
+      qrCode = product.code || `P-${Date.now()}`;
     }
   }
 
@@ -146,21 +145,19 @@ export const saveProduct = async (product: Partial<Product>) => {
     unit: product.unit, image_url: product.imageUrl, updated_at: new Date().toISOString()
   };
 
-  // Solo intentamos enviar qr_code si no es nulo y confiamos en el fallback
   if (qrCode) payload.qr_code = qrCode;
 
-  try {
-    if (product.id) {
-      await supabase.from('products').update(payload).eq('id', product.id);
-    } else {
-      await supabase.from('products').insert([payload]);
-    }
-  } catch (err) {
-    // Si falla por columna inexistente, reintentamos sin qr_code
-    delete payload.qr_code;
-    if (product.id) await supabase.from('products').update(payload).eq('id', product.id);
-    else await supabase.from('products').insert([payload]);
+  if (product.id) {
+    await supabase.from('products').update(payload).eq('id', product.id);
+  } else {
+    await supabase.from('products').insert([payload]);
   }
+};
+
+export const deleteProduct = async (id: string) => {
+  if (!useSupabase()) return localStorageApi.deleteProduct(id);
+  const { error } = await supabase.from('products').delete().eq('id', id);
+  if (error) throw error;
 };
 
 export const registerMovement = async (movement: any) => {

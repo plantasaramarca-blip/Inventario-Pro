@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { Product, Role } from '../types.ts';
 import * as api from '../services/supabaseService.ts';
@@ -52,7 +53,12 @@ export const Inventory: React.FC<InventoryProps> = ({ role }) => {
   const handleOpenModal = (product?: Product) => {
     if (product) {
       setEditingProduct(product);
-      setFormData({ ...product });
+      setFormData({ 
+        ...product,
+        // Aseguramos que los valores numéricos se pasen correctamente al form
+        stock: product.stock,
+        purchasePrice: product.purchasePrice || 0
+      });
     } else {
       setEditingProduct(null);
       setFormData({ 
@@ -81,11 +87,12 @@ export const Inventory: React.FC<InventoryProps> = ({ role }) => {
   const handleDelete = async (id: string) => {
     if (!confirm('¿Estás seguro de eliminar este producto? Esta acción no se puede deshacer.')) return;
     try {
-      // Nota: Si usas Supabase, necesitarás añadir api.deleteProduct
-      // Por ahora usamos un log y refresco.
-      alert('Funcionalidad de borrado ejecutada. El sistema refrescará.');
+      await api.deleteProduct(id);
       await loadData();
-    } catch (err) { alert('Error al eliminar'); }
+    } catch (err) { 
+      console.error(err);
+      alert('Error al eliminar el producto'); 
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -95,7 +102,8 @@ export const Inventory: React.FC<InventoryProps> = ({ role }) => {
         ...formData, 
         name: capitalize(formData.name),
         category: capitalize(formData.category),
-        stock: formData.stock === '' ? 0 : Number(formData.stock) 
+        stock: formData.stock === '' ? 0 : Number(formData.stock),
+        purchasePrice: Number(formData.purchasePrice)
       };
       await api.saveProduct(payload);
       setIsModalOpen(false);
@@ -218,7 +226,6 @@ export const Inventory: React.FC<InventoryProps> = ({ role }) => {
         </div>
       </div>
 
-      {/* MODAL DE FORMULARIO - RESTAURADO */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-300" onClick={() => setIsModalOpen(false)}></div>
@@ -239,7 +246,6 @@ export const Inventory: React.FC<InventoryProps> = ({ role }) => {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {/* Información Básica */}
               <div className="space-y-4">
                 <div className="space-y-1">
                   <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Nombre del Producto *</label>
@@ -293,7 +299,6 @@ export const Inventory: React.FC<InventoryProps> = ({ role }) => {
                 </div>
               </div>
 
-              {/* Stock y Precios */}
               <div className="space-y-4 bg-slate-50/50 p-6 rounded-[2.5rem] border border-slate-100">
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-1">
@@ -303,7 +308,7 @@ export const Inventory: React.FC<InventoryProps> = ({ role }) => {
                       className="w-full p-4 bg-white border border-slate-200 rounded-2xl outline-none font-black text-center text-lg"
                       value={formData.stock}
                       onChange={e => setFormData({...formData, stock: e.target.value})}
-                      disabled={!!editingProduct} // El stock solo se debe mover via Kardex
+                      disabled={!!editingProduct}
                     />
                     {editingProduct && <p className="text-[8px] text-slate-400 text-center font-black uppercase mt-1">Ajustar via Kardex</p>}
                   </div>
@@ -353,7 +358,7 @@ export const Inventory: React.FC<InventoryProps> = ({ role }) => {
                       step="0.01"
                       className="w-full pl-10 pr-4 py-4 bg-white border border-indigo-100 rounded-2xl outline-none font-black text-indigo-700 text-lg"
                       value={formData.purchasePrice}
-                      onChange={e => setFormData({...formData, purchasePrice: Number(e.target.value)})}
+                      onChange={e => setFormData({...formData, purchasePrice: e.target.value})}
                     />
                   </div>
                 </div>
