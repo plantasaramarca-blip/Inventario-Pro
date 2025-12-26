@@ -1,8 +1,16 @@
 
 export type TransactionType = 'INGRESO' | 'SALIDA';
 export type ContactType = 'CLIENTE' | 'PROVEEDOR' | 'OTRO';
-export type Role = 'ADMIN' | 'USER';
+export type Role = 'ADMIN' | 'USER' | 'VIEWER';
 export type DestinationType = 'cliente' | 'sucursal' | 'interno';
+
+export interface UserAccount {
+  id: string;
+  email: string;
+  password?: string;
+  role: Role;
+  createdAt: string;
+}
 
 export interface LocationMaster {
   id: string;
@@ -36,9 +44,9 @@ export interface Product {
   id: string;
   code: string;
   name: string;
-  brand: string;      // Nuevo: Marca (Ej: Shell, Caterpillar)
-  size: string;       // Nuevo: Talla o Medida (Ej: 40, 1/2 pulgada)
-  model: string;      // Nuevo: Modelo específico
+  brand: string;
+  size: string;
+  model: string;
   category: string;
   location: string;
   stock: number;

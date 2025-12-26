@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'https://esm.sh/react@19.2.3';
-import { Movement, Product, TransactionType, Destination } from '../types.ts';
+import { Movement, Product, TransactionType, Destination, Role } from '../types.ts';
 import * as api from '../services/supabaseService.ts';
 import { exportToExcel, formatTimestamp } from '../services/excelService.ts';
 import { 
@@ -10,9 +10,10 @@ import {
 
 interface KardexProps {
   onNavigateToDestinos?: () => void;
+  role: Role;
 }
 
-export const Kardex: React.FC<KardexProps> = ({ onNavigateToDestinos }) => {
+export const Kardex: React.FC<KardexProps> = ({ onNavigateToDestinos, role }) => {
   const [movements, setMovements] = useState<Movement[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [destinos, setDestinos] = useState<Destination[]>([]);
@@ -45,6 +46,7 @@ export const Kardex: React.FC<KardexProps> = ({ onNavigateToDestinos }) => {
   useEffect(() => { loadData(); }, []);
 
   const handleOpenModal = (trxType: TransactionType) => {
+    if (role === 'VIEWER') return;
     setType(trxType);
     setSelectedProductId('');
     setSelectedDestinoId('');
@@ -59,6 +61,7 @@ export const Kardex: React.FC<KardexProps> = ({ onNavigateToDestinos }) => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (role === 'VIEWER') return;
     if (!selectedProductId) return setError("Selecciona un producto");
     
     if (type === 'SALIDA') {
@@ -140,10 +143,13 @@ export const Kardex: React.FC<KardexProps> = ({ onNavigateToDestinos }) => {
           <button onClick={handleExcelExport} className="bg-emerald-600 text-white px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center shadow-lg hover:bg-emerald-700 transition-all">
             <FileSpreadsheet className="w-4 h-4 mr-2" /> Reporte Excel
           </button>
-          <div className="flex gap-1 bg-white p-1.5 rounded-2xl shadow-sm border border-slate-100">
-            <button onClick={() => handleOpenModal('INGRESO')} className="bg-indigo-600 text-white px-5 py-2.5 rounded-xl text-[9px] font-black uppercase tracking-widest shadow-md hover:bg-indigo-700 transition-all">Ingreso</button>
-            <button onClick={() => handleOpenModal('SALIDA')} className="bg-rose-600 text-white px-5 py-2.5 rounded-xl text-[9px] font-black uppercase tracking-widest shadow-md hover:bg-rose-700 transition-all">Despacho</button>
-          </div>
+          
+          {role !== 'VIEWER' && (
+            <div className="flex gap-1 bg-white p-1.5 rounded-2xl shadow-sm border border-slate-100">
+              <button onClick={() => handleOpenModal('INGRESO')} className="bg-indigo-600 text-white px-5 py-2.5 rounded-xl text-[9px] font-black uppercase tracking-widest shadow-md hover:bg-indigo-700 transition-all">Ingreso</button>
+              <button onClick={() => handleOpenModal('SALIDA')} className="bg-rose-600 text-white px-5 py-2.5 rounded-xl text-[9px] font-black uppercase tracking-widest shadow-md hover:bg-rose-700 transition-all">Despacho</button>
+            </div>
+          )}
         </div>
       </div>
 
@@ -202,7 +208,7 @@ export const Kardex: React.FC<KardexProps> = ({ onNavigateToDestinos }) => {
         </div>
       </div>
 
-       {isModalOpen && (
+       {isModalOpen && role !== 'VIEWER' && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-md" onClick={() => setIsModalOpen(false)}></div>
           <form onSubmit={handleSubmit} className="relative bg-white rounded-[3.5rem] p-10 w-full max-w-lg shadow-[0_35px_60px_-15px_rgba(0,0,0,0.3)] overflow-hidden animate-in zoom-in-95">

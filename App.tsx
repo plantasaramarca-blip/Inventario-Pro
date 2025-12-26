@@ -9,6 +9,7 @@ import { Kardex } from './pages/Kardex.tsx';
 import { Contacts } from './pages/Contacts.tsx';
 import { Destinos } from './pages/Destinos.tsx';
 import { AuditPage } from './pages/AuditLog.tsx';
+import { UsersPage } from './pages/Users.tsx';
 import { Login } from './pages/Login.tsx';
 import { Role, Product } from './types.ts';
 import * as api from './services/supabaseService.ts';
@@ -89,9 +90,10 @@ export default function App() {
   const renderContent = () => {
     switch (currentPage) {
       case 'inventory': return <Inventory role={role} />;
-      case 'kardex': return <Kardex onNavigateToDestinos={() => setCurrentPage('destinos')} />;
-      case 'destinos': return <Destinos />;
+      case 'kardex': return <Kardex onNavigateToDestinos={() => setCurrentPage('destinos')} role={role} />;
+      case 'destinos': return <Destinos role={role} />;
       case 'contacts': return <Contacts role={role} />;
+      case 'users': return role === 'ADMIN' ? <UsersPage /> : <Dashboard />;
       case 'audit': return role === 'ADMIN' ? <AuditPage /> : <Dashboard />;
       default: return <Dashboard />;
     }

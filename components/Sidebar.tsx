@@ -1,6 +1,6 @@
 
 import React, { useEffect, useState } from 'https://esm.sh/react@19.2.3';
-import { LayoutDashboard, Boxes, ClipboardList, Users, ClipboardCheck, MapPin } from 'https://esm.sh/lucide-react@0.475.0?deps=react@19.2.3';
+import { LayoutDashboard, Boxes, ClipboardList, Users, ClipboardCheck, MapPin, UserPlus } from 'https://esm.sh/lucide-react@0.475.0?deps=react@19.2.3';
 import { Role } from '../types.ts';
 import * as api from '../services/supabaseService.ts';
 
@@ -36,6 +36,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentPage, onNavigate, isOpe
     { id: 'kardex', label: 'Kardex / Movimientos', icon: ClipboardList, adminOnly: false },
     { id: 'destinos', label: 'Puntos de Costo', icon: MapPin, adminOnly: false },
     { id: 'contacts', label: 'CRM / Contactos', icon: Users, adminOnly: false },
+    { id: 'users', label: 'Usuarios', icon: UserPlus, adminOnly: true }, // Solo para ADMIN
     { id: 'audit', label: 'Auditoría', icon: ClipboardCheck, adminOnly: true },
   ];
 

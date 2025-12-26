@@ -1,9 +1,52 @@
 
 import { supabase, isSupabaseConfigured } from '../supabaseClient.ts';
-import { Product, Movement, Contact, InventoryStats, AuditLog, Destination, LocationMaster, CategoryMaster } from '../types.ts';
+import { Product, Movement, Contact, InventoryStats, AuditLog, Destination, LocationMaster, CategoryMaster, UserAccount, Role } from '../types.ts';
 import * as localStorageApi from './storageService.ts';
 
 const useSupabase = () => isSupabaseConfigured;
+
+// --- Usuarios ---
+export const getUsers = async (): Promise<UserAccount[]> => {
+  if (!useSupabase()) {
+    const data = localStorage.getItem('kardex_users');
+    return data ? JSON.parse(data) : [{ id: 'admin-1', email: 'admin@planta.com', role: 'ADMIN', createdAt: new Date().toISOString() }];
+  }
+  const { data } = await supabase.from('profiles').select('*').order('email');
+  return (data || []).map(u => ({ id: u.id, email: u.email, role: u.role as Role, createdAt: u.created_at }));
+};
+
+export const saveUser = async (user: Partial<UserAccount>) => {
+  if (!useSupabase()) {
+    const users = await getUsers();
+    const idx = users.findIndex(u => u.id === user.id);
+    if (idx >= 0) {
+      users[idx] = { ...users[idx], ...user };
+    } else {
+      users.push({ 
+        id: crypto.randomUUID(), 
+        email: user.email!, 
+        password: user.password, 
+        role: user.role || 'USER', 
+        createdAt: new Date().toISOString() 
+      });
+    }
+    localStorage.setItem('kardex_users', JSON.stringify(users));
+    return;
+  }
+  // En Supabase real esto requeriría funciones RPC o manejar la tabla de profiles
+  const payload = { email: user.email, role: user.role };
+  if (user.id) await supabase.from('profiles').update(payload).eq('id', user.id);
+  else await supabase.from('profiles').insert([payload]);
+};
+
+export const deleteUser = async (id: string) => {
+  if (!useSupabase()) {
+    const users = (await getUsers()).filter(u => u.id !== id);
+    localStorage.setItem('kardex_users', JSON.stringify(users));
+    return;
+  }
+  await supabase.from('profiles').delete().eq('id', id);
+};
 
 // --- Maestros: Ubicaciones ---
 export const getLocationsMaster = async (): Promise<LocationMaster[]> => {

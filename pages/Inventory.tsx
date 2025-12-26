@@ -66,6 +66,7 @@ export const Inventory: React.FC<InventoryProps> = ({ role }) => {
   }, [products, search]);
 
   const handleOpenModal = (product?: Product) => {
+    if (role === 'VIEWER') return;
     if (product) {
       setEditingProduct(product);
       setFormData({ ...product });
@@ -118,6 +119,7 @@ export const Inventory: React.FC<InventoryProps> = ({ role }) => {
 
   const handleMasterSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (role === 'VIEWER') return;
     if (!masterName.trim()) return;
     if (isMasterModalOpen === 'category') await api.saveCategoryMaster(masterName);
     else await api.saveLocationMaster(masterName);
@@ -126,6 +128,7 @@ export const Inventory: React.FC<InventoryProps> = ({ role }) => {
   };
 
   const handleMasterDelete = async (id: string) => {
+    if (role !== 'ADMIN') return;
     if (!confirm('¿Eliminar permanentemente?')) return;
     if (isMasterModalOpen === 'category') await api.deleteCategoryMaster(id);
     else await api.deleteLocationMaster(id);
@@ -134,6 +137,7 @@ export const Inventory: React.FC<InventoryProps> = ({ role }) => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (role === 'VIEWER') return;
     try {
       const payload = { 
         ...formData, 
@@ -154,10 +158,11 @@ export const Inventory: React.FC<InventoryProps> = ({ role }) => {
           <p className="text-xs text-slate-500 font-medium uppercase tracking-widest mt-1">Gestión por Listado de Variantes</p>
         </div>
         <div className="flex gap-2">
-          {/* Al tener auditoría, permitimos que todos registren, el sistema sabrá quién fue */}
-          <button onClick={() => handleOpenModal()} className="bg-indigo-600 text-white px-5 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest flex items-center shadow-xl shadow-indigo-100 hover:bg-indigo-700 transition-all active:scale-95">
-            <Plus className="w-4 h-4 mr-2" /> Nuevo Producto
-          </button>
+          {role !== 'VIEWER' && (
+            <button onClick={() => handleOpenModal()} className="bg-indigo-600 text-white px-5 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest flex items-center shadow-xl shadow-indigo-100 hover:bg-indigo-700 transition-all active:scale-95">
+              <Plus className="w-4 h-4 mr-2" /> Nuevo Producto
+            </button>
+          )}
         </div>
       </div>
 
@@ -182,8 +187,12 @@ export const Inventory: React.FC<InventoryProps> = ({ role }) => {
           )}
         </div>
         <div className="flex gap-2 w-full md:w-auto">
-           <button onClick={() => setIsMasterModalOpen('category')} className="flex-1 md:flex-none p-3 bg-white border border-slate-200 rounded-2xl text-slate-500 hover:text-indigo-600 transition-colors flex items-center justify-center gap-2 text-[10px] font-black uppercase whitespace-nowrap"><Tag className="w-4 h-4" /> Categorías</button>
-           <button onClick={() => setIsMasterModalOpen('location')} className="flex-1 md:flex-none p-3 bg-white border border-slate-200 rounded-2xl text-slate-500 hover:text-indigo-600 transition-colors flex items-center justify-center gap-2 text-[10px] font-black uppercase whitespace-nowrap"><MapPin className="w-4 h-4" /> Ubicaciones</button>
+           {role !== 'VIEWER' && (
+             <>
+               <button onClick={() => setIsMasterModalOpen('category')} className="flex-1 md:flex-none p-3 bg-white border border-slate-200 rounded-2xl text-slate-500 hover:text-indigo-600 transition-colors flex items-center justify-center gap-2 text-[10px] font-black uppercase whitespace-nowrap"><Tag className="w-4 h-4" /> Categorías</button>
+               <button onClick={() => setIsMasterModalOpen('location')} className="flex-1 md:flex-none p-3 bg-white border border-slate-200 rounded-2xl text-slate-500 hover:text-indigo-600 transition-colors flex items-center justify-center gap-2 text-[10px] font-black uppercase whitespace-nowrap"><MapPin className="w-4 h-4" /> Ubicaciones</button>
+             </>
+           )}
         </div>
       </div>
 
@@ -249,9 +258,15 @@ export const Inventory: React.FC<InventoryProps> = ({ role }) => {
                   <td className="px-6 py-4 text-right pr-8">
                     <div className="flex items-center justify-end space-x-1">
                       <button onClick={() => handleOpenQR(p)} className="p-2.5 text-indigo-600 hover:bg-indigo-50 rounded-xl transition-all" title="Ver QR"><QrCode className="w-4 h-4" /></button>
-                      {/* Habilitamos editar/eliminar para todos porque ahora hay auditoría */}
-                      <button onClick={() => handleOpenModal(p)} className="p-2.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl transition-all" title="Editar"><Edit2 className="w-4 h-4" /></button>
-                      <button onClick={() => { if(confirm('¿Eliminar producto?')) api.deleteProduct(p.id).then(loadData) }} className="p-2.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all" title="Eliminar"><Trash2 className="w-4 h-4" /></button>
+                      
+                      {/* Permisos según rol */}
+                      {role !== 'VIEWER' && (
+                        <button onClick={() => handleOpenModal(p)} className="p-2.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl transition-all" title="Editar"><Edit2 className="w-4 h-4" /></button>
+                      )}
+                      
+                      {role === 'ADMIN' && (
+                        <button onClick={() => { if(confirm('¿Eliminar producto?')) api.deleteProduct(p.id).then(loadData) }} className="p-2.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all" title="Eliminar"><Trash2 className="w-4 h-4" /></button>
+                      )}
                     </div>
                   </td>
                 </tr>
@@ -261,7 +276,7 @@ export const Inventory: React.FC<InventoryProps> = ({ role }) => {
         </div>
       </div>
 
-      {isModalOpen && (
+      {isModalOpen && role !== 'VIEWER' && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => setIsModalOpen(false)}></div>
           <form onSubmit={handleSubmit} className="relative bg-white rounded-[3rem] p-8 w-full max-w-4xl shadow-2xl overflow-y-auto max-h-[95vh] animate-in zoom-in-95">
@@ -387,7 +402,7 @@ export const Inventory: React.FC<InventoryProps> = ({ role }) => {
       )}
 
       {/* MODAL MAESTROS */}
-      {isMasterModalOpen && (
+      {isMasterModalOpen && role !== 'VIEWER' && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => setIsMasterModalOpen(null)}></div>
           <div className="relative bg-white rounded-[2.5rem] p-8 w-full max-w-md shadow-2xl">
@@ -405,7 +420,9 @@ export const Inventory: React.FC<InventoryProps> = ({ role }) => {
                 {(isMasterModalOpen === 'category' ? categories : locations).map(item => (
                   <div key={item.id} className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl group">
                     <span className="font-bold text-slate-700 text-sm">{item.name}</span>
-                    <button onClick={() => handleMasterDelete(item.id)} className="text-slate-300 hover:text-rose-600 transition-colors"><Trash2 className="w-4 h-4" /></button>
+                    {role === 'ADMIN' && (
+                      <button onClick={() => handleMasterDelete(item.id)} className="text-slate-300 hover:text-rose-600 transition-colors"><Trash2 className="w-4 h-4" /></button>
+                    )}
                   </div>
                 ))}
              </div>
