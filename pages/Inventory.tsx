@@ -17,7 +17,7 @@ export const Inventory: React.FC<InventoryProps> = ({ role }) => {
   const [categories, setCategories] = useState<CategoryMaster[]>([]);
   const [locations, setLocations] = useState<LocationMaster[]>([]);
   const [loading, setLoading] = useState(true);
-  const [isOptimizing, setIsOptimizing] = useState(false); // Estado para la barra de optimización
+  const [isOptimizing, setIsOptimizing] = useState(false); 
   const [search, setSearch] = useState('');
   
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -60,7 +60,8 @@ export const Inventory: React.FC<InventoryProps> = ({ role }) => {
       p.code.toLowerCase().includes(search.toLowerCase()) ||
       p.category.toLowerCase().includes(search.toLowerCase()) ||
       (p.brand && p.brand.toLowerCase().includes(search.toLowerCase())) ||
-      (p.size && p.size.toLowerCase().includes(search.toLowerCase()))
+      (p.size && p.size.toLowerCase().includes(search.toLowerCase())) ||
+      (p.location && p.location.toLowerCase().includes(search.toLowerCase()))
     ).sort((a, b) => a.name.localeCompare(b.name));
   }, [products, search]);
 
@@ -90,7 +91,7 @@ export const Inventory: React.FC<InventoryProps> = ({ role }) => {
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      setIsOptimizing(true); // Iniciar barra de optimización
+      setIsOptimizing(true);
       const reader = new FileReader();
       reader.onload = (event) => {
         const img = new Image();
@@ -102,11 +103,11 @@ export const Inventory: React.FC<InventoryProps> = ({ role }) => {
           canvas.height = img.height * scale;
           const ctx = canvas.getContext('2d');
           ctx?.drawImage(img, 0, 0, canvas.width, canvas.height);
-          const dataUrl = canvas.toDataURL('image/jpeg', 0.6); // 60% para máximo ahorro de storage
+          const dataUrl = canvas.toDataURL('image/jpeg', 0.6); 
           
-          setTimeout(() => { // Pequeño delay para que se vea el feedback
+          setTimeout(() => { 
             setFormData({ ...formData, imageUrl: dataUrl });
-            setIsOptimizing(false); // Terminar optimización
+            setIsOptimizing(false);
           }, 800);
         };
         img.src = event.target?.result as string;
@@ -153,11 +154,10 @@ export const Inventory: React.FC<InventoryProps> = ({ role }) => {
           <p className="text-xs text-slate-500 font-medium uppercase tracking-widest mt-1">Gestión por Listado de Variantes</p>
         </div>
         <div className="flex gap-2">
-          {role === 'ADMIN' && (
-            <button onClick={() => handleOpenModal()} className="bg-indigo-600 text-white px-5 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest flex items-center shadow-xl shadow-indigo-100 hover:bg-indigo-700 transition-all active:scale-95">
-              <Plus className="w-4 h-4 mr-2" /> Nuevo Producto
-            </button>
-          )}
+          {/* Al tener auditoría, permitimos que todos registren, el sistema sabrá quién fue */}
+          <button onClick={() => handleOpenModal()} className="bg-indigo-600 text-white px-5 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest flex items-center shadow-xl shadow-indigo-100 hover:bg-indigo-700 transition-all active:scale-95">
+            <Plus className="w-4 h-4 mr-2" /> Nuevo Producto
+          </button>
         </div>
       </div>
 
@@ -166,11 +166,20 @@ export const Inventory: React.FC<InventoryProps> = ({ role }) => {
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300" />
           <input 
             type="text" 
-            className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-transparent rounded-2xl text-sm outline-none focus:ring-2 focus:ring-indigo-500 font-medium transition-all" 
+            className="w-full pl-11 pr-12 py-3 bg-slate-50 border border-transparent rounded-2xl text-sm outline-none focus:ring-2 focus:ring-indigo-500 font-medium transition-all" 
             placeholder="Buscar por nombre, SKU, marca, talla, ubicación..." 
             value={search} 
             onChange={e => setSearch(e.target.value)}
           />
+          {search && (
+            <button 
+              onClick={() => setSearch('')}
+              className="absolute right-4 top-1/2 -translate-y-1/2 p-1.5 bg-slate-200 text-slate-500 rounded-lg hover:bg-slate-300 transition-colors"
+              title="Limpiar búsqueda"
+            >
+              <X className="w-3 h-3" />
+            </button>
+          )}
         </div>
         <div className="flex gap-2 w-full md:w-auto">
            <button onClick={() => setIsMasterModalOpen('category')} className="flex-1 md:flex-none p-3 bg-white border border-slate-200 rounded-2xl text-slate-500 hover:text-indigo-600 transition-colors flex items-center justify-center gap-2 text-[10px] font-black uppercase whitespace-nowrap"><Tag className="w-4 h-4" /> Categorías</button>
@@ -238,14 +247,11 @@ export const Inventory: React.FC<InventoryProps> = ({ role }) => {
                     <p className="font-black text-slate-700">{formatCurrency(p.purchasePrice, p.currency)}</p>
                   </td>
                   <td className="px-6 py-4 text-right pr-8">
-                    <div className="flex items-center justify-end space-x-2">
-                      <button onClick={() => handleOpenQR(p)} className="p-2.5 text-indigo-600 hover:bg-indigo-50 rounded-xl transition-all"><QrCode className="w-4 h-4" /></button>
-                      {role === 'ADMIN' && (
-                        <>
-                          <button onClick={() => handleOpenModal(p)} className="p-2.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl transition-all"><Edit2 className="w-4 h-4" /></button>
-                          <button onClick={() => api.deleteProduct(p.id).then(loadData)} className="p-2.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all"><Trash2 className="w-4 h-4" /></button>
-                        </>
-                      )}
+                    <div className="flex items-center justify-end space-x-1">
+                      <button onClick={() => handleOpenQR(p)} className="p-2.5 text-indigo-600 hover:bg-indigo-50 rounded-xl transition-all" title="Ver QR"><QrCode className="w-4 h-4" /></button>
+                      {/* Habilitamos editar/eliminar para todos porque ahora hay auditoría */}
+                      <button onClick={() => handleOpenModal(p)} className="p-2.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl transition-all" title="Editar"><Edit2 className="w-4 h-4" /></button>
+                      <button onClick={() => { if(confirm('¿Eliminar producto?')) api.deleteProduct(p.id).then(loadData) }} className="p-2.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all" title="Eliminar"><Trash2 className="w-4 h-4" /></button>
                     </div>
                   </td>
                 </tr>

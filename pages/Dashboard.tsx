@@ -32,10 +32,11 @@ export const Dashboard: React.FC = () => {
 
   useEffect(() => { fetchData(); }, []);
 
+  // Cambiado a 6 productos como solicitaste
   const alertProducts = products
     .filter(p => p.stock <= p.minStock)
     .sort((a, b) => a.stock - b.stock)
-    .slice(0, 5);
+    .slice(0, 6);
 
   const distribution = movements
     .filter(m => m.type === 'SALIDA' && m.destinationName)
@@ -84,21 +85,21 @@ export const Dashboard: React.FC = () => {
           <div className="bg-white rounded-3xl p-6 border border-slate-100 shadow-sm">
             <div className="flex items-center justify-between mb-6">
               <h3 className="text-xs font-black text-slate-800 uppercase tracking-[0.15em]">Alertas de Inventario</h3>
-              <span className="text-[10px] font-bold text-slate-400 uppercase">Top 5 Críticos</span>
+              <span className="text-[10px] font-bold text-slate-400 uppercase">Top 6 Críticos</span>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full text-left">
                 <thead className="text-[9px] font-black uppercase text-slate-400 tracking-widest border-b border-slate-50">
                   <tr>
-                    <th className="pb-4">Producto</th>
+                    <th className="pb-4 px-2">Producto</th>
                     <th className="pb-4 text-center">Stock</th>
-                    <th className="pb-4 text-right">Estado</th>
+                    <th className="pb-4 text-right pr-2">Estado</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-50">
                   {alertProducts.map(p => (
-                    <tr key={p.id} className="group">
-                      <td className="py-4">
+                    <tr key={p.id} className="group hover:bg-slate-50/50 transition-colors">
+                      <td className="py-4 px-2">
                         <p className="text-xs font-bold text-slate-800">{p.name}</p>
                         <p className="text-[9px] text-slate-400 font-medium">{p.code} • {p.location}</p>
                       </td>
@@ -106,7 +107,7 @@ export const Dashboard: React.FC = () => {
                         <span className="text-xs font-black text-slate-700">{p.stock}</span>
                         <span className="text-[9px] text-slate-400 font-bold ml-1 uppercase">{p.unit}</span>
                       </td>
-                      <td className="py-4 text-right">
+                      <td className="py-4 text-right pr-2">
                         <StockBadge stock={p.stock} minStock={p.minStock} criticalStock={p.criticalStock} />
                       </td>
                     </tr>
@@ -138,6 +139,12 @@ export const Dashboard: React.FC = () => {
                   </div>
                 );
               })}
+              {topDestinations.length === 0 && (
+                <div className="text-center py-10">
+                   <Package className="w-8 h-8 text-slate-100 mx-auto mb-2" />
+                   <p className="text-[9px] font-black text-slate-300 uppercase tracking-widest">Sin datos de salida</p>
+                </div>
+              )}
             </div>
           </div>
         </div>
