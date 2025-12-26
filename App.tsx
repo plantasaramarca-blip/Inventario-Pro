@@ -26,37 +26,36 @@ export default function App() {
   const [loadingPublic, setLoadingPublic] = useState(false);
 
   // ═══════════════════════════════════════════════════════
-  // MANEJO DEL HISTORIAL DEL NAVEGADOR (Fix Problema 2)
+  // SISTEMA DE NAVEGACIÓN ROBUSTO (Fix Problema 2 y 3)
   // ═══════════════════════════════════════════════════════
   useEffect(() => {
-    // 1. Sincronizar estado inicial con el hash actual
-    const hash = window.location.hash.replace('#', '') || 'dashboard';
-    setCurrentPage(hash);
-    
-    if (!window.history.state?.page) {
-      window.history.replaceState({ page: hash }, '', `#${hash}`);
-    }
-
-    // 2. Escuchar evento "popstate" (botón atrás/adelante)
-    const handlePopState = (event: PopStateEvent) => {
-      if (event.state?.page) {
-        setCurrentPage(event.state.page);
-      } else {
-        const newHash = window.location.hash.replace('#', '') || 'dashboard';
-        setCurrentPage(newHash);
-      }
+    const handleNavigation = () => {
+      const hash = window.location.hash.replace('#', '') || 'dashboard';
+      console.log('Navegando internamente a:', hash);
+      setCurrentPage(hash);
     };
 
-    window.addEventListener('popstate', handlePopState);
+    // Sincronizar al cargar
+    handleNavigation();
 
-    // 3. Verificar Vista Pública QR (view_product)
+    // Escuchar cambios en la URL (Botón atrás/adelante y cambios manuales)
+    window.addEventListener('hashchange', handleNavigation);
+    window.addEventListener('popstate', handleNavigation);
+
+    // Verificar si venimos de un escaneo QR (URL param)
     const urlParams = new URLSearchParams(window.location.search);
     const viewProductId = urlParams.get('view_product');
     
     if (viewProductId) {
       setLoadingPublic(true);
       api.getProductById(viewProductId).then(p => {
-        setPublicProduct(p);
+        if (p) {
+          console.log('Vista pública cargada para:', p.name);
+          setPublicProduct(p);
+        }
+        setLoadingPublic(false);
+      }).catch(err => {
+        console.error('Error cargando producto público:', err);
         setLoadingPublic(false);
       });
     }
@@ -67,39 +66,38 @@ export default function App() {
           const { data: { session: currentSession } } = await supabase.auth.getSession();
           if (currentSession) {
             setSession(currentSession);
-            setLoading(false);
-            return;
           }
+        } else {
+          const localSession = localStorage.getItem('kardex_local_session');
+          if (localSession) setSession(JSON.parse(localSession));
         }
-        const localSession = localStorage.getItem('kardex_local_session');
-        if (localSession) setSession(JSON.parse(localSession));
       } catch (err) {} 
       finally { setLoading(false); }
     };
     initAuth();
 
-    if (isSupabaseConfigured) {
-      const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-        setSession(session);
-      });
-      return () => {
-        subscription.unsubscribe();
-        window.removeEventListener('popstate', handlePopState);
-      };
-    }
-
-    return () => window.removeEventListener('popstate', handlePopState);
+    return () => {
+      window.removeEventListener('hashchange', handleNavigation);
+      window.removeEventListener('popstate', handleNavigation);
+    };
   }, []);
 
-  // Función global para cambiar de página con historial
+  // Función global de navegación para componentes hijos
   function navigateToPage(page: string) {
-    setCurrentPage(page);
-    window.history.pushState({ page }, '', `#${page}`);
+    if (window.location.hash !== `#${page}`) {
+      window.location.hash = page;
+      // El evento hashchange disparará setCurrentPage
+    } else {
+      setCurrentPage(page);
+    }
   }
 
   if (loading || loadingPublic) return (
     <div className="h-screen flex items-center justify-center bg-slate-50">
-      <Loader2 className="animate-spin w-10 h-10 text-indigo-600" />
+      <div className="text-center">
+        <Loader2 className="animate-spin w-10 h-10 text-indigo-600 mx-auto mb-4" />
+        <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Iniciando Sistema...</p>
+      </div>
     </div>
   );
 
@@ -165,6 +163,7 @@ export default function App() {
   if (!session) return <Login />;
 
   const renderContent = () => {
+    console.log('App renderizando pestaña:', currentPage);
     switch (currentPage) {
       case 'inventory': return <Inventory role={role} />;
       case 'kardex': return <Kardex onNavigateToDestinos={() => navigateToPage('destinos')} />;

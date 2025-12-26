@@ -32,12 +32,19 @@ export const Inventory: React.FC<InventoryProps> = ({ role }) => {
   });
   
   const loadData = async () => {
+    console.log('Inventario: Cargando productos desde la API...');
     setLoading(true);
     try {
-      const [prods, cats] = await Promise.all([api.getProducts(), api.getCategories()]);
+      const [prods, cats] = await Promise.all([
+        api.getProducts(), 
+        api.getCategories()
+      ]);
+      console.log('Inventario: Productos recibidos:', prods.length);
       setProducts(prods || []);
       setCategories(cats || []);
-    } catch (e) { console.error(e); }
+    } catch (e) { 
+      console.error('Error cargando inventario:', e); 
+    }
     finally { setLoading(false); }
   };
 
@@ -68,15 +75,31 @@ export const Inventory: React.FC<InventoryProps> = ({ role }) => {
     setIsModalOpen(true);
   };
 
+  const handleOpenQR = (e: React.MouseEvent, product: Product) => {
+    e.preventDefault();
+    e.stopPropagation();
+    console.log('Solicitando apertura de QR para:', product.name);
+    setSelectedProductForQR(product);
+    setShowQRModal(true);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const payload = {
-      ...formData,
-      stock: formData.stock === '' ? 0 : Number(formData.stock)
-    };
-    await api.saveProduct(payload);
-    setIsModalOpen(false);
-    loadData();
+    console.log('Guardando producto:', formData.name);
+    try {
+      const payload = {
+        ...formData,
+        stock: formData.stock === '' ? 0 : Number(formData.stock)
+      };
+      await api.saveProduct(payload);
+      console.log('Producto guardado correctamente. Refrescando lista...');
+      setIsModalOpen(false);
+      // RECARGA EXPLÍCITA DE DATOS (Soluciona Problema 1)
+      await loadData();
+    } catch (err) {
+      console.error('Error al guardar producto:', err);
+      alert('Error al guardar producto');
+    }
   };
 
   const margin = calculateMargin(formData.purchasePrice || 0, formData.salePrice || 0);
@@ -127,7 +150,20 @@ export const Inventory: React.FC<InventoryProps> = ({ role }) => {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-50">
-              {filteredProducts.map(p => {
+              {loading && products.length === 0 ? (
+                <tr>
+                  <td colSpan={8} className="py-20 text-center">
+                    <Loader2 className="animate-spin w-8 h-8 text-indigo-500 mx-auto mb-4" />
+                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Consultando Almacén...</p>
+                  </td>
+                </tr>
+              ) : filteredProducts.length === 0 ? (
+                <tr>
+                  <td colSpan={8} className="py-20 text-center text-[10px] font-black uppercase tracking-widest text-slate-300">
+                    No se encontraron productos
+                  </td>
+                </tr>
+              ) : filteredProducts.map(p => {
                 const totalVal = p.purchasePrice * p.stock;
                 const pMargin = calculateMargin(p.purchasePrice, p.salePrice || 0);
                 return (
@@ -140,7 +176,6 @@ export const Inventory: React.FC<InventoryProps> = ({ role }) => {
                         <div>
                           <p className="font-bold text-slate-800 group-hover:text-indigo-600 transition-colors">{p.name}</p>
                           <p className="text-[10px] text-slate-400 font-black uppercase tracking-tighter">SKU: {p.code}</p>
-                          <p className="text-[9px] text-indigo-500 font-black uppercase tracking-widest">{p.qr_code}</p>
                         </div>
                       </div>
                     </td>
@@ -178,19 +213,20 @@ export const Inventory: React.FC<InventoryProps> = ({ role }) => {
                     <td className="px-6 py-4 text-right">
                       <div className="flex items-center justify-end space-x-1">
                         <button
-                          onClick={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            setSelectedProductForQR(p);
-                            setShowQRModal(true);
-                          }}
+                          type="button"
+                          onClick={(e) => handleOpenQR(e, p)}
                           className="text-indigo-600 hover:text-indigo-800 px-3 py-2 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-sm flex items-center gap-1 transition-all font-bold"
                           title="Ver código QR"
                         >
                           <QrCode className="w-4 h-4" /> QR
                         </button>
                         {role === 'ADMIN' && (
-                          <button onClick={() => handleOpenModal(p)} title="Editar" className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl transition-all">
+                          <button 
+                            type="button"
+                            onClick={() => handleOpenModal(p)} 
+                            title="Editar" 
+                            className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl transition-all"
+                          >
                             <Edit2 className="w-4 h-4" />
                           </button>
                         )}
@@ -301,11 +337,12 @@ export const Inventory: React.FC<InventoryProps> = ({ role }) => {
         </div>
       )}
 
-      {/* MODAL QR FINAL AL FINAL DEL COMPONENTE */}
+      {/* MODAL QR (Fijado como overlay de alta prioridad) */}
       {showQRModal && selectedProductForQR && (
         <ProductQRCode
           product={selectedProductForQR}
           onClose={() => {
+            console.log('Cerrando modal QR');
             setShowQRModal(false);
             setSelectedProductForQR(null);
           }}
