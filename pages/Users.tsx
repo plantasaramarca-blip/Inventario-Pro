@@ -4,7 +4,7 @@ import { UserAccount, Role } from '../types.ts';
 import * as api from '../services/supabaseService.ts';
 import { 
   Plus, UserPlus, Key, Shield, Trash2, X, Search, Loader2, 
-  Mail, Calendar, ShieldAlert, ShieldCheck, UserCheck
+  Mail, Calendar, ShieldAlert, ShieldCheck, UserCheck, Save
 } from 'https://esm.sh/lucide-react@0.475.0?deps=react@19.2.3';
 
 export const UsersPage: React.FC = () => {
@@ -21,9 +21,13 @@ export const UsersPage: React.FC = () => {
   const loadUsers = async () => {
     setLoading(true);
     try {
-      setUsers(await api.getUsers());
-    } catch (e) {}
-    finally { setLoading(false); }
+      const data = await api.getUsers();
+      setUsers(data);
+    } catch (e) {
+      console.error("Error al cargar usuarios:", e);
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => { loadUsers(); }, []);
@@ -41,15 +45,23 @@ export const UsersPage: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    await api.saveUser({ ...formData, id: editingUser?.id });
-    setIsModalOpen(false);
-    loadUsers();
+    try {
+      await api.saveUser({ ...formData, id: editingUser?.id });
+      setIsModalOpen(false);
+      loadUsers();
+    } catch (err) {
+      alert("Error al guardar usuario");
+    }
   };
 
   const handleDelete = async (id: string) => {
     if (confirm('¿Eliminar este usuario permanentemente?')) {
-      await api.deleteUser(id);
-      loadUsers();
+      try {
+        await api.deleteUser(id);
+        loadUsers();
+      } catch (err) {
+        alert("Error al eliminar usuario");
+      }
     }
   };
 
@@ -68,7 +80,7 @@ export const UsersPage: React.FC = () => {
           <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Gestión de Usuarios</h1>
           <p className="text-xs text-slate-500 font-medium uppercase tracking-widest mt-1">Control de Acceso y Permisos</p>
         </div>
-        <button onClick={() => handleOpenModal()} className="bg-indigo-600 text-white px-5 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest flex items-center shadow-xl shadow-indigo-100 hover:bg-indigo-700 transition-all">
+        <button onClick={() => handleOpenModal()} className="bg-indigo-600 text-white px-5 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest flex items-center shadow-xl shadow-indigo-100 hover:bg-indigo-700 transition-all active:scale-95">
           <UserPlus className="w-4 h-4 mr-2" /> Nuevo Usuario
         </button>
       </div>
@@ -86,12 +98,15 @@ export const UsersPage: React.FC = () => {
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {loading ? (
-          <div className="col-span-full py-20 text-center"><Loader2 className="animate-spin mx-auto w-10 h-10 text-indigo-500" /></div>
+          <div className="col-span-full py-20 text-center">
+            <Loader2 className="animate-spin mx-auto w-10 h-10 text-indigo-500" />
+            <p className="text-[10px] font-black text-slate-400 uppercase mt-4">Cargando cuentas...</p>
+          </div>
         ) : users.filter(u => u.email.toLowerCase().includes(search.toLowerCase())).map(u => (
-          <div key={u.id} className="bg-white p-6 rounded-[2.5rem] border border-slate-100 shadow-sm flex flex-col justify-between hover:shadow-md transition-shadow">
+          <div key={u.id} className="bg-white p-6 rounded-[2.5rem] border border-slate-100 shadow-sm flex flex-col justify-between hover:shadow-md transition-shadow group">
              <div className="space-y-4">
                 <div className="flex justify-between items-start">
-                   <div className="p-4 bg-slate-50 rounded-2xl text-slate-400">
+                   <div className="p-4 bg-slate-50 rounded-2xl text-slate-400 group-hover:bg-indigo-50 group-hover:text-indigo-500 transition-colors">
                       <Mail className="w-6 h-6" />
                    </div>
                    {getRoleBadge(u.role)}
@@ -105,7 +120,7 @@ export const UsersPage: React.FC = () => {
              </div>
              
              <div className="flex items-center justify-between mt-8 pt-6 border-t border-slate-50">
-                <button onClick={() => handleOpenModal(u)} className="p-3 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl transition-all flex items-center gap-2 text-[10px] font-black uppercase">
+                <button onClick={() => handleOpenModal(u)} className="p-3 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl transition-all flex items-center gap-2 text-[10px] font-black uppercase tracking-widest">
                   <Key className="w-4 h-4" /> Cambiar
                 </button>
                 <button onClick={() => handleDelete(u.id)} className="p-3 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all">
@@ -125,37 +140,39 @@ export const UsersPage: React.FC = () => {
                   <h3 className="text-xl font-black text-slate-800 uppercase tracking-tight">{editingUser ? 'Editar' : 'Nuevo'} Usuario</h3>
                   <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1">Definición de credenciales</p>
                 </div>
-                <button type="button" onClick={() => setIsModalOpen(false)}><X className="text-slate-400" /></button>
+                <button type="button" onClick={() => setIsModalOpen(false)} className="p-2 hover:bg-slate-50 rounded-xl transition-colors"><X className="text-slate-400" /></button>
              </div>
              
              <div className="space-y-4">
                 <div className="space-y-1">
                   <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-2">Correo Electrónico</label>
-                  <input type="email" required className="w-full p-4 bg-slate-50 rounded-2xl outline-none font-bold text-sm" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} />
+                  <input type="email" required className="w-full p-4 bg-slate-50 rounded-2xl outline-none font-bold text-sm focus:ring-2 focus:ring-indigo-500 transition-all" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} />
                 </div>
                 
                 <div className="space-y-1">
                   <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-2">Contraseña {editingUser && '(Dejar vacío para mantener)'}</label>
-                  <input type="password" required={!editingUser} className="w-full p-4 bg-slate-50 rounded-2xl outline-none font-bold text-sm" value={formData.password} onChange={e => setFormData({...formData, password: e.target.value})} />
+                  <input type="password" required={!editingUser} className="w-full p-4 bg-slate-50 rounded-2xl outline-none font-bold text-sm focus:ring-2 focus:ring-indigo-500 transition-all" value={formData.password} onChange={e => setFormData({...formData, password: e.target.value})} />
                 </div>
 
                 <div className="space-y-1">
                   <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-2">Rol del Usuario</label>
-                  <select className="w-full p-4 bg-indigo-50 text-indigo-700 rounded-2xl outline-none font-black text-xs uppercase" value={formData.role} onChange={e => setFormData({...formData, role: e.target.value as Role})}>
-                    <option value="ADMIN">Administrador (Todo)</option>
+                  <select className="w-full p-4 bg-indigo-50 text-indigo-700 rounded-2xl outline-none font-black text-xs uppercase cursor-pointer" value={formData.role} onChange={e => setFormData({...formData, role: e.target.value as Role})}>
+                    <option value="ADMIN">Administrador (Control Total)</option>
                     <option value="USER">Usuario (Crear/Editar)</option>
                     <option value="VIEWER">Visor (Solo Lectura)</option>
                   </select>
-                  <p className="text-[9px] text-slate-400 font-medium px-2 mt-2 italic">
-                    {formData.role === 'ADMIN' && "* Acceso total al sistema y auditorías."}
-                    {formData.role === 'USER' && "* Puede gestionar stock pero no eliminar registros."}
-                    {formData.role === 'VIEWER' && "* Solo puede visualizar reportes y stock."}
-                  </p>
+                  <div className="bg-slate-50 p-3 rounded-2xl mt-3">
+                    <p className="text-[9px] text-slate-500 font-bold uppercase tracking-tighter leading-relaxed">
+                      {formData.role === 'ADMIN' && "• Puede gestionar usuarios, auditorías y todo el stock."}
+                      {formData.role === 'USER' && "• Puede registrar entradas/salidas pero NO eliminar registros."}
+                      {formData.role === 'VIEWER' && "• Solo puede consultar existencias y reportes."}
+                    </p>
+                  </div>
                 </div>
 
                 <div className="flex gap-4 mt-10">
-                   <button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 text-[10px] font-black uppercase text-slate-400">Cancelar</button>
-                   <button type="submit" className="flex-[2] py-4 bg-indigo-600 text-white rounded-2xl text-[10px] font-black uppercase shadow-xl shadow-indigo-100 flex items-center justify-center gap-2">
+                   <button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 text-[10px] font-black uppercase tracking-widest text-slate-400">Cancelar</button>
+                   <button type="submit" className="flex-[2] py-4 bg-indigo-600 text-white rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] shadow-xl shadow-indigo-100 flex items-center justify-center gap-2 hover:bg-indigo-700 transition-all">
                      <Save className="w-4 h-4" /> Guardar
                    </button>
                 </div>
@@ -166,7 +183,3 @@ export const UsersPage: React.FC = () => {
     </div>
   );
 };
-
-const Save = ({ className }: { className?: string }) => (
-  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>
-);
