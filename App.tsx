@@ -20,9 +20,14 @@ export default function App() {
   const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState('dashboard');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [role, setRole] = useState<Role>('ADMIN');
+  const [role, setRole] = useState<Role>('VIEWER'); // Default a Viewer por seguridad
   const [publicProduct, setPublicProduct] = useState<Product | null>(null);
   const [loadingPublic, setLoadingPublic] = useState(false);
+
+  const fetchRole = async (email: string) => {
+    const profile = await api.getCurrentUserProfile(email);
+    if (profile) setRole(profile.role);
+  };
 
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
@@ -41,15 +46,25 @@ export default function App() {
         if (isSupabaseConfigured) {
           const { data: { session: currentSession } } = await supabase.auth.getSession();
           setSession(currentSession);
+          if (currentSession?.user?.email) {
+            await fetchRole(currentSession.user.email);
+          }
 
-          const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+          const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
             setSession(session);
+            if (session?.user?.email) {
+              await fetchRole(session.user.email);
+            }
           });
 
           return () => subscription.unsubscribe();
         } else {
           const localSession = localStorage.getItem('kardex_local_session');
-          if (localSession) setSession(JSON.parse(localSession));
+          if (localSession) {
+            const parsed = JSON.parse(localSession);
+            setSession(parsed);
+            await fetchRole(parsed.user.email);
+          }
         }
       } catch (e) {
         console.error("Auth error:", e);

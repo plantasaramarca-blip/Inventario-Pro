@@ -5,7 +5,18 @@ import * as localStorageApi from './storageService.ts';
 
 const useSupabase = () => isSupabaseConfigured;
 
-// --- Usuarios ---
+// --- Usuarios y Perfiles ---
+export const getCurrentUserProfile = async (email: string): Promise<{role: Role} | null> => {
+  if (!useSupabase()) {
+    const users = await getUsers();
+    const user = users.find(u => u.email === email);
+    return user ? { role: user.role } : { role: 'VIEWER' };
+  }
+  const { data, error } = await supabase.from('profiles').select('role').eq('email', email).maybeSingle();
+  if (error || !data) return { role: 'VIEWER' };
+  return { role: data.role as Role };
+};
+
 export const getUsers = async (): Promise<UserAccount[]> => {
   if (!useSupabase()) {
     const data = localStorage.getItem('kardex_users');
@@ -16,7 +27,6 @@ export const getUsers = async (): Promise<UserAccount[]> => {
   
   if (error) {
     console.error("Error fetching users from Supabase:", error);
-    // Si la tabla no existe (404), intentamos usar localStorage como respaldo temporal
     if (error.code === 'PGRST116' || error.message.includes('not found')) {
       const localData = localStorage.getItem('kardex_users');
       return localData ? JSON.parse(localData) : [];
@@ -53,9 +63,7 @@ export const saveUser = async (user: Partial<UserAccount>) => {
 
   const payload = { 
     email: user.email, 
-    role: user.role,
-    // Nota: La contraseña no se guarda en la tabla 'profiles' por seguridad, 
-    // se maneja a través de Supabase Auth en un flujo real.
+    role: user.role
   };
 
   let error;
@@ -69,16 +77,7 @@ export const saveUser = async (user: Partial<UserAccount>) => {
 
   if (error) {
     console.error("Error saving user to Supabase:", error);
-    // Fallback a localStorage si la tabla no existe
-    const users = await getUsers();
-    users.push({ 
-      id: user.id || crypto.randomUUID(), 
-      email: user.email!, 
-      role: user.role || 'USER', 
-      createdAt: new Date().toISOString() 
-    });
-    localStorage.setItem('kardex_users', JSON.stringify(users));
-    throw new Error(`Error en base de datos: ${error.message}. Se guardó localmente.`);
+    throw new Error(`Error en base de datos: ${error.message}. Asegúrese de crear la tabla 'profiles'.`);
   }
 };
 
@@ -89,10 +88,7 @@ export const deleteUser = async (id: string) => {
     return;
   }
   const { error } = await supabase.from('profiles').delete().eq('id', id);
-  if (error) {
-    console.error("Error deleting user:", error);
-    throw error;
-  }
+  if (error) throw error;
 };
 
 // --- Maestros: Ubicaciones ---
