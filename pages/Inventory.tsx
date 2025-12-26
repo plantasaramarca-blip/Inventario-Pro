@@ -7,7 +7,7 @@ import { ProductQRCode } from '../components/ProductQRCode.tsx';
 import { formatCurrency } from '../utils/currencyUtils.ts';
 import { 
   Plus, Search, Edit2, ImageIcon, Loader2, QrCode, 
-  X, Trash2, Save, Package, Camera, Settings, MapPin, Tag, ChevronRight, Check
+  X, Trash2, Save, Package, Camera, Settings, MapPin, Tag, Filter
 } from 'https://esm.sh/lucide-react@0.475.0?deps=react@19.2.3';
 
 interface InventoryProps { role: Role; }
@@ -32,7 +32,7 @@ export const Inventory: React.FC<InventoryProps> = ({ role }) => {
   const [formData, setFormData] = useState<any>({
     code: '', name: '', brand: '', size: '', model: '', 
     category: '', location: '', stock: '', 
-    minStock: 30, criticalStock: 10, purchasePrice: 0, salePrice: undefined, 
+    minStock: 30, criticalStock: 10, purchasePrice: 0, 
     currency: 'PEN', unit: 'und', imageUrl: ''
   });
   
@@ -58,8 +58,8 @@ export const Inventory: React.FC<InventoryProps> = ({ role }) => {
       p.name.toLowerCase().includes(search.toLowerCase()) || 
       p.code.toLowerCase().includes(search.toLowerCase()) ||
       p.category.toLowerCase().includes(search.toLowerCase()) ||
-      p.brand?.toLowerCase().includes(search.toLowerCase()) ||
-      p.size?.toLowerCase().includes(search.toLowerCase())
+      (p.brand && p.brand.toLowerCase().includes(search.toLowerCase())) ||
+      (p.size && p.size.toLowerCase().includes(search.toLowerCase()))
     ).sort((a, b) => a.name.localeCompare(b.name));
   }, [products, search]);
 
@@ -70,10 +70,10 @@ export const Inventory: React.FC<InventoryProps> = ({ role }) => {
     } else {
       setEditingProduct(null);
       setFormData({ 
-        code: `C${String(products.length + 1).padStart(4, '0')}`, 
+        code: `SKU-${String(products.length + 1).padStart(4, '0')}`, 
         name: '', brand: '', size: '', model: '',
-        category: categories[0]?.name || '', 
-        location: locations[0]?.name || '', 
+        category: categories[0]?.name || 'General', 
+        location: locations[0]?.name || 'Almacén 1', 
         stock: '', minStock: 30, criticalStock: 10, purchasePrice: 0, 
         currency: 'PEN', unit: 'und', imageUrl: '' 
       });
@@ -81,7 +81,6 @@ export const Inventory: React.FC<InventoryProps> = ({ role }) => {
     setIsModalOpen(true);
   };
 
-  // Fix: Added handleOpenQR to set state for the QR modal
   const handleOpenQR = (product: Product) => {
     setSelectedProductForQR(product);
     setShowQRModal(true);
@@ -90,9 +89,22 @@ export const Inventory: React.FC<InventoryProps> = ({ role }) => {
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
+      // Optimización de peso de imagen vía Canvas antes de guardar
       const reader = new FileReader();
-      reader.onloadend = () => {
-        setFormData({ ...formData, imageUrl: reader.result as string });
+      reader.onload = (event) => {
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          const MAX_WIDTH = 800;
+          const scale = MAX_WIDTH / img.width;
+          canvas.width = MAX_WIDTH;
+          canvas.height = img.height * scale;
+          const ctx = canvas.getContext('2d');
+          ctx?.drawImage(img, 0, 0, canvas.width, canvas.height);
+          const dataUrl = canvas.toDataURL('image/jpeg', 0.7); // 70% calidad para ahorrar espacio
+          setFormData({ ...formData, imageUrl: dataUrl });
+        };
+        img.src = event.target?.result as string;
       };
       reader.readAsDataURL(file);
     }
@@ -132,86 +144,113 @@ export const Inventory: React.FC<InventoryProps> = ({ role }) => {
     <div className="space-y-6 pb-20 animate-in fade-in duration-500">
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Catálogo Maestro</h1>
-          <p className="text-xs text-slate-500 font-medium uppercase tracking-widest mt-1">Existencias y Variantes Técnicas</p>
+          <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Catálogo de Almacén</h1>
+          <p className="text-xs text-slate-500 font-medium uppercase tracking-widest mt-1">Gestión por Listado de Variantes</p>
         </div>
         <div className="flex gap-2">
           {role === 'ADMIN' && (
             <button onClick={() => handleOpenModal()} className="bg-indigo-600 text-white px-5 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest flex items-center shadow-xl shadow-indigo-100 hover:bg-indigo-700 transition-all active:scale-95">
-              <Plus className="w-4 h-4 mr-2" /> Nuevo Ítem
+              <Plus className="w-4 h-4 mr-2" /> Nuevo Producto
             </button>
           )}
         </div>
       </div>
 
-      <div className="bg-white p-4 rounded-[2rem] border border-slate-100 relative shadow-sm flex gap-4 overflow-x-auto items-center no-scrollbar">
-        <div className="relative flex-1 min-w-[300px]">
+      <div className="bg-white p-4 rounded-[2rem] border border-slate-100 relative shadow-sm flex flex-col md:flex-row gap-4 items-center">
+        <div className="relative flex-1 w-full">
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300" />
           <input 
             type="text" 
             className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-transparent rounded-2xl text-sm outline-none focus:ring-2 focus:ring-indigo-500 font-medium transition-all" 
-            placeholder="Buscar por nombre, SKU, marca, talla..." 
+            placeholder="Buscar por nombre, SKU, marca, talla, ubicación..." 
             value={search} 
             onChange={e => setSearch(e.target.value)}
           />
         </div>
-        <div className="flex gap-2">
-           <button onClick={() => setIsMasterModalOpen('category')} className="p-3 bg-white border border-slate-200 rounded-2xl text-slate-500 hover:text-indigo-600 transition-colors flex items-center gap-2 text-[10px] font-black uppercase whitespace-nowrap"><Tag className="w-4 h-4" /> Categorías</button>
-           <button onClick={() => setIsMasterModalOpen('location')} className="p-3 bg-white border border-slate-200 rounded-2xl text-slate-500 hover:text-indigo-600 transition-colors flex items-center gap-2 text-[10px] font-black uppercase whitespace-nowrap"><MapPin className="w-4 h-4" /> Ubicaciones</button>
+        <div className="flex gap-2 w-full md:w-auto">
+           <button onClick={() => setIsMasterModalOpen('category')} className="flex-1 md:flex-none p-3 bg-white border border-slate-200 rounded-2xl text-slate-500 hover:text-indigo-600 transition-colors flex items-center justify-center gap-2 text-[10px] font-black uppercase whitespace-nowrap"><Tag className="w-4 h-4" /> Categorías</button>
+           <button onClick={() => setIsMasterModalOpen('location')} className="flex-1 md:flex-none p-3 bg-white border border-slate-200 rounded-2xl text-slate-500 hover:text-indigo-600 transition-colors flex items-center justify-center gap-2 text-[10px] font-black uppercase whitespace-nowrap"><MapPin className="w-4 h-4" /> Ubicaciones</button>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-        {loading ? (
-          <div className="col-span-full py-24 text-center">
-            <Loader2 className="animate-spin w-10 h-10 text-indigo-500 mx-auto" />
-          </div>
-        ) : filteredProducts.map(p => (
-          <div key={p.id} className="bg-white rounded-[2.5rem] p-6 border border-slate-100 shadow-sm hover:shadow-xl transition-all group flex flex-col">
-            <div className="relative mb-4 h-48 bg-slate-50 rounded-[2rem] overflow-hidden border border-slate-100 flex items-center justify-center">
-              {p.imageUrl ? (
-                <img src={p.imageUrl} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
-              ) : (
-                <Package className="w-12 h-12 text-slate-200" />
-              )}
-              <div className="absolute top-4 right-4 flex flex-col gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                <button onClick={() => handleOpenQR(p)} className="p-2 bg-white/90 backdrop-blur rounded-xl shadow-lg text-indigo-600 hover:bg-indigo-600 hover:text-white transition-all"><QrCode className="w-4 h-4" /></button>
-                {role === 'ADMIN' && (
-                  <>
-                    <button onClick={() => handleOpenModal(p)} className="p-2 bg-white/90 backdrop-blur rounded-xl shadow-lg text-slate-600 hover:bg-slate-900 hover:text-white transition-all"><Edit2 className="w-4 h-4" /></button>
-                    <button onClick={() => api.deleteProduct(p.id).then(loadData)} className="p-2 bg-white/90 backdrop-blur rounded-xl shadow-lg text-rose-600 hover:bg-rose-600 hover:text-white transition-all"><Trash2 className="w-4 h-4" /></button>
-                  </>
-                )}
-              </div>
-              <div className="absolute bottom-4 left-4">
-                <StockBadge stock={p.stock} minStock={p.minStock} criticalStock={p.criticalStock} />
-              </div>
-            </div>
-            
-            <div className="flex-1">
-              <p className="text-[10px] font-black uppercase text-indigo-500 tracking-widest mb-1">{p.category} • {p.brand}</p>
-              <h3 className="font-bold text-slate-800 line-clamp-2 leading-tight mb-2">{p.name} {p.size && `• Talla/Med: ${p.size}`}</h3>
-              <div className="flex items-center gap-2 mb-4">
-                <span className="text-[9px] font-black bg-slate-100 text-slate-500 px-2 py-0.5 rounded uppercase tracking-tighter">SKU: {p.code}</span>
-                {p.location && <span className="text-[9px] font-black bg-emerald-50 text-emerald-600 px-2 py-0.5 rounded uppercase flex items-center gap-1"><MapPin className="w-2 h-2" /> {p.location}</span>}
-              </div>
-            </div>
-
-            <div className="pt-4 border-t border-slate-50 flex items-end justify-between">
-              <div>
-                <p className="text-[9px] font-black text-slate-400 uppercase">Costo Unitario</p>
-                <p className="font-black text-slate-800">{formatCurrency(p.purchasePrice, p.currency)}</p>
-              </div>
-              <div className="text-right">
-                <p className="text-[9px] font-black text-slate-400 uppercase">En Mano</p>
-                <p className="text-xl font-black text-indigo-600 leading-none">{p.stock} <span className="text-[10px] uppercase font-bold text-slate-400">{p.unit}</span></p>
-              </div>
-            </div>
-          </div>
-        ))}
+      <div className="bg-white rounded-[2.5rem] border border-slate-100 overflow-hidden shadow-sm">
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead className="bg-slate-50/80 text-[10px] font-black uppercase text-slate-400 tracking-widest">
+              <tr>
+                <th className="px-8 py-6 text-left">Producto / Variante</th>
+                <th className="px-6 py-6 text-center">Estado</th>
+                <th className="px-6 py-6 text-center">Ubicación</th>
+                <th className="px-6 py-6 text-center">Existencia</th>
+                <th className="px-6 py-6 text-center">Costo Unit.</th>
+                <th className="px-6 py-6 text-right pr-8">Acciones</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-50">
+              {loading ? (
+                <tr><td colSpan={6} className="py-24 text-center">
+                  <Loader2 className="animate-spin w-10 h-10 text-indigo-500 mx-auto" />
+                </td></tr>
+              ) : filteredProducts.length === 0 ? (
+                <tr><td colSpan={6} className="py-24 text-center">
+                  <Package className="w-12 h-12 text-slate-200 mx-auto mb-4" />
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">No se encontraron productos</p>
+                </td></tr>
+              ) : filteredProducts.map(p => (
+                <tr key={p.id} className="hover:bg-slate-50/50 group transition-colors">
+                  <td className="px-8 py-4">
+                    <div className="flex items-center space-x-4">
+                      <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center border border-slate-200 overflow-hidden shadow-sm group-hover:scale-110 transition-transform">
+                        {p.imageUrl ? (
+                          <img src={p.imageUrl} className="w-full h-full object-cover" />
+                        ) : (
+                          <ImageIcon className="text-slate-200 w-6 h-6" />
+                        )}
+                      </div>
+                      <div>
+                        <p className="font-bold text-slate-800 text-sm leading-tight">{p.name}</p>
+                        <div className="flex flex-wrap items-center gap-2 mt-1">
+                          <span className="text-[9px] text-slate-400 font-black uppercase tracking-tighter bg-slate-100 px-1.5 py-0.5 rounded">SKU: {p.code}</span>
+                          {p.brand && <span className="text-[9px] text-indigo-500 font-black uppercase tracking-tighter">{p.brand}</span>}
+                          {p.size && <span className="text-[9px] text-emerald-600 font-black uppercase tracking-tighter">• {p.size}</span>}
+                        </div>
+                      </div>
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 text-center">
+                    <StockBadge stock={p.stock} minStock={p.minStock} criticalStock={p.criticalStock} />
+                  </td>
+                  <td className="px-6 py-4 text-center">
+                    <div className="inline-flex items-center gap-1.5 text-[10px] font-black text-slate-500 uppercase bg-slate-100 px-2.5 py-1 rounded-lg">
+                      <MapPin className="w-3 h-3 text-indigo-400" /> {p.location || '-'}
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 text-center">
+                    <span className="font-black text-slate-800 text-base">{p.stock}</span>
+                    <span className="text-[10px] text-slate-400 font-bold ml-1 uppercase">{p.unit}</span>
+                  </td>
+                  <td className="px-6 py-4 text-center">
+                    <p className="font-black text-slate-700">{formatCurrency(p.purchasePrice, p.currency)}</p>
+                  </td>
+                  <td className="px-6 py-4 text-right pr-8">
+                    <div className="flex items-center justify-end space-x-2">
+                      <button onClick={() => handleOpenQR(p)} className="p-2.5 text-indigo-600 hover:bg-indigo-50 rounded-xl transition-all"><QrCode className="w-4 h-4" /></button>
+                      {role === 'ADMIN' && (
+                        <>
+                          <button onClick={() => handleOpenModal(p)} className="p-2.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl transition-all"><Edit2 className="w-4 h-4" /></button>
+                          <button onClick={() => api.deleteProduct(p.id).then(loadData)} className="p-2.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all"><Trash2 className="w-4 h-4" /></button>
+                        </>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
 
-      {/* MODAL PRODUCTO */}
+      {/* MODAL PRODUCTO (Sigue igual, optimizado para cámara) */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => setIsModalOpen(false)}></div>
@@ -221,14 +260,13 @@ export const Inventory: React.FC<InventoryProps> = ({ role }) => {
                  <div className="p-4 bg-indigo-600 text-white rounded-3xl shadow-xl shadow-indigo-100"><Package /></div>
                  <div>
                    <h3 className="text-2xl font-black text-slate-800 tracking-tight uppercase">{editingProduct ? 'Editar' : 'Nuevo'} Producto</h3>
-                   <p className="text-xs text-slate-400 font-bold uppercase tracking-widest">Atributos técnicos y variantes</p>
+                   <p className="text-xs text-slate-400 font-bold uppercase tracking-widest">Variantes y ficha técnica</p>
                  </div>
                </div>
                <button type="button" onClick={() => setIsModalOpen(false)} className="p-2 hover:bg-slate-50 rounded-2xl"><X className="w-6 h-6 text-slate-400" /></button>
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-              {/* SECCION FOTO */}
               <div className="lg:col-span-1 space-y-4">
                 <div className="aspect-square bg-slate-50 rounded-[3rem] border-2 border-dashed border-slate-200 flex flex-col items-center justify-center relative overflow-hidden group">
                   {formData.imageUrl ? (
@@ -236,7 +274,7 @@ export const Inventory: React.FC<InventoryProps> = ({ role }) => {
                   ) : (
                     <div className="text-center p-6">
                       <ImageIcon className="w-12 h-12 text-slate-200 mx-auto mb-2" />
-                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Sin imagen cargada</p>
+                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Sin foto</p>
                     </div>
                   )}
                   <button 
@@ -245,37 +283,35 @@ export const Inventory: React.FC<InventoryProps> = ({ role }) => {
                     className="absolute inset-0 bg-indigo-600/60 text-white opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-2 font-black uppercase text-xs"
                   >
                     <Camera className="w-8 h-8" />
-                    {formData.imageUrl ? 'Cambiar Foto' : 'Capturar Foto'}
+                    Capturar
                   </button>
                   <input type="file" accept="image/*" capture="environment" className="hidden" ref={fileInputRef} onChange={handleFileChange} />
                 </div>
-                <p className="text-[9px] text-center text-slate-400 font-bold uppercase px-4 leading-tight italic">Sugerencia: Usa el celular para tomar fotos de las brocas o etiquetas de zapatos.</p>
               </div>
 
-              {/* DATOS GENERALES */}
               <div className="lg:col-span-2 space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-1">
                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Nombre Comercial *</label>
-                    <input type="text" required placeholder="Ej: Zapato Punta Acero S3" className="w-full p-4 bg-slate-50 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-500 font-bold" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} />
+                    <input type="text" required placeholder="Ej: Zapato Punta Acero" className="w-full p-4 bg-slate-50 rounded-2xl outline-none font-bold" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} />
                   </div>
                   <div className="space-y-1">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Marca (Diferenciador)</label>
-                    <input type="text" placeholder="Ej: Shell / Bata / Caterpillar" className="w-full p-4 bg-slate-50 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-500 font-bold" value={formData.brand} onChange={e => setFormData({...formData, brand: e.target.value})} />
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Marca</label>
+                    <input type="text" placeholder="Ej: Caterpillar / Shell" className="w-full p-4 bg-slate-50 rounded-2xl outline-none font-bold" value={formData.brand} onChange={e => setFormData({...formData, brand: e.target.value})} />
                   </div>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div className="space-y-1">
                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Talla / Medida</label>
-                    <input type="text" placeholder="Ej: 42 / 1/2'' / 1LT" className="w-full p-4 bg-slate-50 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-500 font-black text-indigo-600" value={formData.size} onChange={e => setFormData({...formData, size: e.target.value})} />
+                    <input type="text" placeholder="Ej: 42 / 1/2'' / 1LT" className="w-full p-4 bg-slate-50 rounded-2xl outline-none font-black text-indigo-600" value={formData.size} onChange={e => setFormData({...formData, size: e.target.value})} />
                   </div>
                   <div className="space-y-1">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Modelo / Serie</label>
-                    <input type="text" placeholder="Ej: Predator / Helix" className="w-full p-4 bg-slate-50 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-500 font-bold" value={formData.model} onChange={e => setFormData({...formData, model: e.target.value})} />
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Modelo</label>
+                    <input type="text" className="w-full p-4 bg-slate-50 rounded-2xl outline-none font-bold" value={formData.model} onChange={e => setFormData({...formData, model: e.target.value})} />
                   </div>
                   <div className="space-y-1">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">SKU / Código Único</label>
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">SKU / Código</label>
                     <input type="text" required className="w-full p-4 bg-indigo-50 rounded-2xl outline-none font-black text-indigo-700" value={formData.code} onChange={e => setFormData({...formData, code: e.target.value.toUpperCase()})} />
                   </div>
                 </div>
@@ -288,7 +324,7 @@ export const Inventory: React.FC<InventoryProps> = ({ role }) => {
                     </select>
                   </div>
                   <div className="space-y-1">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Ubicación Física</label>
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Ubicación</label>
                     <select className="w-full p-4 bg-slate-50 rounded-2xl outline-none font-bold" value={formData.location} onChange={e => setFormData({...formData, location: e.target.value})}>
                       {locations.map(l => <option key={l.id} value={l.name}>{l.name}</option>)}
                     </select>
@@ -323,13 +359,13 @@ export const Inventory: React.FC<InventoryProps> = ({ role }) => {
 
             <div className="flex gap-4 mt-10">
               <button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 py-5 text-[11px] font-black uppercase tracking-[0.2em] text-slate-400">Cancelar</button>
-              <button type="submit" className="flex-[2] py-5 bg-indigo-600 text-white rounded-3xl text-[11px] font-black uppercase tracking-[0.2em] shadow-2xl flex items-center justify-center gap-3"><Save className="w-5 h-5" /> {editingProduct ? 'Actualizar' : 'Registrar'} en Almacén</button>
+              <button type="submit" className="flex-[2] py-5 bg-indigo-600 text-white rounded-3xl text-[11px] font-black uppercase tracking-[0.2em] shadow-2xl flex items-center justify-center gap-3"><Save className="w-5 h-5" /> Guardar</button>
             </div>
           </form>
         </div>
       )}
 
-      {/* MODAL MAESTROS (GESTION DE CATEGORIAS/UBICACIONES) */}
+      {/* MODAL MAESTROS */}
       {isMasterModalOpen && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => setIsMasterModalOpen(null)}></div>
@@ -340,13 +376,7 @@ export const Inventory: React.FC<InventoryProps> = ({ role }) => {
              </div>
              
              <form onSubmit={handleMasterSubmit} className="flex gap-2 mb-6">
-                <input 
-                  type="text" 
-                  placeholder={`Nueva ${isMasterModalOpen === 'category' ? 'categoría' : 'ubicación'}...`} 
-                  className="flex-1 p-4 bg-slate-50 rounded-2xl outline-none font-bold text-sm"
-                  value={masterName}
-                  onChange={e => setMasterName(e.target.value)}
-                />
+                <input type="text" placeholder="Nuevo valor..." className="flex-1 p-4 bg-slate-50 rounded-2xl outline-none font-bold" value={masterName} onChange={e => setMasterName(e.target.value)} />
                 <button type="submit" className="p-4 bg-indigo-600 text-white rounded-2xl"><Plus /></button>
              </form>
 
