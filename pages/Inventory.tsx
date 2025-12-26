@@ -1,5 +1,4 @@
-
-import React, { useState, useEffect, useMemo } from 'https://esm.sh/react@19.0.0';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Product, Role } from '../types';
 import * as api from '../services/supabaseService';
 import { exportToExcel, formatTimestamp, getStockStatusLabel } from '../services/excelService';
@@ -9,7 +8,7 @@ import { formatCurrency, calculateMargin } from '../utils/currencyUtils';
 import { 
   Plus, Search, Edit2, ImageIcon, Loader2, FileSpreadsheet, 
   DollarSign, BarChart3, TrendingUp, AlertCircle, Coins, MapPin, Tag, QrCode
-} from 'https://esm.sh/lucide-react@0.475.0?deps=react@19.0.0';
+} from 'lucide-react';
 
 interface InventoryProps { role: Role; }
 
@@ -21,7 +20,6 @@ export const Inventory: React.FC<InventoryProps> = ({ role }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   
-  // Estados para el Modal QR
   const [showQRModal, setShowQRModal] = useState(false);
   const [selectedProductForQR, setSelectedProductForQR] = useState<Product | null>(null);
   
@@ -32,19 +30,15 @@ export const Inventory: React.FC<InventoryProps> = ({ role }) => {
   });
   
   const loadData = async () => {
-    console.log('Inventario: Cargando productos desde la API...');
     setLoading(true);
     try {
       const [prods, cats] = await Promise.all([
         api.getProducts(), 
         api.getCategories()
       ]);
-      console.log('Inventario: Productos recibidos:', prods.length);
       setProducts(prods || []);
       setCategories(cats || []);
-    } catch (e) { 
-      console.error('Error cargando inventario:', e); 
-    }
+    } catch (e) { console.error(e); }
     finally { setLoading(false); }
   };
 
@@ -75,29 +69,23 @@ export const Inventory: React.FC<InventoryProps> = ({ role }) => {
     setIsModalOpen(true);
   };
 
-  const handleOpenQR = (e: React.MouseEvent, product: Product) => {
-    e.preventDefault();
-    e.stopPropagation();
-    console.log('Solicitando apertura de QR para:', product.name);
+  const handleOpenQR = (product: Product) => {
     setSelectedProductForQR(product);
     setShowQRModal(true);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log('Guardando producto:', formData.name);
     try {
       const payload = {
         ...formData,
         stock: formData.stock === '' ? 0 : Number(formData.stock)
       };
       await api.saveProduct(payload);
-      console.log('Producto guardado correctamente. Refrescando lista...');
       setIsModalOpen(false);
-      // RECARGA EXPLÍCITA DE DATOS (Soluciona Problema 1)
       await loadData();
     } catch (err) {
-      console.error('Error al guardar producto:', err);
+      console.error(err);
       alert('Error al guardar producto');
     }
   };
@@ -214,9 +202,8 @@ export const Inventory: React.FC<InventoryProps> = ({ role }) => {
                       <div className="flex items-center justify-end space-x-1">
                         <button
                           type="button"
-                          onClick={(e) => handleOpenQR(e, p)}
+                          onClick={() => handleOpenQR(p)}
                           className="text-indigo-600 hover:text-indigo-800 px-3 py-2 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-sm flex items-center gap-1 transition-all font-bold"
-                          title="Ver código QR"
                         >
                           <QrCode className="w-4 h-4" /> QR
                         </button>
@@ -224,7 +211,6 @@ export const Inventory: React.FC<InventoryProps> = ({ role }) => {
                           <button 
                             type="button"
                             onClick={() => handleOpenModal(p)} 
-                            title="Editar" 
                             className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl transition-all"
                           >
                             <Edit2 className="w-4 h-4" />
@@ -276,7 +262,6 @@ export const Inventory: React.FC<InventoryProps> = ({ role }) => {
                       value={formData.stock} 
                       onChange={e => setFormData({...formData, stock: e.target.value})} 
                     />
-                    <p className="text-[8px] text-slate-400 font-bold uppercase ml-1">Dejar vacío para iniciar en 0</p>
                   </div>
                   <div className="space-y-1">
                     <label className="text-[10px] font-black text-slate-400 uppercase ml-1">Unidad</label>
@@ -337,12 +322,10 @@ export const Inventory: React.FC<InventoryProps> = ({ role }) => {
         </div>
       )}
 
-      {/* MODAL QR (Fijado como overlay de alta prioridad) */}
       {showQRModal && selectedProductForQR && (
         <ProductQRCode
           product={selectedProductForQR}
           onClose={() => {
-            console.log('Cerrando modal QR');
             setShowQRModal(false);
             setSelectedProductForQR(null);
           }}
