@@ -1,7 +1,7 @@
 
-import React, { useState } from 'react';
+import React, { useState } from 'https://esm.sh/react@19.2.3';
 import { supabase, isSupabaseConfigured } from '../supabaseClient.ts';
-import { LogIn, Lock, Mail, Loader2, AlertCircle, UserPlus, Database, HardDrive, ArrowRight } from 'lucide-react';
+import { LogIn, Lock, Mail, Loader2, AlertCircle, UserPlus, Database, HardDrive, ArrowRight } from 'https://esm.sh/lucide-react@0.475.0?deps=react@19.2.3';
 
 export const Login: React.FC = () => {
   const [email, setEmail] = useState('');
@@ -15,7 +15,6 @@ export const Login: React.FC = () => {
     setLoading(true);
     setError(null);
 
-    // MODO LOCAL (Simulación para cuando no hay Supabase configurado)
     if (!isSupabaseConfigured) {
       setTimeout(() => {
         const userEmail = email || 'admin@local.com';
@@ -26,19 +25,14 @@ export const Login: React.FC = () => {
       return;
     }
 
-    // MODO SUPABASE CLOUD
     try {
       if (isRegistering) {
         const { error: signUpError } = await supabase.auth.signUp({ email, password });
         if (signUpError) throw signUpError;
-        
-        // Supabase por defecto requiere confirmar email. 
-        // Si ya existe el usuario, devuelve el error que viste.
         setError("¡Registro iniciado! Si el correo es nuevo, verifica tu bandeja de entrada.");
       } else {
         const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
         if (signInError) throw signInError;
-        // El listener en App.tsx detectará el cambio automáticamente
       }
     } catch (err: any) {
       if (err.message === "User already registered") {
@@ -55,7 +49,6 @@ export const Login: React.FC = () => {
     <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
       <div className="max-w-md w-full bg-white rounded-[2.5rem] shadow-2xl overflow-hidden border border-slate-100">
         
-        {/* Pestañas de Navegación */}
         <div className="flex p-2 bg-slate-50 m-6 rounded-2xl border border-slate-200">
           <button 
             onClick={() => { setIsRegistering(false); setError(null); }}

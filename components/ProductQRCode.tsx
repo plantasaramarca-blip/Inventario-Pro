@@ -1,8 +1,9 @@
-import React, { useRef } from 'react';
-import { QRCodeSVG } from 'qrcode.react';
-import { jsPDF } from 'jspdf';
-import html2canvas from 'html2canvas';
-import { X, Printer, Download, Info, AlertTriangle } from 'lucide-react';
+
+import React, { useRef } from 'https://esm.sh/react@19.2.3';
+import { QRCodeSVG } from 'https://esm.sh/qrcode.react@3.1.0?deps=react@19.2.3';
+import { jsPDF } from 'https://esm.sh/jspdf@2.5.1';
+import html2canvas from 'https://esm.sh/html2canvas@1.4.1';
+import { X, Printer, Download, AlertTriangle } from 'https://esm.sh/lucide-react@0.475.0?deps=react@19.2.3';
 
 interface ProductQRCodeProps {
   product: {
