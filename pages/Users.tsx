@@ -4,7 +4,7 @@ import { UserAccount, Role } from '../types.ts';
 import * as api from '../services/supabaseService.ts';
 import { 
   Plus, UserPlus, Key, Shield, Trash2, X, Search, Loader2, 
-  Mail, Calendar, ShieldAlert, ShieldCheck, UserCheck, Save
+  Mail, Calendar, ShieldAlert, ShieldCheck, UserCheck, Save, AlertTriangle
 } from 'https://esm.sh/lucide-react@0.475.0?deps=react@19.2.3';
 
 export const UsersPage: React.FC = () => {
@@ -13,6 +13,7 @@ export const UsersPage: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [search, setSearch] = useState('');
   const [editingUser, setEditingUser] = useState<UserAccount | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const [formData, setFormData] = useState<Partial<UserAccount>>({
     email: '', password: '', role: 'USER'
@@ -20,11 +21,13 @@ export const UsersPage: React.FC = () => {
 
   const loadUsers = async () => {
     setLoading(true);
+    setErrorMessage(null);
     try {
       const data = await api.getUsers();
       setUsers(data);
-    } catch (e) {
+    } catch (e: any) {
       console.error("Error al cargar usuarios:", e);
+      setErrorMessage("No se pudo conectar con la base de datos de usuarios.");
     } finally {
       setLoading(false);
     }
@@ -49,8 +52,8 @@ export const UsersPage: React.FC = () => {
       await api.saveUser({ ...formData, id: editingUser?.id });
       setIsModalOpen(false);
       loadUsers();
-    } catch (err) {
-      alert("Error al guardar usuario");
+    } catch (err: any) {
+      alert(err.message || "Error al guardar usuario");
     }
   };
 
@@ -85,6 +88,13 @@ export const UsersPage: React.FC = () => {
         </button>
       </div>
 
+      {errorMessage && (
+        <div className="p-4 bg-amber-50 border border-amber-100 rounded-2xl flex items-center gap-3 text-amber-800">
+          <AlertTriangle className="w-5 h-5 flex-shrink-0" />
+          <p className="text-xs font-bold uppercase tracking-tight">{errorMessage} Verifique que la tabla 'profiles' exista en Supabase.</p>
+        </div>
+      )}
+
       <div className="bg-white p-4 rounded-[2rem] border border-slate-100 shadow-sm relative">
         <Search className="absolute left-8 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300" />
         <input 
@@ -101,6 +111,11 @@ export const UsersPage: React.FC = () => {
           <div className="col-span-full py-20 text-center">
             <Loader2 className="animate-spin mx-auto w-10 h-10 text-indigo-500" />
             <p className="text-[10px] font-black text-slate-400 uppercase mt-4">Cargando cuentas...</p>
+          </div>
+        ) : users.length === 0 ? (
+          <div className="col-span-full py-20 text-center bg-white rounded-[2.5rem] border border-dashed border-slate-200">
+            <UserPlus className="mx-auto w-12 h-12 text-slate-200 mb-4" />
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">No hay usuarios registrados</p>
           </div>
         ) : users.filter(u => u.email.toLowerCase().includes(search.toLowerCase())).map(u => (
           <div key={u.id} className="bg-white p-6 rounded-[2.5rem] border border-slate-100 shadow-sm flex flex-col justify-between hover:shadow-md transition-shadow group">

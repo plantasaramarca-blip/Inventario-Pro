@@ -11,8 +11,25 @@ export const getUsers = async (): Promise<UserAccount[]> => {
     const data = localStorage.getItem('kardex_users');
     return data ? JSON.parse(data) : [{ id: 'admin-1', email: 'admin@planta.com', role: 'ADMIN', createdAt: new Date().toISOString() }];
   }
-  const { data } = await supabase.from('profiles').select('*').order('email');
-  return (data || []).map(u => ({ id: u.id, email: u.email, role: u.role as Role, createdAt: u.created_at }));
+  
+  const { data, error } = await supabase.from('profiles').select('*').order('email');
+  
+  if (error) {
+    console.error("Error fetching users from Supabase:", error);
+    // Si la tabla no existe (404), intentamos usar localStorage como respaldo temporal
+    if (error.code === 'PGRST116' || error.message.includes('not found')) {
+      const localData = localStorage.getItem('kardex_users');
+      return localData ? JSON.parse(localData) : [];
+    }
+    return [];
+  }
+  
+  return (data || []).map(u => ({ 
+    id: u.id, 
+    email: u.email, 
+    role: u.role as Role, 
+    createdAt: u.created_at 
+  }));
 };
 
 export const saveUser = async (user: Partial<UserAccount>) => {
@@ -33,10 +50,36 @@ export const saveUser = async (user: Partial<UserAccount>) => {
     localStorage.setItem('kardex_users', JSON.stringify(users));
     return;
   }
-  // En Supabase real esto requeriría funciones RPC o manejar la tabla de profiles
-  const payload = { email: user.email, role: user.role };
-  if (user.id) await supabase.from('profiles').update(payload).eq('id', user.id);
-  else await supabase.from('profiles').insert([payload]);
+
+  const payload = { 
+    email: user.email, 
+    role: user.role,
+    // Nota: La contraseña no se guarda en la tabla 'profiles' por seguridad, 
+    // se maneja a través de Supabase Auth en un flujo real.
+  };
+
+  let error;
+  if (user.id) {
+    const { error: updateError } = await supabase.from('profiles').update(payload).eq('id', user.id);
+    error = updateError;
+  } else {
+    const { error: insertError } = await supabase.from('profiles').insert([payload]);
+    error = insertError;
+  }
+
+  if (error) {
+    console.error("Error saving user to Supabase:", error);
+    // Fallback a localStorage si la tabla no existe
+    const users = await getUsers();
+    users.push({ 
+      id: user.id || crypto.randomUUID(), 
+      email: user.email!, 
+      role: user.role || 'USER', 
+      createdAt: new Date().toISOString() 
+    });
+    localStorage.setItem('kardex_users', JSON.stringify(users));
+    throw new Error(`Error en base de datos: ${error.message}. Se guardó localmente.`);
+  }
 };
 
 export const deleteUser = async (id: string) => {
@@ -45,7 +88,11 @@ export const deleteUser = async (id: string) => {
     localStorage.setItem('kardex_users', JSON.stringify(users));
     return;
   }
-  await supabase.from('profiles').delete().eq('id', id);
+  const { error } = await supabase.from('profiles').delete().eq('id', id);
+  if (error) {
+    console.error("Error deleting user:", error);
+    throw error;
+  }
 };
 
 // --- Maestros: Ubicaciones ---
