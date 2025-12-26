@@ -1,87 +1,77 @@
 
 import { supabase, isSupabaseConfigured } from '../supabaseClient.ts';
-import { Product, Movement, Contact, InventoryStats, AuditLog, Destination } from '../types.ts';
+import { Product, Movement, Contact, InventoryStats, AuditLog, Destination, LocationMaster, CategoryMaster } from '../types.ts';
 import * as localStorageApi from './storageService.ts';
 
 const useSupabase = () => isSupabaseConfigured;
 
-export const getAuditLogs = async (page = 0, limit = 50, filters?: any) => {
-  if (!useSupabase()) return localStorageApi.getAuditLogs(page, limit);
-  
-  let query = supabase.from('audit_logs').select('*', { count: 'exact' });
-  
-  if (filters) {
-    if (filters.action && filters.action !== 'ALL') query = query.eq('action', filters.action);
-    if (filters.tableName && filters.tableName !== 'ALL') query = query.eq('table_name', filters.tableName);
-    if (filters.userEmail) query = query.ilike('user_email', `%${filters.userEmail}%`);
+// --- Maestros: Ubicaciones ---
+export const getLocationsMaster = async (): Promise<LocationMaster[]> => {
+  if (!useSupabase()) {
+    const data = localStorage.getItem('kardex_locations_master');
+    return data ? JSON.parse(data) : [{id: '1', name: 'Almacén Central'}];
   }
-  
-  const { data, count } = await query
-    .order('created_at', { ascending: false })
-    .range(page * limit, (page + 1) * limit - 1);
-    
-  return {
-    data: (data || []).map(l => ({
-      id: l.id,
-      created_at: l.created_at,
-      user_id: l.user_id,
-      user_email: l.user_email,
-      action: l.action,
-      table_name: l.table_name,
-      record_id: l.record_id,
-      record_name: l.record_name,
-      old_values: l.old_values,
-      new_values: l.new_values,
-      changes_summary: l.changes_summary
-    })),
-    count: count || 0
-  };
+  const { data } = await supabase.from('locations_master').select('*').order('name');
+  return data || [];
 };
 
-export const logAuditAction = async (
-  action: 'CREATE' | 'UPDATE' | 'DELETE',
-  tableName: string,
-  recordId: string,
-  recordName: string,
-  oldValues?: any,
-  newValues?: any
-): Promise<void> => {
-  let userEmail = 'Usuario Local';
-  let userId = 'local-user';
-
-  if (useSupabase()) {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (user) {
-      userEmail = user.email || '';
-      userId = user.id;
-    }
+export const saveLocationMaster = async (name: string) => {
+  if (!useSupabase()) {
+    const locs = await getLocationsMaster();
+    locs.push({ id: crypto.randomUUID(), name });
+    localStorage.setItem('kardex_locations_master', JSON.stringify(locs));
+    return;
   }
-
-  const logPayload = {
-    user_id: userId,
-    user_email: userEmail,
-    action,
-    table_name: tableName,
-    record_id: recordId,
-    record_name: recordName || 'Sin Nombre',
-    old_values: oldValues,
-    new_values: newValues,
-    changes_summary: `${action} en ${tableName}: ${recordName}`
-  };
-
-  if (useSupabase()) {
-    try { await supabase.from('audit_logs').insert([logPayload]); } catch (e) {}
-  } else {
-    localStorageApi.saveAuditLog(logPayload);
-  }
+  await supabase.from('locations_master').insert([{ name }]);
 };
 
+export const deleteLocationMaster = async (id: string) => {
+  if (!useSupabase()) {
+    const locs = (await getLocationsMaster()).filter(l => l.id !== id);
+    localStorage.setItem('kardex_locations_master', JSON.stringify(locs));
+    return;
+  }
+  await supabase.from('locations_master').delete().eq('id', id);
+};
+
+// --- Maestros: Categorías ---
+export const getCategoriesMaster = async (): Promise<CategoryMaster[]> => {
+  if (!useSupabase()) {
+    const data = localStorage.getItem('kardex_categories_master');
+    return data ? JSON.parse(data) : [{id: '1', name: 'Lubricantes'}, {id: '2', name: 'Calzado Seguridad'}];
+  }
+  const { data } = await supabase.from('categories_master').select('*').order('name');
+  return data || [];
+};
+
+export const saveCategoryMaster = async (name: string) => {
+  if (!useSupabase()) {
+    const cats = await getCategoriesMaster();
+    cats.push({ id: crypto.randomUUID(), name });
+    localStorage.setItem('kardex_categories_master', JSON.stringify(cats));
+    return;
+  }
+  await supabase.from('categories_master').insert([{ name }]);
+};
+
+export const deleteCategoryMaster = async (id: string) => {
+  if (!useSupabase()) {
+    const cats = (await getCategoriesMaster()).filter(c => c.id !== id);
+    localStorage.setItem('kardex_categories_master', JSON.stringify(cats));
+    return;
+  }
+  await supabase.from('categories_master').delete().eq('id', id);
+};
+
+// --- Productos ---
 export const getProducts = async (): Promise<Product[]> => {
   if (!useSupabase()) return localStorageApi.getProducts();
   const { data, error } = await supabase.from('products').select('*').order('name');
   if (error) return [];
   return (data || []).map(p => ({
-    id: p.id, code: p.code, name: p.name, category: p.category, location: p.location, 
+    id: p.id, code: p.code, name: p.name, 
+    brand: p.brand || '', size: p.size || '', model: p.model || '',
+    category: p.category, location: p.location, 
     stock: p.stock || 0, minStock: p.min_stock ?? 30, criticalStock: p.critical_stock ?? 10,
     price: Number(p.precio_compra || p.price) || 0,
     purchasePrice: Number(p.precio_compra || p.price) || 0,
@@ -92,12 +82,51 @@ export const getProducts = async (): Promise<Product[]> => {
   }));
 };
 
+export const saveProduct = async (product: Partial<Product>) => {
+  if (!useSupabase()) {
+    const id = product.id || crypto.randomUUID();
+    const p = { ...product, id, updatedAt: new Date().toISOString() } as Product;
+    localStorageApi.saveProduct(p);
+    return;
+  }
+
+  const payload: any = {
+    code: product.code, name: product.name, 
+    brand: product.brand, size: product.size, model: product.model,
+    category: product.category,
+    location: product.location, stock: product.stock, min_stock: product.minStock,
+    critical_stock: product.criticalStock, precio_compra: product.purchasePrice,
+    precio_venta: product.salePrice, moneda: product.currency,
+    unit: product.unit, image_url: product.imageUrl, updated_at: new Date().toISOString()
+  };
+
+  if (product.id) {
+    await supabase.from('products').update(payload).eq('id', product.id);
+  } else {
+    await supabase.from('products').insert([payload]);
+  }
+};
+
+export const getAuditLogs = async (page = 0, limit = 50, filters?: any) => {
+  if (!useSupabase()) return localStorageApi.getAuditLogs(page, limit);
+  let query = supabase.from('audit_logs').select('*', { count: 'exact' });
+  if (filters) {
+    if (filters.action && filters.action !== 'ALL') query = query.eq('action', filters.action);
+    if (filters.tableName && filters.tableName !== 'ALL') query = query.eq('table_name', filters.tableName);
+    if (filters.userEmail) query = query.ilike('user_email', `%${filters.userEmail}%`);
+  }
+  const { data, count } = await query.order('created_at', { ascending: false }).range(page * limit, (page + 1) * limit - 1);
+  return { data: data || [], count: count || 0 };
+};
+
 export const getProductById = async (id: string): Promise<Product | null> => {
   if (!useSupabase()) return localStorageApi.getProducts().find(x => x.id === id) || null;
   const { data } = await supabase.from('products').select('*').eq('id', id).maybeSingle();
   if (!data) return null;
   return {
-    id: data.id, code: data.code, name: data.name, category: data.category, location: data.location, 
+    id: data.id, code: data.code, name: data.name, 
+    brand: data.brand, size: data.size, model: data.model,
+    category: data.category, location: data.location, 
     stock: data.stock || 0, minStock: data.min_stock ?? 30, criticalStock: data.critical_stock ?? 10,
     price: Number(data.precio_compra || data.price) || 0,
     purchasePrice: Number(data.precio_compra || data.price) || 0,
@@ -108,66 +137,17 @@ export const getProductById = async (id: string): Promise<Product | null> => {
   };
 };
 
-export const saveProduct = async (product: Partial<Product>) => {
-  if (!useSupabase()) {
-    const id = product.id || crypto.randomUUID();
-    const p = { ...product, id, updatedAt: new Date().toISOString() } as Product;
-    localStorageApi.saveProduct(p);
-    return;
-  }
-
-  let qrCode = product.qr_code;
-  if (!product.id && !qrCode) {
-    try {
-      const { data: lastProd } = await supabase
-        .from('products')
-        .select('qr_code')
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
-      
-      let nextNum = 1;
-      if (lastProd?.qr_code) {
-        const match = lastProd.qr_code.match(/PROD-(\d+)/);
-        if (match) nextNum = parseInt(match[1]) + 1;
-      }
-      qrCode = `PROD-${String(nextNum).padStart(6, '0')}`;
-    } catch (e) {
-      qrCode = product.code || `P-${Date.now()}`;
-    }
-  }
-
-  const payload: any = {
-    code: product.code, name: product.name, category: product.category,
-    location: product.location, stock: product.stock, min_stock: product.minStock,
-    critical_stock: product.criticalStock, precio_compra: product.purchasePrice,
-    precio_venta: product.salePrice, moneda: product.currency,
-    unit: product.unit, image_url: product.imageUrl, updated_at: new Date().toISOString()
-  };
-
-  if (qrCode) payload.qr_code = qrCode;
-
-  if (product.id) {
-    await supabase.from('products').update(payload).eq('id', product.id);
-  } else {
-    await supabase.from('products').insert([payload]);
-  }
-};
-
 export const deleteProduct = async (id: string) => {
   if (!useSupabase()) return localStorageApi.deleteProduct(id);
-  const { error } = await supabase.from('products').delete().eq('id', id);
-  if (error) throw error;
+  await supabase.from('products').delete().eq('id', id);
 };
 
 export const registerMovement = async (movement: any) => {
   if (!useSupabase()) return localStorageApi.registerMovement(movement);
   const { data: product } = await supabase.from('products').select('name, stock').eq('id', movement.productId).single();
   if (!product) throw new Error("Producto no encontrado");
-
   let newStock = product.stock + (movement.type === 'INGRESO' ? movement.quantity : -movement.quantity);
   await supabase.from('products').update({ stock: newStock }).eq('id', movement.productId);
-  
   await supabase.from('movements').insert([{
     product_id: movement.productId, product_name: product.name, type: movement.type,
     quantity: movement.quantity, dispatcher: movement.dispatcher, reason: movement.reason,
