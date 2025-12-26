@@ -1,14 +1,12 @@
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'https://esm.sh/react@19.2.3';
 import * as api from '../services/supabaseService.ts';
 import { InventoryStats, Product, Movement } from '../types.ts';
 import { 
-  TrendingUp, AlertTriangle, PackageX, Package, 
-  AlertCircle, DollarSign, Loader2, Database,
-  ArrowUpRight, Info, MapPin, Building2, ShoppingBag
-} from 'lucide-react';
+  TrendingUp, AlertTriangle, Package, 
+  AlertCircle, DollarSign, Loader2, MapPin, Building2, ShoppingBag
+} from 'https://esm.sh/lucide-react@0.475.0?deps=react@19.2.3';
 import { StockBadge } from '../components/StockBadge.tsx';
-import { groupProductsByStatus } from '../utils/stockUtils.ts';
 import { formatCurrency } from '../utils/currencyUtils.ts';
 
 export const Dashboard: React.FC = () => {
@@ -97,38 +95,6 @@ export const Dashboard: React.FC = () => {
                 </div>
               );
             })}
-            {topDestinations.length === 0 && (
-              <div className="py-20 text-center opacity-20">
-                <MapPin className="w-10 h-10 mx-auto mb-2" />
-                <p className="text-[10px] font-black uppercase">Sin datos de destinos aún</p>
-              </div>
-            )}
-          </div>
-        </div>
-
-        <div className="bg-white rounded-3xl p-6 border border-slate-100 shadow-sm">
-          <div className="flex items-center justify-between mb-8">
-            <h3 className="text-xs font-black text-slate-800 uppercase tracking-[0.15em]">Top Inversión Actual</h3>
-            <DollarSign className="w-4 h-4 text-emerald-400" />
-          </div>
-          <div className="space-y-4">
-            {[...products]
-              .sort((a, b) => (b.purchasePrice * b.stock) - (a.purchasePrice * a.stock))
-              .slice(0, 5)
-              .map(p => (
-                <div key={p.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-2xl border border-slate-100/50">
-                   <div className="flex items-center">
-                     <div className="w-8 h-8 rounded-lg bg-white border border-slate-200 mr-3 flex items-center justify-center overflow-hidden">
-                       {p.imageUrl ? <img src={p.imageUrl} className="h-full w-full object-cover" /> : <Package className="w-4 h-4 text-slate-300" />}
-                     </div>
-                     <div>
-                       <p className="text-xs font-bold text-slate-800 truncate">{p.name}</p>
-                       <p className="text-[9px] text-slate-400 font-black uppercase tracking-tighter">{p.stock} en mano</p>
-                     </div>
-                   </div>
-                   <p className="text-xs font-black text-slate-900">{formatCurrency(p.purchasePrice * p.stock, p.currency)}</p>
-                </div>
-              ))}
           </div>
         </div>
       </div>
