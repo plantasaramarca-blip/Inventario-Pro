@@ -1,3 +1,4 @@
+
 import { supabase, isSupabaseConfigured } from '../supabaseClient.ts';
 import { Product, Movement, Contact, InventoryStats, AuditLog, Destination } from '../types.ts';
 import * as localStorageApi from './storageService.ts';
@@ -95,7 +96,11 @@ export const logAuditAction = async (
 
 export const getProducts = async (): Promise<Product[]> => {
   if (!useSupabase()) return localStorageApi.getProducts();
-  const { data } = await supabase.from('products').select('*').order('name');
+  const { data, error } = await supabase.from('products').select('*').order('name');
+  if (error) {
+    console.error('Error obteniendo productos:', error);
+    return [];
+  }
   return (data || []).map(p => ({
     id: p.id, code: p.code, name: p.name, category: p.category, location: p.location, 
     stock: p.stock || 0, minStock: p.min_stock ?? 30, criticalStock: p.critical_stock ?? 10,
@@ -175,12 +180,11 @@ export const deleteDestino = async (id: string) => {
 export const saveProduct = async (product: Partial<Product>) => {
   if (!useSupabase()) {
     const id = product.id || crypto.randomUUID();
-    // Generar QR para modo local
     let qr = product.qr_code;
     if (!qr) {
        const existing = localStorageApi.getProducts();
        const nextNum = existing.length + 1;
-       qr = `PROD-${String(nextNum).padStart(4, '0')}`;
+       qr = `PROD-${String(nextNum).padStart(6, '0')}`;
     }
     const p = { 
       ...product, id, qr_code: qr,
@@ -195,19 +199,26 @@ export const saveProduct = async (product: Partial<Product>) => {
     return;
   }
 
-  // Lógica de autogeneración de QR en Supabase si es nuevo
   let qrCode = product.qr_code;
   if (!product.id && !qrCode) {
-    const { data: lastProd } = await supabase.from('products').select('qr_code').order('created_at', { ascending: false }).limit(1).single();
+    // Usamos maybeSingle() para que no de error si la tabla está vacía
+    const { data: lastProd } = await supabase
+      .from('products')
+      .select('qr_code')
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
     let nextNum = 1;
     if (lastProd?.qr_code) {
       const match = lastProd.qr_code.match(/PROD-(\d+)/);
       if (match) nextNum = parseInt(match[1]) + 1;
     }
-    qrCode = `PROD-${String(nextNum).padStart(4, '0')}`;
+    qrCode = `PROD-${String(nextNum).padStart(6, '0')}`;
+    console.log('Generado nuevo QR:', qrCode);
   }
 
-  const payload = {
+  const payload: any = {
     code: product.code, name: product.name, category: product.category,
     location: product.location, stock: product.stock, min_stock: product.minStock ?? 30,
     critical_stock: product.criticalStock ?? 10, precio_compra: product.purchasePrice,
@@ -218,10 +229,12 @@ export const saveProduct = async (product: Partial<Product>) => {
 
   if (product.id) {
     const { data: old } = await supabase.from('products').select('*').eq('id', product.id).single();
-    await supabase.from('products').update(payload).eq('id', product.id);
+    const { error } = await supabase.from('products').update(payload).eq('id', product.id);
+    if (error) throw error;
     await logAuditAction('UPDATE', 'products', product.id, product.name || 'n/a', old, payload);
   } else {
-    const { data: inserted } = await supabase.from('products').insert([payload]).select().single();
+    const { data: inserted, error } = await supabase.from('products').insert([payload]).select().single();
+    if (error) throw error;
     if (inserted) await logAuditAction('CREATE', 'products', inserted.id, inserted.name, null, payload);
   }
 };
