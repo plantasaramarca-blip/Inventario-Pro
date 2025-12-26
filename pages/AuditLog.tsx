@@ -1,12 +1,12 @@
-import React, { useState, useEffect } from 'https://esm.sh/react@19.0.0';
-import { AuditLog } from '../types';
-import * as api from '../services/supabaseService';
-import { exportToExcel, formatTimestamp } from '../services/excelService';
+import React, { useState, useEffect } from 'https://esm.sh/react@19.2.3';
+import { AuditLog } from '../types.ts';
+import * as api from '../services/supabaseService.ts';
+import { exportToExcel, formatTimestamp } from '../services/excelService.ts';
 import { 
   ClipboardCheck, User, ChevronLeft, ChevronRight, Eye, FileDown, 
   CheckCircle, Edit, Trash2, X, Info, History, AlertCircle,
   FileSpreadsheet, Loader2, Filter
-} from 'https://esm.sh/lucide-react@0.475.0?deps=react@19.0.0';
+} from 'https://esm.sh/lucide-react@0.475.0?deps=react@19.2.3';
 
 export const AuditPage: React.FC = () => {
   const [logs, setLogs] = useState<AuditLog[]>([]);

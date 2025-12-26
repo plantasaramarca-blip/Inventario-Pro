@@ -1,11 +1,11 @@
-import React, { useState, useEffect } from 'https://esm.sh/react@19.0.0';
-import { Destination, DestinationType } from '../types';
-import * as api from '../services/supabaseService';
+import React, { useState, useEffect } from 'https://esm.sh/react@19.2.3';
+import { Destination, DestinationType } from '../types.ts';
+import * as api from '../services/supabaseService.ts';
 import { 
   Plus, MapPin, Building2, ShoppingBag, UserCheck, Edit2, 
   Trash2, Check, X, Search, Loader2, Info, MoreVertical, 
   AlertCircle, ToggleLeft, ToggleRight
-} from 'https://esm.sh/lucide-react@0.475.0?deps=react@19.0.0';
+} from 'https://esm.sh/lucide-react@0.475.0?deps=react@19.2.3';
 
 export const Destinos: React.FC = () => {
   const [destinos, setDestinos] = useState<Destination[]>([]);
@@ -81,7 +81,7 @@ export const Destinos: React.FC = () => {
   const getTypeColor = (type: string) => {
     switch (type) {
       case 'cliente': return "bg-blue-50 text-blue-600 border-blue-100";
-      case 'sucursal': return "bg-emerald-50 text-emerald-600 border-emerald-100";
+      case 'sucursal': return "bg-emerald-50 text-emerald-700 border-emerald-100";
       case 'interno': return "bg-slate-50 text-slate-600 border-slate-100";
       default: return "bg-slate-50 text-slate-600 border-slate-100";
     }
@@ -125,7 +125,6 @@ export const Destinos: React.FC = () => {
         ) : destinos.filter(d => d.name.toLowerCase().includes(search.toLowerCase())).map(d => (
           <div key={d.id} className={`bg-white p-6 rounded-3xl border border-slate-100 shadow-sm hover:shadow-md transition-all flex flex-col justify-between relative ${!d.active ? 'opacity-50 grayscale' : ''}`}>
              
-             {/* Menú de acciones AJUSTE 2 */}
              <div className="absolute top-6 right-6">
                 <button 
                   onClick={() => setActiveMenu(activeMenu === d.id ? null : d.id)}
