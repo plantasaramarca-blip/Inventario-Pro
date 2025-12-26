@@ -1,15 +1,10 @@
-
-import React, { useState, useEffect, useMemo } from 'https://esm.sh/react@19.2.3';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Product, Role } from '../types.ts';
 import * as api from '../services/supabaseService.ts';
-import { exportToExcel, formatTimestamp } from '../services/excelService.ts';
 import { StockBadge } from '../components/StockBadge.tsx';
 import { ProductQRCode } from '../components/ProductQRCode.tsx';
-import { formatCurrency, calculateMargin } from '../utils/currencyUtils.ts';
-import { 
-  Plus, Search, Edit2, ImageIcon, Loader2, FileSpreadsheet, 
-  DollarSign, BarChart3, TrendingUp, AlertCircle, Coins, MapPin, Tag, QrCode
-} from 'https://esm.sh/lucide-react@0.475.0?deps=react@19.2.3';
+import { formatCurrency } from '../utils/currencyUtils.ts';
+import { Plus, Search, Edit2, ImageIcon, Loader2, QrCode } from 'lucide-react';
 
 interface InventoryProps { role: Role; }
 
@@ -79,7 +74,6 @@ export const Inventory: React.FC<InventoryProps> = ({ role }) => {
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Catálogo & Precios</h1>
-          <p className="text-xs text-gray-500">Control financiero de ítems y rentabilidad.</p>
         </div>
         <div className="flex gap-2">
           {role === 'ADMIN' && (

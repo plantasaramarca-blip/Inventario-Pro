@@ -1,5 +1,4 @@
-
-import React, { useState, useEffect } from 'https://esm.sh/react@19.2.3';
+import React, { useState, useEffect } from 'react';
 import { supabase, isSupabaseConfigured } from './supabaseClient.ts';
 import { Navbar } from './components/Navbar.tsx';
 import { Sidebar } from './components/Sidebar.tsx';
@@ -12,7 +11,7 @@ import { AuditPage } from './pages/AuditLog.tsx';
 import { Login } from './pages/Login.tsx';
 import { Role, Product } from './types.ts';
 import * as api from './services/supabaseService.ts';
-import { Loader2, Package, MapPin, QrCode, ArrowLeft } from 'https://esm.sh/lucide-react@0.475.0?deps=react@19.2.3';
+import { Loader2 } from 'lucide-react';
 
 export default function App() {
   const [session, setSession] = useState<any>(null);
@@ -39,12 +38,22 @@ export default function App() {
       try {
         if (isSupabaseConfigured) {
           const { data: { session: currentSession } } = await supabase.auth.getSession();
-          if (currentSession) setSession(currentSession);
+          if (currentSession) {
+            setSession(currentSession);
+          } else {
+            // Reintento por si acaso hay un retraso en la carga de sesión
+            const localSession = localStorage.getItem('kardex_local_session');
+            if (localSession) setSession(JSON.parse(localSession));
+          }
         } else {
           const localSession = localStorage.getItem('kardex_local_session');
           if (localSession) setSession(JSON.parse(localSession));
         }
-      } finally { setLoading(false); }
+      } catch (e) {
+        console.error("Auth init error:", e);
+      } finally {
+        setLoading(false);
+      }
     };
     initAuth();
   }, []);
