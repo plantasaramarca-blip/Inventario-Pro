@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'https://esm.sh/react@19.0.0';
 import { supabase, isSupabaseConfigured } from './supabaseClient';
 import { Navbar } from './components/Navbar';
@@ -16,7 +17,7 @@ import { Loader2, Package, MapPin, QrCode, ArrowLeft } from 'https://esm.sh/luci
 export default function App() {
   const [session, setSession] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState('dashboard');
+  const [currentPage, setCurrentPage] = useState('dashboard');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [role, setRole] = useState<Role>('ADMIN');
 
@@ -24,8 +25,31 @@ export default function App() {
   const [publicProduct, setPublicProduct] = useState<Product | null>(null);
   const [loadingPublic, setLoadingPublic] = useState(false);
 
+  // ═══════════════════════════════════════════════════════
+  // MANEJO DEL HISTORIAL DEL NAVEGADOR (Fix Problema 2)
+  // ═══════════════════════════════════════════════════════
   useEffect(() => {
-    // Verificar si se está accediendo a un producto vía QR (Step 5)
+    // 1. Sincronizar estado inicial con el hash actual
+    const hash = window.location.hash.replace('#', '') || 'dashboard';
+    setCurrentPage(hash);
+    
+    if (!window.history.state?.page) {
+      window.history.replaceState({ page: hash }, '', `#${hash}`);
+    }
+
+    // 2. Escuchar evento "popstate" (botón atrás/adelante)
+    const handlePopState = (event: PopStateEvent) => {
+      if (event.state?.page) {
+        setCurrentPage(event.state.page);
+      } else {
+        const newHash = window.location.hash.replace('#', '') || 'dashboard';
+        setCurrentPage(newHash);
+      }
+    };
+
+    window.addEventListener('popstate', handlePopState);
+
+    // 3. Verificar Vista Pública QR (view_product)
     const urlParams = new URLSearchParams(window.location.search);
     const viewProductId = urlParams.get('view_product');
     
@@ -58,9 +82,20 @@ export default function App() {
       const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
         setSession(session);
       });
-      return () => subscription.unsubscribe();
+      return () => {
+        subscription.unsubscribe();
+        window.removeEventListener('popstate', handlePopState);
+      };
     }
+
+    return () => window.removeEventListener('popstate', handlePopState);
   }, []);
+
+  // Función global para cambiar de página con historial
+  function navigateToPage(page: string) {
+    setCurrentPage(page);
+    window.history.pushState({ page }, '', `#${page}`);
+  }
 
   if (loading || loadingPublic) return (
     <div className="h-screen flex items-center justify-center bg-slate-50">
@@ -68,7 +103,7 @@ export default function App() {
     </div>
   );
 
-  // Renderizar vista pública de escaneo QR (Step 5)
+  // Renderizar vista pública de escaneo QR
   if (publicProduct) {
     return (
       <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-6">
@@ -113,7 +148,7 @@ export default function App() {
                 onClick={() => {
                   const url = new URL(window.location.href);
                   url.searchParams.delete('view_product');
-                  window.history.pushState({}, '', url);
+                  window.history.pushState({}, '', url.pathname + url.hash);
                   setPublicProduct(null);
                 }}
                 className="w-full py-4 bg-slate-900 text-white rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] flex items-center justify-center hover:bg-slate-800 transition-all shadow-xl"
@@ -130,9 +165,9 @@ export default function App() {
   if (!session) return <Login />;
 
   const renderContent = () => {
-    switch (activeTab) {
+    switch (currentPage) {
       case 'inventory': return <Inventory role={role} />;
-      case 'kardex': return <Kardex onNavigateToDestinos={() => setActiveTab('destinos')} />;
+      case 'kardex': return <Kardex onNavigateToDestinos={() => navigateToPage('destinos')} />;
       case 'destinos': return <Destinos />;
       case 'contacts': return <Contacts role={role} />;
       case 'audit': return role === 'ADMIN' ? <AuditPage /> : <Dashboard />;
@@ -143,8 +178,8 @@ export default function App() {
   return (
     <div className="flex h-screen overflow-hidden bg-slate-50">
       <Sidebar 
-        activeTab={activeTab} 
-        setActiveTab={setActiveTab} 
+        currentPage={currentPage} 
+        onNavigate={navigateToPage} 
         isOpen={isSidebarOpen} 
         setIsOpen={setIsSidebarOpen} 
         role={role}

@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo } from 'https://esm.sh/react@19.0.0';
 import { Product, Role } from '../types';
 import * as api from '../services/supabaseService';
@@ -20,7 +21,7 @@ export const Inventory: React.FC<InventoryProps> = ({ role }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   
-  // Estados para QR
+  // Estados para el Modal QR
   const [showQRModal, setShowQRModal] = useState(false);
   const [selectedProductForQR, setSelectedProductForQR] = useState<Product | null>(null);
   
@@ -65,11 +66,6 @@ export const Inventory: React.FC<InventoryProps> = ({ role }) => {
       });
     }
     setIsModalOpen(true);
-  };
-
-  const handleOpenQR = (product: Product) => {
-    setSelectedProductForQR(product);
-    setShowQRModal(true);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -181,8 +177,17 @@ export const Inventory: React.FC<InventoryProps> = ({ role }) => {
                     </td>
                     <td className="px-6 py-4 text-right">
                       <div className="flex items-center justify-end space-x-1">
-                        <button onClick={() => handleOpenQR(p)} title="Generar QR" className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl transition-all">
-                          <QrCode className="w-4 h-4" />
+                        <button
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            setSelectedProductForQR(p);
+                            setShowQRModal(true);
+                          }}
+                          className="text-indigo-600 hover:text-indigo-800 px-3 py-2 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-sm flex items-center gap-1 transition-all font-bold"
+                          title="Ver código QR"
+                        >
+                          <QrCode className="w-4 h-4" /> QR
                         </button>
                         {role === 'ADMIN' && (
                           <button onClick={() => handleOpenModal(p)} title="Editar" className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl transition-all">
@@ -296,14 +301,14 @@ export const Inventory: React.FC<InventoryProps> = ({ role }) => {
         </div>
       )}
 
-      {/* MODAL QR AJUSTE PASO 4 */}
+      {/* MODAL QR FINAL AL FINAL DEL COMPONENTE */}
       {showQRModal && selectedProductForQR && (
-        <ProductQRCode 
-          product={selectedProductForQR} 
+        <ProductQRCode
+          product={selectedProductForQR}
           onClose={() => {
             setShowQRModal(false);
             setSelectedProductForQR(null);
-          }} 
+          }}
         />
       )}
     </div>
