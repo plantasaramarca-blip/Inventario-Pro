@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'https://esm.sh/react@19.2.3';
 import { supabase, isSupabaseConfigured } from './supabaseClient.ts';
 import { Navbar } from './components/Navbar.tsx';
 import { Sidebar } from './components/Sidebar.tsx';
@@ -12,7 +12,7 @@ import { AuditPage } from './pages/AuditLog.tsx';
 import { Login } from './pages/Login.tsx';
 import { Role, Product } from './types.ts';
 import * as api from './services/supabaseService.ts';
-import { Loader2 } from 'lucide-react';
+import { Loader2 } from 'https://esm.sh/lucide-react@0.475.0?deps=react@19.2.3';
 
 export default function App() {
   const [session, setSession] = useState<any>(null);

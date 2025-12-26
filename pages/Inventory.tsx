@@ -1,11 +1,11 @@
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'https://esm.sh/react@19.2.3';
 import { Product, Role } from '../types.ts';
 import * as api from '../services/supabaseService.ts';
 import { StockBadge } from '../components/StockBadge.tsx';
 import { ProductQRCode } from '../components/ProductQRCode.tsx';
 import { formatCurrency } from '../utils/currencyUtils.ts';
-import { Plus, Search, Edit2, ImageIcon, Loader2, QrCode, X, Trash2, Save, Package } from 'lucide-react';
+import { Plus, Search, Edit2, ImageIcon, Loader2, QrCode, X, Trash2, Save, Package } from 'https://esm.sh/lucide-react@0.475.0?deps=react@19.2.3';
 
 interface InventoryProps { role: Role; }
 
@@ -55,7 +55,6 @@ export const Inventory: React.FC<InventoryProps> = ({ role }) => {
       setEditingProduct(product);
       setFormData({ 
         ...product,
-        // Aseguramos que los valores numéricos se pasen correctamente al form
         stock: product.stock,
         purchasePrice: product.purchasePrice || 0
       });
