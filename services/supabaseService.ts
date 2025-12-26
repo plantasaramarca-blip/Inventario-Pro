@@ -201,21 +201,30 @@ export const saveProduct = async (product: Partial<Product>) => {
 
   let qrCode = product.qr_code;
   if (!product.id && !qrCode) {
-    // Usamos maybeSingle() para que no de error si la tabla está vacía
-    const { data: lastProd } = await supabase
-      .from('products')
-      .select('qr_code')
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle();
+    try {
+      // Intentamos obtener el último QR. Si falla (400), asumimos que es el primero.
+      const { data: lastProd, error: fetchError } = await supabase
+        .from('products')
+        .select('qr_code')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
 
-    let nextNum = 1;
-    if (lastProd?.qr_code) {
-      const match = lastProd.qr_code.match(/PROD-(\d+)/);
-      if (match) nextNum = parseInt(match[1]) + 1;
+      if (fetchError) {
+        console.warn('No se pudo leer el último QR (Error 400). ¿Ejecutó el SQL en Supabase?', fetchError.message);
+      }
+
+      let nextNum = 1;
+      if (lastProd?.qr_code) {
+        const match = lastProd.qr_code.match(/PROD-(\d+)/);
+        if (match) nextNum = parseInt(match[1]) + 1;
+      }
+      qrCode = `PROD-${String(nextNum).padStart(6, '0')}`;
+      console.log('Generado nuevo QR:', qrCode);
+    } catch (err) {
+      console.error('Error fatal al generar QR:', err);
+      qrCode = `PROD-000001`; // Fallback de emergencia
     }
-    qrCode = `PROD-${String(nextNum).padStart(6, '0')}`;
-    console.log('Generado nuevo QR:', qrCode);
   }
 
   const payload: any = {
@@ -234,7 +243,10 @@ export const saveProduct = async (product: Partial<Product>) => {
     await logAuditAction('UPDATE', 'products', product.id, product.name || 'n/a', old, payload);
   } else {
     const { data: inserted, error } = await supabase.from('products').insert([payload]).select().single();
-    if (error) throw error;
+    if (error) {
+      console.error('Error al insertar producto (Error 400). Verifique si las columnas existen en Supabase.', error);
+      throw error;
+    }
     if (inserted) await logAuditAction('CREATE', 'products', inserted.id, inserted.name, null, payload);
   }
 };
