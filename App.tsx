@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { supabase, isSupabaseConfigured } from './supabaseClient.ts';
 import { Navbar } from './components/Navbar.tsx';
@@ -37,20 +38,23 @@ export default function App() {
     const initAuth = async () => {
       try {
         if (isSupabaseConfigured) {
+          // Obtener sesión inicial
           const { data: { session: currentSession } } = await supabase.auth.getSession();
-          if (currentSession) {
-            setSession(currentSession);
-          } else {
-            // Reintento por si acaso hay un retraso en la carga de sesión
-            const localSession = localStorage.getItem('kardex_local_session');
-            if (localSession) setSession(JSON.parse(localSession));
-          }
+          setSession(currentSession);
+
+          // Escuchar cambios de sesión en tiempo real
+          const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+            setSession(session);
+          });
+
+          return () => subscription.unsubscribe();
         } else {
+          // Modo local
           const localSession = localStorage.getItem('kardex_local_session');
           if (localSession) setSession(JSON.parse(localSession));
         }
       } catch (e) {
-        console.error("Auth init error:", e);
+        console.error("Auth error:", e);
       } finally {
         setLoading(false);
       }
@@ -60,16 +64,25 @@ export default function App() {
 
   if (loading || loadingPublic) return (
     <div className="h-screen flex items-center justify-center bg-slate-50">
-      <Loader2 className="animate-spin w-10 h-10 text-indigo-600" />
+      <div className="text-center">
+        <Loader2 className="animate-spin w-12 h-12 text-indigo-600 mx-auto mb-4" />
+        <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Iniciando Kardex Pro...</p>
+      </div>
     </div>
   );
 
   if (publicProduct) {
     return (
       <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-6 text-center">
-        <h1 className="text-2xl font-black mb-4">{publicProduct.name}</h1>
-        <p className="text-xl font-bold text-indigo-600 mb-8">Stock: {publicProduct.stock} {publicProduct.unit}</p>
-        <button onClick={() => window.location.href = window.location.origin} className="bg-slate-900 text-white px-6 py-3 rounded-xl font-bold uppercase text-xs">Ir al Sistema</button>
+        <div className="bg-white p-10 rounded-[3rem] shadow-2xl border border-slate-100 max-w-sm w-full">
+           <h1 className="text-2xl font-black mb-2 text-slate-800 uppercase tracking-tight">{publicProduct.name}</h1>
+           <p className="text-[10px] font-black text-slate-400 uppercase mb-8">Información de Stock</p>
+           <div className="bg-indigo-50 p-6 rounded-3xl mb-8 border border-indigo-100">
+             <p className="text-4xl font-black text-indigo-600 mb-1">{publicProduct.stock}</p>
+             <p className="text-[10px] font-black text-indigo-400 uppercase tracking-widest">{publicProduct.unit} Disponibles</p>
+           </div>
+           <button onClick={() => window.location.href = window.location.origin} className="w-full bg-slate-900 text-white py-4 rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-xl">Volver al sistema</button>
+        </div>
       </div>
     );
   }
@@ -88,7 +101,7 @@ export default function App() {
   };
 
   return (
-    <div className="flex h-screen overflow-hidden bg-slate-50">
+    <div className="flex h-screen overflow-hidden bg-slate-50 font-inter">
       <Sidebar currentPage={currentPage} onNavigate={setCurrentPage} isOpen={isSidebarOpen} setIsOpen={setIsSidebarOpen} role={role} />
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         <Navbar onMenuClick={() => setIsSidebarOpen(true)} role={role} setRole={setRole} userEmail={session.user?.email || 'Admin Local'} />
