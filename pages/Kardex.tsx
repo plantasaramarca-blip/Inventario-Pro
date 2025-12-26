@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useMemo } from 'https://esm.sh/react@19.2.3';
+
+import React, { useState, useEffect, useMemo } from 'react';
 import { Movement, Product, TransactionType, Contact, Destination } from '../types.ts';
 import * as api from '../services/supabaseService.ts';
 import { exportToExcel, formatTimestamp } from '../services/excelService.ts';
@@ -6,7 +7,7 @@ import { formatCurrency } from '../utils/currencyUtils.ts';
 import { 
   ArrowDownCircle, ArrowUpCircle, Filter, User, ImageIcon, 
   DollarSign, TrendingUp, Calendar, FileSpreadsheet, Loader2, X, MapPin, Building2, ShoppingBag, Info, AlertTriangle, ArrowRight, Settings
-} from 'https://esm.sh/lucide-react@0.475.0?deps=react@19.2.3';
+} from 'lucide-react';
 
 interface KardexProps {
   onNavigateToDestinos?: () => void;

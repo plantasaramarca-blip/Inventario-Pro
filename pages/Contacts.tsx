@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'https://esm.sh/react@19.2.3';
+
+import React, { useState, useEffect } from 'react';
 import { Contact, Role } from '../types.ts';
 import * as api from '../services/supabaseService.ts';
-import { Plus, Search, User, Briefcase, Phone, Mail, Trash2, Edit2 } from 'https://esm.sh/lucide-react@0.475.0?deps=react@19.2.3';
+import { Plus, Search, User, Briefcase, Phone, Mail, Trash2, Edit2 } from 'lucide-react';
 
 interface ContactsProps { role: Role; }
 

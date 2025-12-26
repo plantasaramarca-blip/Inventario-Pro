@@ -1,7 +1,7 @@
 
-import React, { useState } from 'https://esm.sh/react@19.2.3';
+import React, { useState } from 'react';
 import { supabase, isSupabaseConfigured } from '../supabaseClient.ts';
-import { LogIn, Lock, Mail, Loader2, AlertCircle, UserPlus, Database, HardDrive, ArrowRight } from 'https://esm.sh/lucide-react@0.475.0?deps=react@19.2.3';
+import { LogIn, Lock, Mail, Loader2, AlertCircle, UserPlus, Database, HardDrive, ArrowRight } from 'lucide-react';
 
 export const Login: React.FC = () => {
   const [email, setEmail] = useState('');

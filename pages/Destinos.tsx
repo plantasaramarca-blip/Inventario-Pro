@@ -1,11 +1,12 @@
-import React, { useState, useEffect } from 'https://esm.sh/react@19.2.3';
+
+import React, { useState, useEffect } from 'react';
 import { Destination, DestinationType } from '../types.ts';
 import * as api from '../services/supabaseService.ts';
 import { 
   Plus, MapPin, Building2, ShoppingBag, UserCheck, Edit2, 
   Trash2, Check, X, Search, Loader2, Info, MoreVertical, 
   AlertCircle, ToggleLeft, ToggleRight
-} from 'https://esm.sh/lucide-react@0.475.0?deps=react@19.2.3';
+} from 'lucide-react';
 
 export const Destinos: React.FC = () => {
   const [destinos, setDestinos] = useState<Destination[]>([]);

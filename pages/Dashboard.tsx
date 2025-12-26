@@ -1,11 +1,12 @@
-import React, { useEffect, useState } from 'https://esm.sh/react@19.2.3';
+
+import React, { useEffect, useState } from 'react';
 import * as api from '../services/supabaseService.ts';
 import { InventoryStats, Product, Movement } from '../types.ts';
 import { 
   TrendingUp, AlertTriangle, PackageX, Package, 
   AlertCircle, DollarSign, Loader2, Database,
   ArrowUpRight, Info, MapPin, Building2, ShoppingBag
-} from 'https://esm.sh/lucide-react@0.475.0?deps=react@19.2.3';
+} from 'lucide-react';
 import { StockBadge } from '../components/StockBadge.tsx';
 import { groupProductsByStatus } from '../utils/stockUtils.ts';
 import { formatCurrency } from '../utils/currencyUtils.ts';
