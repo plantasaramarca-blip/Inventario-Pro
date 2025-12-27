@@ -29,7 +29,6 @@ export const UsersPage: React.FC = () => {
     setLoading(true);
     try {
       const data = await api.getUsers();
-      // Aseguramos que en el estado local todos los correos sean minúsculas
       const normalized = data.map(u => ({ ...u, email: u.email.toLowerCase() }));
       setUsers(normalized);
     } catch (e: any) {
@@ -63,16 +62,22 @@ export const UsersPage: React.FC = () => {
 
     setSaving(true);
     try {
-      // Forzamos el envío en minúsculas
-      const cleanData = { ...formData, email: formData.email.toLowerCase(), id: editingUser?.id };
+      const cleanEmail = formData.email.trim().toLowerCase();
+      const cleanData = { ...formData, email: cleanEmail, id: editingUser?.id };
+      
+      // Llamada a la API
       await api.saveUser(cleanData);
       
-      showToast(editingUser ? "Usuario actualizado" : "Perfil procesado exitosamente");
+      // Feedback inmediato y cierre del modal
+      showToast(editingUser ? "Rol actualizado" : "Usuario registrado");
       setIsModalOpen(false);
-      await loadUsers();
+      
+      // Recargar lista en segundo plano
+      loadUsers();
     } catch (err: any) {
       showToast(err.message || "Error al procesar usuario", 'error');
     } finally {
+      // Nos aseguramos de liberar el botón siempre
       setSaving(false);
     }
   };

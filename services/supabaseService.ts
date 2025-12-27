@@ -7,7 +7,7 @@ const useSupabase = () => isSupabaseConfigured;
 
 // --- Usuarios y Perfiles ---
 export const getCurrentUserProfile = async (email: string): Promise<{role: Role} | null> => {
-  const cleanEmail = email.toLowerCase();
+  const cleanEmail = email.trim().toLowerCase();
   
   if (!useSupabase()) {
     const users = await getUsers();
@@ -17,16 +17,12 @@ export const getCurrentUserProfile = async (email: string): Promise<{role: Role}
   
   try {
     const { data, error } = await supabase.from('profiles').select('role').eq('email', cleanEmail).maybeSingle();
-    
     if (error) throw error;
 
     if (!data) {
       const { count } = await supabase.from('profiles').select('*', { count: 'exact', head: true });
       const initialRole: Role = (count === 0) ? 'ADMIN' : 'VIEWER';
-      
-      const { error: upsertError } = await supabase.from('profiles').upsert({ email: cleanEmail, role: initialRole }, { onConflict: 'email' });
-      if (upsertError) console.error("Error auto-creando perfil:", upsertError);
-      
+      await supabase.from('profiles').upsert({ email: cleanEmail, role: initialRole }, { onConflict: 'email' });
       return { role: initialRole };
     }
     
@@ -59,7 +55,7 @@ export const getUsers = async (): Promise<UserAccount[]> => {
 
 export const saveUser = async (user: Partial<UserAccount>) => {
   if (!user.email) throw new Error("Email requerido");
-  const cleanEmail = user.email.toLowerCase();
+  const cleanEmail = user.email.trim().toLowerCase();
 
   if (!useSupabase()) {
     const users = await getUsers();
@@ -76,7 +72,7 @@ export const saveUser = async (user: Partial<UserAccount>) => {
   }
 
   try {
-    // 1. Sincronizar primero la tabla profiles con email en minúsculas
+    // 1. Guardar en Base de Datos (Profiles) - Prioridad absoluta
     const { error: upsertError } = await supabase.from('profiles').upsert(
       { email: cleanEmail, role: user.role }, 
       { onConflict: 'email' }
@@ -84,10 +80,9 @@ export const saveUser = async (user: Partial<UserAccount>) => {
     
     if (upsertError) throw new Error(`Error en base de datos: ${upsertError.message}`);
 
-    // 2. Auth SignUp - Solo si es nuevo y tiene contraseña
+    // 2. Intentar Auth solo para usuarios nuevos
     if (!user.id && user.password) {
-      // Nota técnica: signUp en cliente puede intentar cambiar la sesión. 
-      // Por eso el perfil en DB es nuestra prioridad y fuente de verdad.
+      // Intentamos registro, pero no dejamos que un fallo de "ya existe" detenga el proceso
       const { error: authError } = await supabase.auth.signUp({
         email: cleanEmail,
         password: user.password,
@@ -98,11 +93,13 @@ export const saveUser = async (user: Partial<UserAccount>) => {
       });
       
       if (authError) {
-        console.warn("Auth SignUp omitido (posible duplicado o sesión activa):", authError.message);
+        // Si el error es 422 (ya registrado), lo ignoramos porque el perfil ya se guardó arriba
+        console.warn("Información de Auth:", authError.message);
       }
     }
+    return { success: true };
   } catch (error: any) {
-    console.error("Error en saveUser:", error);
+    console.error("Error crítico en saveUser:", error);
     throw error;
   }
 };
@@ -113,12 +110,11 @@ export const deleteUser = async (id: string) => {
     localStorage.setItem('kardex_users', JSON.stringify(users));
     return;
   }
-  
   const { error } = await supabase.from('profiles').delete().eq('id', id);
   if (error) throw new Error(`Error al eliminar: ${error.message}`);
 };
 
-// ... (El resto de funciones permanecen igual para mantener funcionalidad)
+// ... Resto de funciones se mantienen iguales
 export const getLocationsMaster = async () => {
   if (!useSupabase()) return JSON.parse(localStorage.getItem('kardex_locations_master') || '[]');
   const { data } = await supabase.from('locations_master').select('*').order('name');
