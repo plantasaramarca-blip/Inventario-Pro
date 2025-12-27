@@ -7,14 +7,16 @@ const useSupabase = () => isSupabaseConfigured;
 
 // --- Usuarios y Perfiles ---
 export const getCurrentUserProfile = async (email: string): Promise<{role: Role} | null> => {
+  const cleanEmail = email.toLowerCase();
+  
   if (!useSupabase()) {
     const users = await getUsers();
-    const user = users.find(u => u.email === email);
+    const user = users.find(u => u.email.toLowerCase() === cleanEmail);
     return user ? { role: user.role } : { role: 'ADMIN' };
   }
   
   try {
-    const { data, error } = await supabase.from('profiles').select('role').eq('email', email).maybeSingle();
+    const { data, error } = await supabase.from('profiles').select('role').eq('email', cleanEmail).maybeSingle();
     
     if (error) throw error;
 
@@ -22,8 +24,7 @@ export const getCurrentUserProfile = async (email: string): Promise<{role: Role}
       const { count } = await supabase.from('profiles').select('*', { count: 'exact', head: true });
       const initialRole: Role = (count === 0) ? 'ADMIN' : 'VIEWER';
       
-      // Auto-crear perfil para el usuario actual si no existe
-      const { error: upsertError } = await supabase.from('profiles').upsert({ email, role: initialRole }, { onConflict: 'email' });
+      const { error: upsertError } = await supabase.from('profiles').upsert({ email: cleanEmail, role: initialRole }, { onConflict: 'email' });
       if (upsertError) console.error("Error auto-creando perfil:", upsertError);
       
       return { role: initialRole };
@@ -47,7 +48,7 @@ export const getUsers = async (): Promise<UserAccount[]> => {
     if (error) throw error;
     return (data || []).map(u => ({ 
       id: u.id, 
-      email: u.email, 
+      email: u.email.toLowerCase(), 
       role: u.role as Role, 
       createdAt: u.created_at 
     }));
@@ -57,14 +58,17 @@ export const getUsers = async (): Promise<UserAccount[]> => {
 };
 
 export const saveUser = async (user: Partial<UserAccount>) => {
+  if (!user.email) throw new Error("Email requerido");
+  const cleanEmail = user.email.toLowerCase();
+
   if (!useSupabase()) {
     const users = await getUsers();
-    const idx = users.findIndex(u => u.id === user.id || u.email === user.email);
+    const idx = users.findIndex(u => u.id === user.id || u.email.toLowerCase() === cleanEmail);
     if (idx >= 0) {
-      users[idx] = { ...users[idx], ...user };
+      users[idx] = { ...users[idx], ...user, email: cleanEmail };
     } else {
       users.push({ 
-        id: crypto.randomUUID(), email: user.email!, role: user.role || 'VIEWER', createdAt: new Date().toISOString() 
+        id: crypto.randomUUID(), email: cleanEmail, role: user.role || 'VIEWER', createdAt: new Date().toISOString() 
       });
     }
     localStorage.setItem('kardex_users', JSON.stringify(users));
@@ -72,36 +76,29 @@ export const saveUser = async (user: Partial<UserAccount>) => {
   }
 
   try {
-    // 1. Sincronizar con la tabla de Perfiles primero (Base de Datos)
-    // Esto asegura que el usuario aparezca en la lista de la app de inmediato
-    const payload = { 
-      email: user.email, 
-      role: user.role
-    };
+    // 1. Sincronizar primero la tabla profiles con email en minúsculas
+    const { error: upsertError } = await supabase.from('profiles').upsert(
+      { email: cleanEmail, role: user.role }, 
+      { onConflict: 'email' }
+    );
+    
+    if (upsertError) throw new Error(`Error en base de datos: ${upsertError.message}`);
 
-    const { error: upsertError } = await supabase.from('profiles').upsert(payload, { onConflict: 'email' });
-    if (upsertError) throw new Error(`No se pudo guardar el perfil: ${upsertError.message}`);
-
-    // 2. Intentar registrar en Auth solo si es nuevo y tiene password
-    // Usamos un bloque try/catch específico para Auth porque puede fallar si el Admin ya tiene sesión
+    // 2. Auth SignUp - Solo si es nuevo y tiene contraseña
     if (!user.id && user.password) {
-      try {
-        const { error: authError } = await supabase.auth.signUp({
-          email: user.email!,
-          password: user.password,
-          options: {
-            data: { role: user.role },
-            // Evitamos que Supabase intente loguear al nuevo usuario automáticamente
-            emailRedirectTo: window.location.origin 
-          }
-        });
-        
-        if (authError) {
-          console.warn("Auth SignUp falló (posible sesión activa), pero el perfil fue creado:", authError.message);
-          // Si el error es que ya existe en Auth, está bien, ya creamos el perfil arriba.
+      // Nota técnica: signUp en cliente puede intentar cambiar la sesión. 
+      // Por eso el perfil en DB es nuestra prioridad y fuente de verdad.
+      const { error: authError } = await supabase.auth.signUp({
+        email: cleanEmail,
+        password: user.password,
+        options: {
+          data: { role: user.role },
+          emailRedirectTo: window.location.origin
         }
-      } catch (authErr) {
-        console.error("Excepción en Auth:", authErr);
+      });
+      
+      if (authError) {
+        console.warn("Auth SignUp omitido (posible duplicado o sesión activa):", authError.message);
       }
     }
   } catch (error: any) {
@@ -118,16 +115,15 @@ export const deleteUser = async (id: string) => {
   }
   
   const { error } = await supabase.from('profiles').delete().eq('id', id);
-  if (error) throw new Error(`Error al eliminar de la base de datos: ${error.message}`);
+  if (error) throw new Error(`Error al eliminar: ${error.message}`);
 };
 
-// ... resto de servicios ...
+// ... (El resto de funciones permanecen igual para mantener funcionalidad)
 export const getLocationsMaster = async () => {
   if (!useSupabase()) return JSON.parse(localStorage.getItem('kardex_locations_master') || '[]');
   const { data } = await supabase.from('locations_master').select('*').order('name');
   return data || [];
 };
-
 export const saveLocationMaster = async (name: string) => {
   if (!useSupabase()) {
     const locs = await getLocationsMaster();
@@ -137,7 +133,6 @@ export const saveLocationMaster = async (name: string) => {
   }
   await supabase.from('locations_master').insert([{ name }]);
 };
-
 export const deleteLocationMaster = async (id: string) => {
   if (!useSupabase()) {
     const locs = (await getLocationsMaster()).filter(l => l.id !== id);
@@ -146,13 +141,11 @@ export const deleteLocationMaster = async (id: string) => {
   }
   await supabase.from('locations_master').delete().eq('id', id);
 };
-
 export const getCategoriesMaster = async () => {
   if (!useSupabase()) return JSON.parse(localStorage.getItem('kardex_categories_master') || '[]');
   const { data } = await supabase.from('categories_master').select('*').order('name');
   return data || [];
 };
-
 export const saveCategoryMaster = async (name: string) => {
   if (!useSupabase()) {
     const cats = await getCategoriesMaster();
@@ -162,7 +155,6 @@ export const saveCategoryMaster = async (name: string) => {
   }
   await supabase.from('categories_master').insert([{ name }]);
 };
-
 export const deleteCategoryMaster = async (id: string) => {
   if (!useSupabase()) {
     const cats = (await getCategoriesMaster()).filter(c => c.id !== id);
@@ -171,7 +163,6 @@ export const deleteCategoryMaster = async (id: string) => {
   }
   await supabase.from('categories_master').delete().eq('id', id);
 };
-
 export const getProducts = async (): Promise<Product[]> => {
   if (!useSupabase()) return localStorageApi.getProducts();
   const { data } = await supabase.from('products').select('*').order('name');
@@ -188,7 +179,6 @@ export const getProducts = async (): Promise<Product[]> => {
     qr_code: p.qr_code || p.code
   }));
 };
-
 export const saveProduct = async (product: Partial<Product>) => {
   if (!useSupabase()) {
     const id = product.id || crypto.randomUUID();
@@ -208,13 +198,11 @@ export const saveProduct = async (product: Partial<Product>) => {
   if (product.id) await supabase.from('products').update(payload).eq('id', product.id);
   else await supabase.from('products').insert([payload]);
 };
-
 export const getAuditLogs = async (page = 0, limit = 50) => {
   if (!useSupabase()) return localStorageApi.getAuditLogs(page, limit);
   const { data, count } = await supabase.from('audit_logs').select('*', { count: 'exact' }).order('created_at', { ascending: false }).range(page * limit, (page + 1) * limit - 1);
   return { data: data || [], count: count || 0 };
 };
-
 export const getProductById = async (id: string): Promise<Product | null> => {
   if (!useSupabase()) return localStorageApi.getProducts().find(x => x.id === id) || null;
   const { data } = await supabase.from('products').select('*').eq('id', id).maybeSingle();
@@ -232,12 +220,10 @@ export const getProductById = async (id: string): Promise<Product | null> => {
     qr_code: data.qr_code || data.code
   };
 };
-
 export const deleteProduct = async (id: string) => {
   if (!useSupabase()) return localStorageApi.deleteProduct(id);
   await supabase.from('products').delete().eq('id', id);
 };
-
 export const registerMovement = async (movement: any) => {
   if (!useSupabase()) return localStorageApi.registerMovement(movement);
   const { data: product } = await supabase.from('products').select('name, stock').eq('id', movement.productId).single();
@@ -251,7 +237,6 @@ export const registerMovement = async (movement: any) => {
     destino_nombre: movement.destinationName, date: new Date().toISOString()
   }]);
 };
-
 export const getStats = async (): Promise<InventoryStats> => {
   const [products, movements, contacts] = await Promise.all([getProducts(), getMovements(), getContacts()]);
   return {
@@ -264,7 +249,6 @@ export const getStats = async (): Promise<InventoryStats> => {
     totalValue: products.reduce((sum, p) => sum + (p.stock * p.purchasePrice), 0)
   };
 };
-
 export const getMovements = async (): Promise<Movement[]> => {
   if (!useSupabase()) return localStorageApi.getMovements();
   const { data } = await supabase.from('movements').select('*').order('date', { ascending: false });
@@ -275,48 +259,40 @@ export const getMovements = async (): Promise<Movement[]> => {
     destinationName: m.destino_nombre, destinationType: m.destination_type
   }));
 };
-
 export const getContacts = async (): Promise<Contact[]> => {
   if (!useSupabase()) return localStorageApi.getContacts();
   const { data } = await supabase.from('contacts').select('*').order('name');
   return (data || []).map(c => ({ id: c.id, name: c.name, type: c.type, email: c.email }));
 };
-
 export const saveContact = async (c: any) => {
   if (!useSupabase()) return localStorageApi.saveContact(c);
   if (c.id) await supabase.from('contacts').update(c).eq('id', c.id);
   else await supabase.from('contacts').insert([c]);
 };
-
 export const deleteContact = async (id: string) => {
   if (!useSupabase()) return localStorageApi.deleteContact(id);
   await supabase.from('contacts').delete().eq('id', id);
 };
-
 export const getCategories = async () => {
   if (!useSupabase()) return localStorageApi.getCategories();
   const { data } = await supabase.from('categories').select('name');
   return (data || []).map(c => c.name);
 };
-
 export const saveCategory = async (n: string) => {
   if (!useSupabase()) return localStorageApi.saveCategory(n);
   await supabase.from('categories').insert([{ name: n }]);
 };
-
 export const getDestinos = async () => {
   if (!useSupabase()) return localStorageApi.getDestinos();
   const { data } = await supabase.from('destinos').select('*');
   return (data || []).map(d => ({ id: d.id, name: d.nombre, type: d.tipo, active: d.activo }));
 };
-
 export const saveDestino = async (d: any) => {
   if (!useSupabase()) return localStorageApi.saveDestino(d);
   const p = { nombre: d.name, tipo: d.type, activo: d.active };
   if (d.id) await supabase.from('destinos').update(p).eq('id', d.id);
   else await supabase.from('destinos').insert([p]);
 };
-
 export const deleteDestino = async (id: string) => {
   if (!useSupabase()) return localStorageApi.deleteDestino(id);
   await supabase.from('destinos').delete().eq('id', id);

@@ -29,7 +29,9 @@ export const UsersPage: React.FC = () => {
     setLoading(true);
     try {
       const data = await api.getUsers();
-      setUsers(data);
+      // Aseguramos que en el estado local todos los correos sean minúsculas
+      const normalized = data.map(u => ({ ...u, email: u.email.toLowerCase() }));
+      setUsers(normalized);
     } catch (e: any) {
       showToast("Error al cargar la lista de usuarios", 'error');
     } finally {
@@ -42,7 +44,7 @@ export const UsersPage: React.FC = () => {
   const handleOpenModal = (user?: UserAccount) => {
     if (user) {
       setEditingUser(user);
-      setFormData({ email: user.email, role: user.role, password: '' });
+      setFormData({ email: user.email.toLowerCase(), role: user.role, password: '' });
     } else {
       setEditingUser(null);
       setFormData({ email: '', password: '', role: 'USER' });
@@ -61,8 +63,11 @@ export const UsersPage: React.FC = () => {
 
     setSaving(true);
     try {
-      await api.saveUser({ ...formData, id: editingUser?.id });
-      showToast(editingUser ? "Usuario actualizado" : "Perfil creado exitosamente");
+      // Forzamos el envío en minúsculas
+      const cleanData = { ...formData, email: formData.email.toLowerCase(), id: editingUser?.id };
+      await api.saveUser(cleanData);
+      
+      showToast(editingUser ? "Usuario actualizado" : "Perfil procesado exitosamente");
       setIsModalOpen(false);
       await loadUsers();
     } catch (err: any) {
@@ -139,7 +144,7 @@ export const UsersPage: React.FC = () => {
                    {getRoleBadge(u.role)}
                 </div>
                 <div>
-                  <h3 className="font-bold text-slate-800 break-all">{u.email}</h3>
+                  <h3 className="font-bold text-slate-800 break-all lowercase">{u.email}</h3>
                   <div className="flex items-center gap-2 mt-2 text-[10px] font-black text-slate-400 uppercase tracking-widest">
                     <Calendar className="w-3 h-3" /> Registrado: {new Date(u.createdAt).toLocaleDateString()}
                   </div>
@@ -191,9 +196,9 @@ export const UsersPage: React.FC = () => {
                     type="email" 
                     required 
                     readOnly={!!editingUser}
-                    className={`w-full p-4 bg-slate-50 rounded-2xl outline-none font-bold text-sm focus:ring-2 focus:ring-indigo-500 transition-all ${editingUser ? 'opacity-50 cursor-not-allowed text-slate-400' : ''}`} 
+                    className={`w-full p-4 bg-slate-50 rounded-2xl outline-none font-bold text-sm focus:ring-2 focus:ring-indigo-500 transition-all lowercase ${editingUser ? 'opacity-50 cursor-not-allowed text-slate-400' : ''}`} 
                     value={formData.email} 
-                    onChange={e => setFormData({...formData, email: e.target.value})} 
+                    onChange={e => setFormData({...formData, email: e.target.value.toLowerCase()})} 
                   />
                 </div>
                 
@@ -207,7 +212,6 @@ export const UsersPage: React.FC = () => {
                       value={formData.password} 
                       onChange={e => setFormData({...formData, password: e.target.value})} 
                     />
-                    <p className="text-[8px] text-slate-400 font-bold uppercase mt-1 px-2">* El usuario recibirá un correo para confirmar cuenta.</p>
                   </div>
                 )}
 
