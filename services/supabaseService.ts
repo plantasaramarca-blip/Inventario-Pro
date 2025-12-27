@@ -5,241 +5,147 @@ import * as localStorageApi from './storageService.ts';
 
 const useSupabase = () => isSupabaseConfigured;
 
+// Cache para evitar re-peticiones a tablas inexistentes (404s)
+const missingTables = new Set<string>();
+
+async function safeFetch(tableName: string, query: any) {
+  if (missingTables.has(tableName)) return { data: [], error: null };
+  
+  try {
+    const { data, error } = await query;
+    if (error) {
+      if (error.code === 'PGRST116' || error.status === 404) {
+        missingTables.add(tableName);
+        return { data: [], error: null };
+      }
+      throw error;
+    }
+    return { data, error: null };
+  } catch (e) {
+    missingTables.add(tableName);
+    return { data: [], error: null };
+  }
+}
+
 // --- Usuarios y Perfiles ---
 export const getCurrentUserProfile = async (email: string): Promise<{role: Role} | null> => {
   const cleanEmail = email.trim().toLowerCase();
-  
-  if (!useSupabase()) {
-    const users = await getUsers();
-    const user = users.find(u => u.email.toLowerCase() === cleanEmail);
-    return user ? { role: user.role } : { role: 'ADMIN' };
-  }
+  if (!useSupabase()) return { role: 'ADMIN' };
   
   try {
     const { data, error } = await supabase.from('profiles').select('role').eq('email', cleanEmail).maybeSingle();
-    if (error) throw error;
-
-    if (!data) {
-      const { count } = await supabase.from('profiles').select('*', { count: 'exact', head: true });
-      const initialRole: Role = (count === 0) ? 'ADMIN' : 'VIEWER';
-      await supabase.from('profiles').upsert({ email: cleanEmail, role: initialRole }, { onConflict: 'email' });
-      return { role: initialRole };
-    }
-    
+    if (error) return { role: 'VIEWER' };
+    if (!data) return { role: 'VIEWER' };
     return { role: data.role as Role };
   } catch (e) {
-    console.error("Error en getCurrentUserProfile:", e);
     return { role: 'VIEWER' };
   }
 };
 
 export const getUsers = async (): Promise<UserAccount[]> => {
-  if (!useSupabase()) {
-    const data = localStorage.getItem('kardex_users');
-    return data ? JSON.parse(data) : [];
-  }
-  
-  try {
-    const { data, error } = await supabase.from('profiles').select('*').order('email');
-    if (error) throw error;
-    return (data || []).map(u => ({ 
-      id: u.id, 
-      email: u.email.toLowerCase(), 
-      role: u.role as Role, 
-      createdAt: u.created_at 
-    }));
-  } catch (e) {
-    return [];
-  }
+  if (!useSupabase()) return JSON.parse(localStorage.getItem('kardex_users') || '[]');
+  const { data } = await supabase.from('profiles').select('*').order('email');
+  return (data || []).map(u => ({ id: u.id, email: u.email, role: u.role, createdAt: u.created_at }));
 };
 
 export const saveUser = async (user: Partial<UserAccount>) => {
-  if (!user.email) throw new Error("Email requerido");
-  const cleanEmail = user.email.trim().toLowerCase();
-
-  if (!useSupabase()) {
-    const users = await getUsers();
-    const idx = users.findIndex(u => u.id === user.id || u.email.toLowerCase() === cleanEmail);
-    if (idx >= 0) {
-      users[idx] = { ...users[idx], ...user, email: cleanEmail };
-    } else {
-      users.push({ 
-        id: crypto.randomUUID(), email: cleanEmail, role: user.role || 'VIEWER', createdAt: new Date().toISOString() 
-      });
-    }
-    localStorage.setItem('kardex_users', JSON.stringify(users));
-    return;
-  }
-
-  try {
-    const { error: upsertError } = await supabase.from('profiles').upsert(
-      { email: cleanEmail, role: user.role }, 
-      { onConflict: 'email' }
-    );
-    
-    if (upsertError) throw new Error(`Error en base de datos: ${upsertError.message}`);
-
-    if (!user.id && user.password) {
-      const { error: authError } = await supabase.auth.signUp({
-        email: cleanEmail,
-        password: user.password,
-        options: {
-          data: { role: user.role },
-          emailRedirectTo: window.location.origin
-        }
-      });
-      if (authError) console.warn("Información de Auth:", authError.message);
-    }
-    return { success: true };
-  } catch (error: any) {
-    console.error("Error crítico en saveUser:", error);
-    throw error;
+  if (!useSupabase()) return;
+  const cleanEmail = user.email?.trim().toLowerCase();
+  await supabase.from('profiles').upsert({ email: cleanEmail, role: user.role }, { onConflict: 'email' });
+  
+  if (!user.id && user.password) {
+    await supabase.auth.signUp({ email: cleanEmail!, password: user.password });
   }
 };
 
 export const deleteUser = async (id: string) => {
-  if (!useSupabase()) {
-    const users = (await getUsers()).filter(u => u.id !== id);
-    localStorage.setItem('kardex_users', JSON.stringify(users));
-    return;
-  }
-  const { error } = await supabase.from('profiles').delete().eq('id', id);
-  if (error) throw new Error(`Error al eliminar: ${error.message}`);
+  if (useSupabase()) await supabase.from('profiles').delete().eq('id', id);
 };
 
+// --- Maestros con Supresión de 404 ---
 export const getLocationsMaster = async () => {
-  if (!useSupabase()) return JSON.parse(localStorage.getItem('kardex_locations_master') || '[]');
-  try {
-    const { data, error } = await supabase.from('locations_master').select('*').order('name');
-    if (error && error.code === 'PGRST116') return []; // Tabla no existe
-    if (error) throw error;
-    return data || [];
-  } catch (e) {
-    console.warn("Tabla locations_master no detectada en Supabase.");
-    return [];
-  }
+  if (!useSupabase()) return [];
+  const { data } = await safeFetch('locations_master', supabase.from('locations_master').select('*').order('name'));
+  return data || [];
 };
 
 export const saveLocationMaster = async (name: string) => {
-  if (!useSupabase()) {
-    const locs = await getLocationsMaster();
-    locs.push({ id: crypto.randomUUID(), name });
-    localStorage.setItem('kardex_locations_master', JSON.stringify(locs));
-    return;
-  }
-  const { error } = await supabase.from('locations_master').insert([{ name }]);
-  if (error) throw error;
+  if (useSupabase()) await supabase.from('locations_master').insert([{ name }]);
 };
 
 export const deleteLocationMaster = async (id: string) => {
-  if (!useSupabase()) {
-    const locs = (await getLocationsMaster()).filter(l => l.id !== id);
-    localStorage.setItem('kardex_locations_master', JSON.stringify(locs));
-    return;
-  }
-  await supabase.from('locations_master').delete().eq('id', id);
+  if (useSupabase()) await supabase.from('locations_master').delete().eq('id', id);
 };
 
 export const getCategoriesMaster = async () => {
-  if (!useSupabase()) return JSON.parse(localStorage.getItem('kardex_categories_master') || '[]');
-  try {
-    const { data, error } = await supabase.from('categories_master').select('*').order('name');
-    if (error && error.code === 'PGRST116') return []; // Tabla no existe
-    if (error) throw error;
-    return data || [];
-  } catch (e) {
-    console.warn("Tabla categories_master no detectada en Supabase.");
-    return [];
-  }
+  if (!useSupabase()) return [];
+  const { data } = await safeFetch('categories_master', supabase.from('categories_master').select('*').order('name'));
+  return data || [];
 };
 
 export const saveCategoryMaster = async (name: string) => {
-  if (!useSupabase()) {
-    const cats = await getCategoriesMaster();
-    cats.push({ id: crypto.randomUUID(), name });
-    localStorage.setItem('kardex_categories_master', JSON.stringify(cats));
-    return;
-  }
-  const { error } = await supabase.from('categories_master').insert([{ name }]);
-  if (error) throw error;
+  if (useSupabase()) await supabase.from('categories_master').insert([{ name }]);
 };
 
 export const deleteCategoryMaster = async (id: string) => {
-  if (!useSupabase()) {
-    const cats = (await getCategoriesMaster()).filter(c => c.id !== id);
-    localStorage.setItem('kardex_categories_master', JSON.stringify(cats));
-    return;
-  }
-  await supabase.from('categories_master').delete().eq('id', id);
+  if (useSupabase()) await supabase.from('categories_master').delete().eq('id', id);
 };
 
+// --- Productos ---
 export const getProducts = async (): Promise<Product[]> => {
   if (!useSupabase()) return localStorageApi.getProducts();
-  const { data, error } = await supabase.from('products').select('*').order('name');
-  if (error) return [];
+  const { data } = await supabase.from('products').select('*').order('name');
   return (data || []).map(p => ({
-    id: p.id, code: p.code, name: p.name, 
-    brand: p.brand || '', size: p.size || '', model: p.model || '',
-    category: p.category, location: p.location, 
-    stock: p.stock || 0, minStock: p.min_stock ?? 30, criticalStock: p.critical_stock ?? 10,
-    price: Number(p.precio_compra || p.price) || 0,
-    purchasePrice: Number(p.precio_compra || p.price) || 0,
-    salePrice: p.precio_venta ? Number(p.precio_venta) : undefined,
-    currency: p.moneda || 'PEN',
-    unit: p.unit || 'und', imageUrl: p.image_url, updatedAt: p.updated_at,
-    qr_code: p.qr_code || p.code
+    id: p.id, code: p.code, name: p.name, brand: p.brand || '', size: p.size || '', model: p.model || '',
+    category: p.category, location: p.location, stock: p.stock || 0, minStock: p.min_stock ?? 30, criticalStock: p.critical_stock ?? 10,
+    purchasePrice: Number(p.precio_compra || p.price) || 0, currency: p.moneda || 'PEN', unit: p.unit || 'und', imageUrl: p.image_url, updatedAt: p.updated_at,
+    price: Number(p.precio_compra || p.price) || 0
   }));
 };
 
 export const saveProduct = async (product: Partial<Product>) => {
   if (!useSupabase()) {
-    const id = product.id || crypto.randomUUID();
-    const p = { ...product, id, updatedAt: new Date().toISOString() } as Product;
-    localStorageApi.saveProduct(p);
+    localStorageApi.saveProduct({ ...product, id: product.id || crypto.randomUUID() } as any);
     return;
   }
-  const payload: any = {
-    code: product.code, name: product.name, 
-    brand: product.brand, size: product.size, model: product.model,
-    category: product.category, location: product.location, stock: product.stock, 
-    min_stock: product.minStock, critical_stock: product.criticalStock, 
-    precio_compra: product.purchasePrice, precio_venta: product.salePrice, 
-    moneda: product.currency, unit: product.unit, image_url: product.imageUrl, 
-    updated_at: new Date().toISOString()
+
+  const payload = {
+    code: product.code, name: product.name, brand: product.brand, size: product.size, model: product.model,
+    category: product.category, location: product.location, stock: Number(product.stock) || 0,
+    min_stock: Number(product.minStock) || 30, critical_stock: Number(product.criticalStock) || 10,
+    precio_compra: Number(product.purchasePrice) || 0, moneda: product.currency || 'PEN',
+    unit: product.unit || 'und', image_url: product.imageUrl, updated_at: new Date().toISOString()
   };
-  if (product.id) {
-    const { error } = await supabase.from('products').update(payload).eq('id', product.id);
+
+  try {
+    const { error } = product.id 
+      ? await supabase.from('products').update(payload).eq('id', product.id)
+      : await supabase.from('products').insert([payload]);
+    
     if (error) throw error;
-  } else {
-    const { error } = await supabase.from('products').insert([payload]);
-    if (error) throw error;
+  } catch (e: any) {
+    console.error("Error al guardar producto:", e);
+    throw new Error(e.message || "Error de conexión con la base de datos");
   }
 };
 
 export const deleteProduct = async (id: string) => {
-  if (!useSupabase()) return localStorageApi.deleteProduct(id);
-  const { error } = await supabase.from('products').delete().eq('id', id);
-  if (error) throw error;
+  if (useSupabase()) await supabase.from('products').delete().eq('id', id);
 };
 
 export const registerMovement = async (movement: any) => {
   if (!useSupabase()) return localStorageApi.registerMovement(movement);
-  const { data: product, error: prodErr } = await supabase.from('products').select('name, stock').eq('id', movement.productId).single();
-  if (prodErr || !product) throw new Error("Producto no encontrado");
   
-  let newStock = product.stock + (movement.type === 'INGRESO' ? movement.quantity : -movement.quantity);
-  if (newStock < 0) throw new Error("Stock insuficiente para realizar despacho");
-
-  const { error: updErr } = await supabase.from('products').update({ stock: newStock }).eq('id', movement.productId);
-  if (updErr) throw updErr;
-
-  const { error: insErr } = await supabase.from('movements').insert([{
+  const { data: product } = await supabase.from('products').select('name, stock').eq('id', movement.productId).single();
+  if (!product) throw new Error("Producto no encontrado");
+  
+  const newStock = product.stock + (movement.type === 'INGRESO' ? movement.quantity : -movement.quantity);
+  await supabase.from('products').update({ stock: newStock }).eq('id', movement.productId);
+  await supabase.from('movements').insert([{
     product_id: movement.productId, product_name: product.name, type: movement.type,
     quantity: movement.quantity, dispatcher: movement.dispatcher, reason: movement.reason,
-    balance_after: newStock, destino_id: movement.destinationId,
-    destino_nombre: movement.destinationName, date: new Date().toISOString()
+    balance_after: newStock, destino_nombre: movement.destinationName, date: new Date().toISOString()
   }]);
-  if (insErr) throw insErr;
 };
 
 export const getStats = async (): Promise<InventoryStats> => {
@@ -257,95 +163,47 @@ export const getStats = async (): Promise<InventoryStats> => {
 
 export const getMovements = async (): Promise<Movement[]> => {
   if (!useSupabase()) return localStorageApi.getMovements();
-  const { data, error } = await supabase.from('movements').select('*').order('date', { ascending: false });
-  if (error) return [];
+  const { data } = await supabase.from('movements').select('*').order('date', { ascending: false });
   return (data || []).map(m => ({
-    id: m.id, productId: m.product_id, productName: m.product_name,
-    type: m.type, quantity: m.quantity, date: m.date,
-    dispatcher: m.dispatcher, reason: m.reason, balanceAfter: m.balance_after,
-    destinationName: m.destino_nombre, destinationType: m.destination_type
+    id: m.id, productId: m.product_id, productName: m.product_name, type: m.type, quantity: m.quantity, date: m.date,
+    dispatcher: m.dispatcher, reason: m.reason, balanceAfter: m.balance_after, destinationName: m.destino_nombre
   }));
 };
 
 export const getContacts = async (): Promise<Contact[]> => {
   if (!useSupabase()) return localStorageApi.getContacts();
-  const { data, error } = await supabase.from('contacts').select('*').order('name');
-  if (error) return [];
-  return (data || []).map(c => ({ id: c.id, name: c.name, type: c.type, email: c.email }));
+  const { data } = await supabase.from('contacts').select('*').order('name');
+  return data || [];
 };
 
 export const saveContact = async (c: any) => {
-  if (!useSupabase()) return localStorageApi.saveContact(c);
-  if (c.id) await supabase.from('contacts').update(c).eq('id', c.id);
-  else await supabase.from('contacts').insert([c]);
+  if (useSupabase()) await supabase.from('contacts').upsert(c);
 };
 
 export const deleteContact = async (id: string) => {
-  if (!useSupabase()) return localStorageApi.deleteContact(id);
-  await supabase.from('contacts').delete().eq('id', id);
-};
-
-export const getCategories = async () => {
-  if (!useSupabase()) return localStorageApi.getCategories();
-  const { data } = await supabase.from('categories').select('name');
-  return (data || []).map(c => c.name);
-};
-
-export const saveCategory = async (n: string) => {
-  if (!useSupabase()) return localStorageApi.saveCategory(n);
-  await supabase.from('categories').insert([{ name: n }]);
+  if (useSupabase()) await supabase.from('contacts').delete().eq('id', id);
 };
 
 export const getDestinos = async () => {
   if (!useSupabase()) return localStorageApi.getDestinos();
-  const { data, error } = await supabase.from('destinos').select('*');
-  if (error) return [];
+  const { data } = await supabase.from('destinos').select('*');
   return (data || []).map(d => ({ id: d.id, name: d.nombre, type: d.tipo, active: d.activo }));
 };
 
 export const saveDestino = async (d: any) => {
-  if (!useSupabase()) return localStorageApi.saveDestino(d);
-  const p = { nombre: d.name, tipo: d.type, activo: d.active };
-  if (d.id) await supabase.from('destinos').update(p).eq('id', d.id);
-  else await supabase.from('destinos').insert([p]);
+  if (useSupabase()) await supabase.from('destinos').upsert({ nombre: d.name, tipo: d.type, activo: d.active });
 };
 
 export const deleteDestino = async (id: string) => {
-  if (!useSupabase()) return localStorageApi.deleteDestino(id);
-  await supabase.from('destinos').delete().eq('id', id);
+  if (useSupabase()) await supabase.from('destinos').delete().eq('id', id);
 };
 
-// --- Auditoría ---
-/**
- * Obtiene los logs de auditoría paginados.
- * Si no hay Supabase, usa el almacenamiento local.
- */
 export const getAuditLogs = async (page = 0, limit = 50) => {
-  if (!useSupabase()) return localStorageApi.getAuditLogs(page, limit);
-  try {
-    const { data, count, error } = await supabase
-      .from('audit_logs')
-      .select('*', { count: 'exact' })
-      .order('created_at', { ascending: false })
-      .range(page * limit, (page + 1) * limit - 1);
-    
-    if (error) throw error;
-    return { data: data || [], count: count || 0 };
-  } catch (e) {
-    console.warn("Tabla audit_logs no detectada o error al obtener logs.");
-    return { data: [], count: 0 };
-  }
+  if (!useSupabase()) return { data: [], count: 0 };
+  const { data, count } = await supabase.from('audit_logs').select('*', { count: 'exact' }).order('created_at', { ascending: false }).range(page * limit, (page + 1) * limit - 1);
+  return { data: data || [], count: count || 0 };
 };
 
-/**
- * Guarda un log de auditoría.
- */
-export const saveAuditLog = async (log: Partial<AuditLog>) => {
-  if (!useSupabase()) return localStorageApi.saveAuditLog(log);
-  try {
-    const { error } = await supabase.from('audit_logs').insert([log]);
-    if (error) throw error;
-  } catch (e) {
-    console.error("Error al guardar log de auditoría en Supabase:", e);
-  }
+export const saveAuditLog = async (log: any) => {
+  if (useSupabase()) await supabase.from('audit_logs').insert([log]);
 };
