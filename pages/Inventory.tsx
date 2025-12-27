@@ -7,7 +7,7 @@ import { ProductQRCode } from '../components/ProductQRCode.tsx';
 import { formatCurrency } from '../utils/currencyUtils.ts';
 import { 
   Plus, Search, Edit2, ImageIcon, Loader2, QrCode, 
-  X, Trash2, Save, Package, Camera, MapPin, Tag, CheckCircle2
+  X, Trash2, Save, Package, Camera, MapPin, Tag, CheckCircle2, AlertTriangle, CheckCircle
 } from 'https://esm.sh/lucide-react@0.475.0?deps=react@19.2.3';
 
 interface InventoryProps { role: Role; }
@@ -18,7 +18,9 @@ export const Inventory: React.FC<InventoryProps> = ({ role }) => {
   const [locations, setLocations] = useState<LocationMaster[]>([]);
   const [loading, setLoading] = useState(true);
   const [isOptimizing, setIsOptimizing] = useState(false); 
+  const [saving, setSaving] = useState(false);
   const [search, setSearch] = useState('');
+  const [toast, setToast] = useState<{msg: string, type: 'success' | 'error'} | null>(null);
   
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isMasterModalOpen, setIsMasterModalOpen] = useState<'category' | 'location' | null>(null);
@@ -36,6 +38,11 @@ export const Inventory: React.FC<InventoryProps> = ({ role }) => {
     minStock: 30, criticalStock: 10, purchasePrice: 0, 
     currency: 'PEN', unit: 'und', imageUrl: ''
   });
+
+  const showToast = (msg: string, type: 'success' | 'error' = 'success') => {
+    setToast({ msg, type });
+    setTimeout(() => setToast(null), 3000);
+  };
   
   const loadData = async () => {
     setLoading(true);
@@ -121,23 +128,34 @@ export const Inventory: React.FC<InventoryProps> = ({ role }) => {
     e.preventDefault();
     if (role === 'VIEWER') return;
     if (!masterName.trim()) return;
-    if (isMasterModalOpen === 'category') await api.saveCategoryMaster(masterName);
-    else await api.saveLocationMaster(masterName);
-    setMasterName('');
-    loadData();
+    try {
+      if (isMasterModalOpen === 'category') await api.saveCategoryMaster(masterName);
+      else await api.saveLocationMaster(masterName);
+      setMasterName('');
+      showToast("Maestro actualizado");
+      loadData();
+    } catch (e) {
+      showToast("Error al actualizar maestro", 'error');
+    }
   };
 
   const handleMasterDelete = async (id: string) => {
     if (role !== 'ADMIN') return;
     if (!confirm('¿Eliminar permanentemente?')) return;
-    if (isMasterModalOpen === 'category') await api.deleteCategoryMaster(id);
-    else await api.deleteLocationMaster(id);
-    loadData();
+    try {
+      if (isMasterModalOpen === 'category') await api.deleteCategoryMaster(id);
+      else await api.deleteLocationMaster(id);
+      showToast("Elemento eliminado");
+      loadData();
+    } catch (e) {
+      showToast("Error al eliminar elemento", 'error');
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (role === 'VIEWER') return;
+    if (role === 'VIEWER' || saving) return;
+    setSaving(true);
     try {
       const payload = { 
         ...formData, 
@@ -145,13 +163,29 @@ export const Inventory: React.FC<InventoryProps> = ({ role }) => {
         purchasePrice: Number(formData.purchasePrice)
       };
       await api.saveProduct(payload);
+      showToast(editingProduct ? "Producto actualizado" : "Producto creado exitosamente");
       setIsModalOpen(false);
       loadData();
-    } catch (err) { alert('Error al guardar producto'); }
+    } catch (err) { 
+      showToast("Error al guardar producto", 'error');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDeleteProduct = async (id: string) => {
+    if (!confirm('¿Seguro que desea eliminar este producto? Esta acción no se puede deshacer.')) return;
+    try {
+      await api.deleteProduct(id);
+      showToast("Producto eliminado correctamente");
+      loadData();
+    } catch (e) {
+      showToast("Error al eliminar producto", 'error');
+    }
   };
 
   return (
-    <div className="space-y-6 pb-20 animate-in fade-in duration-500">
+    <div className="space-y-6 pb-20 animate-in fade-in duration-500 relative">
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Catálogo de Almacén</h1>
@@ -176,15 +210,6 @@ export const Inventory: React.FC<InventoryProps> = ({ role }) => {
             value={search} 
             onChange={e => setSearch(e.target.value)}
           />
-          {search && (
-            <button 
-              onClick={() => setSearch('')}
-              className="absolute right-4 top-1/2 -translate-y-1/2 p-1.5 bg-slate-200 text-slate-500 rounded-lg hover:bg-slate-300 transition-colors"
-              title="Limpiar búsqueda"
-            >
-              <X className="w-3 h-3" />
-            </button>
-          )}
         </div>
         <div className="flex gap-2 w-full md:w-auto">
            {role !== 'VIEWER' && (
@@ -235,7 +260,6 @@ export const Inventory: React.FC<InventoryProps> = ({ role }) => {
                         <div className="flex flex-wrap items-center gap-2 mt-1">
                           <span className="text-[9px] text-slate-400 font-black uppercase tracking-tighter bg-slate-100 px-1.5 py-0.5 rounded">SKU: {p.code}</span>
                           {p.brand && <span className="text-[9px] text-indigo-500 font-black uppercase tracking-tighter">{p.brand}</span>}
-                          {p.size && <span className="text-[9px] text-emerald-600 font-black uppercase tracking-tighter">• {p.size}</span>}
                         </div>
                       </div>
                     </div>
@@ -258,14 +282,11 @@ export const Inventory: React.FC<InventoryProps> = ({ role }) => {
                   <td className="px-6 py-4 text-right pr-8">
                     <div className="flex items-center justify-end space-x-1">
                       <button onClick={() => handleOpenQR(p)} className="p-2.5 text-indigo-600 hover:bg-indigo-50 rounded-xl transition-all" title="Ver QR"><QrCode className="w-4 h-4" /></button>
-                      
-                      {/* Permisos según rol */}
                       {role !== 'VIEWER' && (
                         <button onClick={() => handleOpenModal(p)} className="p-2.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl transition-all" title="Editar"><Edit2 className="w-4 h-4" /></button>
                       )}
-                      
                       {role === 'ADMIN' && (
-                        <button onClick={() => { if(confirm('¿Eliminar producto?')) api.deleteProduct(p.id).then(loadData) }} className="p-2.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all" title="Eliminar"><Trash2 className="w-4 h-4" /></button>
+                        <button onClick={() => handleDeleteProduct(p.id)} className="p-2.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all" title="Eliminar"><Trash2 className="w-4 h-4" /></button>
                       )}
                     </div>
                   </td>
@@ -276,9 +297,17 @@ export const Inventory: React.FC<InventoryProps> = ({ role }) => {
         </div>
       </div>
 
+      {/* TOAST SYSTEM */}
+      {toast && (
+        <div className={`fixed bottom-10 right-10 z-[200] px-6 py-4 rounded-3xl shadow-2xl flex items-center gap-4 animate-in slide-in-from-right-10 border ${toast.type === 'success' ? 'bg-white border-emerald-100 text-emerald-800' : 'bg-rose-600 border-rose-500 text-white'}`}>
+           {toast.type === 'success' ? <CheckCircle className="w-6 h-6 text-emerald-500" /> : <AlertTriangle className="w-6 h-6 text-white" />}
+           <p className="text-xs font-black uppercase tracking-tight">{toast.msg}</p>
+        </div>
+      )}
+
       {isModalOpen && role !== 'VIEWER' && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => setIsModalOpen(false)}></div>
+          <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => !saving && setIsModalOpen(false)}></div>
           <form onSubmit={handleSubmit} className="relative bg-white rounded-[3rem] p-8 w-full max-w-4xl shadow-2xl overflow-y-auto max-h-[95vh] animate-in zoom-in-95">
             <div className="flex justify-between items-center mb-8 border-b border-slate-50 pb-6">
                <div className="flex items-center gap-4">
@@ -288,7 +317,7 @@ export const Inventory: React.FC<InventoryProps> = ({ role }) => {
                    <p className="text-xs text-slate-400 font-bold uppercase tracking-widest">Variantes y ficha técnica</p>
                  </div>
                </div>
-               <button type="button" onClick={() => setIsModalOpen(false)} className="p-2 hover:bg-slate-50 rounded-2xl"><X className="w-6 h-6 text-slate-400" /></button>
+               {!saving && <button type="button" onClick={() => setIsModalOpen(false)} className="p-2 hover:bg-slate-50 rounded-2xl"><X className="w-6 h-6 text-slate-400" /></button>}
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -309,20 +338,15 @@ export const Inventory: React.FC<InventoryProps> = ({ role }) => {
                   )}
                   <button 
                     type="button"
-                    disabled={isOptimizing}
+                    disabled={isOptimizing || saving}
                     onClick={() => fileInputRef.current?.click()}
-                    className="absolute inset-0 bg-indigo-600/60 text-white opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-2 font-black uppercase text-xs"
+                    className="absolute inset-0 bg-indigo-600/60 text-white opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-2 font-black uppercase text-xs disabled:cursor-not-allowed"
                   >
                     <Camera className="w-8 h-8" />
                     {formData.imageUrl ? 'Cambiar Foto' : 'Capturar'}
                   </button>
                   <input type="file" accept="image/*" capture="environment" className="hidden" ref={fileInputRef} onChange={handleFileChange} />
                 </div>
-                {formData.imageUrl && !isOptimizing && (
-                  <div className="flex items-center justify-center gap-2 text-[10px] font-black text-emerald-600 uppercase bg-emerald-50 py-2 rounded-xl border border-emerald-100">
-                    <CheckCircle2 className="w-3 h-3" /> Imagen Optimizada
-                  </div>
-                )}
               </div>
 
               <div className="lg:col-span-2 space-y-6">
@@ -340,7 +364,7 @@ export const Inventory: React.FC<InventoryProps> = ({ role }) => {
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div className="space-y-1">
                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Talla / Medida</label>
-                    <input type="text" placeholder="Ej: 42 / 1/2'' / 1LT" className="w-full p-4 bg-slate-50 rounded-2xl outline-none font-black text-indigo-600" value={formData.size} onChange={e => setFormData({...formData, size: e.target.value})} />
+                    <input type="text" placeholder="Ej: 42" className="w-full p-4 bg-slate-50 rounded-2xl outline-none font-black text-indigo-600" value={formData.size} onChange={e => setFormData({...formData, size: e.target.value})} />
                   </div>
                   <div className="space-y-1">
                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Modelo</label>
@@ -356,13 +380,13 @@ export const Inventory: React.FC<InventoryProps> = ({ role }) => {
                    <div className="space-y-1">
                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Categoría</label>
                     <select className="w-full p-4 bg-slate-50 rounded-2xl outline-none font-bold" value={formData.category} onChange={e => setFormData({...formData, category: e.target.value})}>
-                      {categories.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
+                      {categories.length === 0 ? <option value="General">General (Tabla no creada)</option> : categories.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
                     </select>
                   </div>
                   <div className="space-y-1">
                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Ubicación</label>
                     <select className="w-full p-4 bg-slate-50 rounded-2xl outline-none font-bold" value={formData.location} onChange={e => setFormData({...formData, location: e.target.value})}>
-                      {locations.map(l => <option key={l.id} value={l.name}>{l.name}</option>)}
+                      {locations.length === 0 ? <option value="Almacén 1">Almacén 1 (Tabla no creada)</option> : locations.map(l => <option key={l.id} value={l.name}>{l.name}</option>)}
                     </select>
                   </div>
                 </div>
@@ -394,8 +418,10 @@ export const Inventory: React.FC<InventoryProps> = ({ role }) => {
             </div>
 
             <div className="flex gap-4 mt-10">
-              <button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 py-5 text-[11px] font-black uppercase tracking-[0.2em] text-slate-400">Cancelar</button>
-              <button type="submit" className="flex-[2] py-5 bg-indigo-600 text-white rounded-3xl text-[11px] font-black uppercase tracking-[0.2em] shadow-2xl flex items-center justify-center gap-3"><Save className="w-5 h-5" /> Guardar</button>
+              <button type="button" onClick={() => setIsModalOpen(false)} disabled={saving} className="flex-1 py-5 text-[11px] font-black uppercase tracking-[0.2em] text-slate-400 disabled:opacity-30">Cancelar</button>
+              <button type="submit" disabled={saving} className="flex-[2] py-5 bg-indigo-600 text-white rounded-3xl text-[11px] font-black uppercase tracking-[0.2em] shadow-2xl flex items-center justify-center gap-3 disabled:bg-slate-300">
+                {saving ? <Loader2 className="animate-spin w-5 h-5" /> : <><Save className="w-5 h-5" /> Guardar</>}
+              </button>
             </div>
           </form>
         </div>

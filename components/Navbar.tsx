@@ -1,6 +1,6 @@
 
-import React from 'https://esm.sh/react@19.2.3';
-import { Menu, Package, Shield, User, LogOut, ShieldCheck, ShieldAlert, UserCheck } from 'https://esm.sh/lucide-react@0.475.0?deps=react@19.2.3';
+import React, { useState } from 'https://esm.sh/react@19.2.3';
+import { Menu, Package, LogOut, ShieldCheck, ShieldAlert, UserCheck, Loader2, AlertTriangle } from 'https://esm.sh/lucide-react@0.475.0?deps=react@19.2.3';
 import { Role } from '../types.ts';
 import { supabase, isSupabaseConfigured } from '../supabaseClient.ts';
 
@@ -12,12 +12,26 @@ interface NavbarProps {
 }
 
 export const Navbar: React.FC<NavbarProps> = ({ onMenuClick, role, userEmail }) => {
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
+
   const handleLogout = async () => {
-    if (isSupabaseConfigured) {
-      await supabase.auth.signOut();
+    if (!window.confirm("¿Está seguro que desea cerrar sesión?")) return;
+    
+    setIsLoggingOut(true);
+    try {
+      if (isSupabaseConfigured) {
+        await supabase.auth.signOut();
+      }
+      localStorage.removeItem('kardex_local_session');
+      // Pequeño delay para asegurar que el estado se limpie
+      setTimeout(() => {
+        window.location.reload();
+      }, 500);
+    } catch (e) {
+      console.error("Error al salir:", e);
+      setIsLoggingOut(false);
+      alert("Error al cerrar sesión. Intente de nuevo.");
     }
-    localStorage.removeItem('kardex_local_session');
-    window.location.reload();
   };
 
   const getRoleIcon = () => {
@@ -54,10 +68,11 @@ export const Navbar: React.FC<NavbarProps> = ({ onMenuClick, role, userEmail }) 
               
               <button 
                 onClick={handleLogout}
-                className="p-2.5 bg-slate-50 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-all border border-slate-100"
+                disabled={isLoggingOut}
+                className={`p-2.5 rounded-xl transition-all border flex items-center gap-2 ${isLoggingOut ? 'bg-slate-100 text-slate-400 border-slate-200' : 'bg-slate-50 text-slate-400 hover:text-red-600 hover:bg-red-50 border-slate-100'}`}
                 title="Cerrar Sesión"
               >
-                <LogOut className="h-5 w-5" />
+                {isLoggingOut ? <Loader2 className="h-5 w-5 animate-spin" /> : <LogOut className="h-5 w-5" />}
               </button>
             </div>
           </div>

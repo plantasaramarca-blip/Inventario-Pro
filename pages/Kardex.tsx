@@ -5,7 +5,7 @@ import * as api from '../services/supabaseService.ts';
 import { exportToExcel, formatTimestamp } from '../services/excelService.ts';
 import { 
   ArrowDownCircle, ArrowUpCircle, User, 
-  Calendar, FileSpreadsheet, Loader2, X, MapPin, Building2, ShoppingBag, Info, AlertTriangle, ArrowRight, Truck, Package, Check
+  Calendar, FileSpreadsheet, Loader2, X, MapPin, Building2, ShoppingBag, Info, AlertTriangle, ArrowRight, Truck, Package, Check, CheckCircle
 } from 'https://esm.sh/lucide-react@0.475.0?deps=react@19.2.3';
 
 interface KardexProps {
@@ -19,6 +19,8 @@ export const Kardex: React.FC<KardexProps> = ({ onNavigateToDestinos, role }) =>
   const [destinos, setDestinos] = useState<Destination[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [toast, setToast] = useState<{msg: string, type: 'success' | 'error'} | null>(null);
   
   const [type, setType] = useState<TransactionType>('SALIDA');
   const [selectedProductId, setSelectedProductId] = useState('');
@@ -27,6 +29,11 @@ export const Kardex: React.FC<KardexProps> = ({ onNavigateToDestinos, role }) =>
   const [dispatcher, setDispatcher] = useState('');
   const [reason, setReason] = useState('');
   const [error, setError] = useState('');
+
+  const showToast = (msg: string, type: 'success' | 'error' = 'success') => {
+    setToast({ msg, type });
+    setTimeout(() => setToast(null), 3000);
+  };
 
   const loadData = async () => {
     setLoading(true);
@@ -57,11 +64,9 @@ export const Kardex: React.FC<KardexProps> = ({ onNavigateToDestinos, role }) =>
     setIsModalOpen(true);
   };
 
-  const selectedProduct = products.find(p => p.id === selectedProductId);
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (role === 'VIEWER') return;
+    if (role === 'VIEWER' || saving) return;
     if (!selectedProductId) return setError("Selecciona un producto");
     
     if (type === 'SALIDA') {
@@ -74,6 +79,8 @@ export const Kardex: React.FC<KardexProps> = ({ onNavigateToDestinos, role }) =>
     }
     
     const destinoObj = destinos.find(d => d.id === selectedDestinoId);
+    setSaving(true);
+    setError('');
     
     try {
       await api.registerMovement({
@@ -86,10 +93,14 @@ export const Kardex: React.FC<KardexProps> = ({ onNavigateToDestinos, role }) =>
         destinationName: destinoObj?.name,
         destinationType: destinoObj?.type
       });
+      showToast(type === 'INGRESO' ? "Entrada registrada" : "Despacho realizado con éxito");
       setIsModalOpen(false);
       loadData();
     } catch (err: any) {
-      setError(err.message || 'Error');
+      setError(err.message || 'Error al procesar movimiento');
+      showToast("Error en la transacción", 'error');
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -133,7 +144,7 @@ export const Kardex: React.FC<KardexProps> = ({ onNavigateToDestinos, role }) =>
   };
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-500 pb-20">
+    <div className="space-y-6 animate-in fade-in duration-500 pb-20 relative">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Kardex Central</h1>
@@ -208,9 +219,17 @@ export const Kardex: React.FC<KardexProps> = ({ onNavigateToDestinos, role }) =>
         </div>
       </div>
 
+       {/* TOAST SYSTEM */}
+       {toast && (
+        <div className={`fixed bottom-10 right-10 z-[200] px-6 py-4 rounded-3xl shadow-2xl flex items-center gap-4 animate-in slide-in-from-right-10 border ${toast.type === 'success' ? 'bg-white border-emerald-100 text-emerald-800' : 'bg-rose-600 border-rose-500 text-white'}`}>
+           {toast.type === 'success' ? <CheckCircle className="w-6 h-6 text-emerald-500" /> : <AlertTriangle className="w-6 h-6 text-white" />}
+           <p className="text-xs font-black uppercase tracking-tight">{toast.msg}</p>
+        </div>
+      )}
+
        {isModalOpen && role !== 'VIEWER' && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-md" onClick={() => setIsModalOpen(false)}></div>
+          <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-md" onClick={() => !saving && setIsModalOpen(false)}></div>
           <form onSubmit={handleSubmit} className="relative bg-white rounded-[3.5rem] p-10 w-full max-w-lg shadow-[0_35px_60px_-15px_rgba(0,0,0,0.3)] overflow-hidden animate-in zoom-in-95">
                
                <div className="flex items-center justify-between mb-8">
@@ -223,7 +242,7 @@ export const Kardex: React.FC<KardexProps> = ({ onNavigateToDestinos, role }) =>
                      <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Registro de Kardex</p>
                    </div>
                  </div>
-                 <button type="button" onClick={() => setIsModalOpen(false)} className="p-2 hover:bg-slate-50 rounded-2xl transition-colors"><X className="w-6 h-6 text-slate-300" /></button>
+                 {!saving && <button type="button" onClick={() => setIsModalOpen(false)} className="p-2 hover:bg-slate-50 rounded-2xl transition-colors"><X className="w-6 h-6 text-slate-300" /></button>}
                </div>
                
                {error && (
@@ -273,9 +292,9 @@ export const Kardex: React.FC<KardexProps> = ({ onNavigateToDestinos, role }) =>
                   </div>
 
                   <div className="flex flex-col sm:flex-row gap-4 pt-6">
-                    <button type="button" onClick={() => setIsModalOpen(false)} className="order-2 sm:order-1 flex-1 py-5 text-[11px] font-black uppercase tracking-widest text-slate-400 hover:text-slate-600 transition-colors">Cancelar</button>
-                    <button type="submit" className={`order-1 sm:order-2 flex-[2] py-5 rounded-[1.5rem] text-[11px] font-black uppercase tracking-[0.2em] text-white shadow-2xl transition-all flex items-center justify-center gap-3 ${type === 'INGRESO' ? 'bg-indigo-600 hover:bg-indigo-700' : 'bg-rose-600 hover:bg-rose-700'}`}>
-                      <Check className="w-5 h-5" /> Confirmar
+                    <button type="button" onClick={() => setIsModalOpen(false)} disabled={saving} className="order-2 sm:order-1 flex-1 py-5 text-[11px] font-black uppercase tracking-widest text-slate-400 hover:text-slate-600 transition-colors disabled:opacity-30">Cancelar</button>
+                    <button type="submit" disabled={saving} className={`order-1 sm:order-2 flex-[2] py-5 rounded-[1.5rem] text-[11px] font-black uppercase tracking-[0.2em] text-white shadow-2xl transition-all flex items-center justify-center gap-3 ${type === 'INGRESO' ? 'bg-indigo-600 hover:bg-indigo-700' : 'bg-rose-600 hover:bg-rose-700'} disabled:bg-slate-300`}>
+                      {saving ? <Loader2 className="animate-spin w-5 h-5" /> : <><Check className="w-5 h-5" /> Confirmar</>}
                     </button>
                   </div>
                </div>
