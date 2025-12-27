@@ -4,30 +4,34 @@ import { UserAccount, Role } from '../types.ts';
 import * as api from '../services/supabaseService.ts';
 import { 
   Plus, UserPlus, Key, Shield, Trash2, X, Search, Loader2, 
-  Mail, Calendar, ShieldAlert, ShieldCheck, UserCheck, Save, AlertTriangle
+  Mail, Calendar, ShieldAlert, ShieldCheck, UserCheck, Save, AlertTriangle, CheckCircle
 } from 'https://esm.sh/lucide-react@0.475.0?deps=react@19.2.3';
 
 export const UsersPage: React.FC = () => {
   const [users, setUsers] = useState<UserAccount[]>([]);
   const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [search, setSearch] = useState('');
   const [editingUser, setEditingUser] = useState<UserAccount | null>(null);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [toast, setToast] = useState<{msg: string, type: 'success' | 'error'} | null>(null);
 
   const [formData, setFormData] = useState<Partial<UserAccount>>({
     email: '', password: '', role: 'USER'
   });
 
+  const showToast = (msg: string, type: 'success' | 'error' = 'success') => {
+    setToast({ msg, type });
+    setTimeout(() => setToast(null), 4000);
+  };
+
   const loadUsers = async () => {
     setLoading(true);
-    setErrorMessage(null);
     try {
       const data = await api.getUsers();
       setUsers(data);
     } catch (e: any) {
-      console.error("Error al cargar usuarios:", e);
-      setErrorMessage("No se pudo conectar con la base de datos de usuarios.");
+      showToast("Error al cargar la lista de usuarios", 'error');
     } finally {
       setLoading(false);
     }
@@ -48,22 +52,34 @@ export const UsersPage: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (saving) return;
+
+    if (!formData.email) {
+      showToast("El correo es obligatorio", 'error');
+      return;
+    }
+
+    setSaving(true);
     try {
       await api.saveUser({ ...formData, id: editingUser?.id });
+      showToast(editingUser ? "Usuario actualizado" : "Perfil creado exitosamente");
       setIsModalOpen(false);
-      loadUsers();
+      await loadUsers();
     } catch (err: any) {
-      alert(err.message || "Error al guardar usuario");
+      showToast(err.message || "Error al procesar usuario", 'error');
+    } finally {
+      setSaving(false);
     }
   };
 
   const handleDelete = async (id: string) => {
-    if (confirm('¿Eliminar este usuario permanentemente?')) {
+    if (confirm('¿Eliminar acceso de este usuario? (Solo se borrará su rol en el sistema)')) {
       try {
         await api.deleteUser(id);
+        showToast("Acceso eliminado correctamente");
         loadUsers();
-      } catch (err) {
-        alert("Error al eliminar usuario");
+      } catch (err: any) {
+        showToast(err.message, 'error');
       }
     }
   };
@@ -77,23 +93,19 @@ export const UsersPage: React.FC = () => {
   };
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-500 pb-20">
+    <div className="space-y-6 animate-in fade-in duration-500 pb-20 relative">
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Gestión de Usuarios</h1>
-          <p className="text-xs text-slate-500 font-medium uppercase tracking-widest mt-1">Control de Acceso y Permisos</p>
+          <p className="text-xs text-slate-500 font-medium uppercase tracking-widest mt-1">Control de Acceso y Permisos Reales</p>
         </div>
-        <button onClick={() => handleOpenModal()} className="bg-indigo-600 text-white px-5 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest flex items-center shadow-xl shadow-indigo-100 hover:bg-indigo-700 transition-all active:scale-95">
+        <button 
+          onClick={() => handleOpenModal()} 
+          className="bg-indigo-600 text-white px-5 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest flex items-center shadow-xl shadow-indigo-100 hover:bg-indigo-700 transition-all active:scale-95"
+        >
           <UserPlus className="w-4 h-4 mr-2" /> Nuevo Usuario
         </button>
       </div>
-
-      {errorMessage && (
-        <div className="p-4 bg-amber-50 border border-amber-100 rounded-2xl flex items-center gap-3 text-amber-800">
-          <AlertTriangle className="w-5 h-5 flex-shrink-0" />
-          <p className="text-xs font-bold uppercase tracking-tight">{errorMessage} Verifique que la tabla 'profiles' exista en Supabase.</p>
-        </div>
-      )}
 
       <div className="bg-white p-4 rounded-[2rem] border border-slate-100 shadow-sm relative">
         <Search className="absolute left-8 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300" />
@@ -110,15 +122,15 @@ export const UsersPage: React.FC = () => {
         {loading ? (
           <div className="col-span-full py-20 text-center">
             <Loader2 className="animate-spin mx-auto w-10 h-10 text-indigo-500" />
-            <p className="text-[10px] font-black text-slate-400 uppercase mt-4">Cargando cuentas...</p>
+            <p className="text-[10px] font-black text-slate-400 uppercase mt-4">Sincronizando cuentas...</p>
           </div>
         ) : users.length === 0 ? (
           <div className="col-span-full py-20 text-center bg-white rounded-[2.5rem] border border-dashed border-slate-200">
             <UserPlus className="mx-auto w-12 h-12 text-slate-200 mb-4" />
-            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">No hay usuarios registrados</p>
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">No hay perfiles registrados</p>
           </div>
         ) : users.filter(u => u.email.toLowerCase().includes(search.toLowerCase())).map(u => (
-          <div key={u.id} className="bg-white p-6 rounded-[2.5rem] border border-slate-100 shadow-sm flex flex-col justify-between hover:shadow-md transition-shadow group">
+          <div key={u.id} className="bg-white p-6 rounded-[2.5rem] border border-slate-100 shadow-sm flex flex-col justify-between hover:shadow-md transition-shadow group animate-in fade-in slide-in-from-bottom-2">
              <div className="space-y-4">
                 <div className="flex justify-between items-start">
                    <div className="p-4 bg-slate-50 rounded-2xl text-slate-400 group-hover:bg-indigo-50 group-hover:text-indigo-500 transition-colors">
@@ -136,7 +148,7 @@ export const UsersPage: React.FC = () => {
              
              <div className="flex items-center justify-between mt-8 pt-6 border-t border-slate-50">
                 <button onClick={() => handleOpenModal(u)} className="p-3 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl transition-all flex items-center gap-2 text-[10px] font-black uppercase tracking-widest">
-                  <Key className="w-4 h-4" /> Cambiar
+                  <Key className="w-4 h-4" /> Editar Rol
                 </button>
                 <button onClick={() => handleDelete(u.id)} className="p-3 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all">
                   <Trash2 className="w-4 h-4" />
@@ -146,49 +158,87 @@ export const UsersPage: React.FC = () => {
         ))}
       </div>
 
+      {/* TOAST SYSTEM */}
+      {toast && (
+        <div className={`fixed bottom-10 right-10 z-[200] px-6 py-4 rounded-3xl shadow-2xl flex items-center gap-4 animate-in slide-in-from-right-10 border ${toast.type === 'success' ? 'bg-white border-emerald-100 text-emerald-800' : 'bg-rose-600 border-rose-500 text-white'}`}>
+           {toast.type === 'success' ? <CheckCircle className="w-6 h-6 text-emerald-500" /> : <AlertTriangle className="w-6 h-6 text-white" />}
+           <p className="text-xs font-black uppercase tracking-tight">{toast.msg}</p>
+        </div>
+      )}
+
       {isModalOpen && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => setIsModalOpen(false)}></div>
-          <form onSubmit={handleSubmit} className="relative bg-white rounded-[3rem] p-8 w-full max-w-md shadow-2xl animate-in zoom-in-95">
+          <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => !saving && setIsModalOpen(false)}></div>
+          <form 
+            onSubmit={handleSubmit} 
+            className="relative bg-white rounded-[3rem] p-8 w-full max-w-md shadow-2xl animate-in zoom-in-95"
+            noValidate
+          >
              <div className="flex justify-between items-center mb-8">
                 <div>
                   <h3 className="text-xl font-black text-slate-800 uppercase tracking-tight">{editingUser ? 'Editar' : 'Nuevo'} Usuario</h3>
-                  <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1">Definición de credenciales</p>
+                  <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1">Definición de Credenciales</p>
                 </div>
-                <button type="button" onClick={() => setIsModalOpen(false)} className="p-2 hover:bg-slate-50 rounded-xl transition-colors"><X className="text-slate-400" /></button>
+                {!saving && (
+                  <button type="button" onClick={() => setIsModalOpen(false)} className="p-2 hover:bg-slate-50 rounded-xl transition-colors"><X className="text-slate-400" /></button>
+                )}
              </div>
              
              <div className="space-y-4">
                 <div className="space-y-1">
                   <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-2">Correo Electrónico</label>
-                  <input type="email" required className="w-full p-4 bg-slate-50 rounded-2xl outline-none font-bold text-sm focus:ring-2 focus:ring-indigo-500 transition-all" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} />
+                  <input 
+                    type="email" 
+                    required 
+                    readOnly={!!editingUser}
+                    className={`w-full p-4 bg-slate-50 rounded-2xl outline-none font-bold text-sm focus:ring-2 focus:ring-indigo-500 transition-all ${editingUser ? 'opacity-50 cursor-not-allowed text-slate-400' : ''}`} 
+                    value={formData.email} 
+                    onChange={e => setFormData({...formData, email: e.target.value})} 
+                  />
                 </div>
                 
-                <div className="space-y-1">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-2">Contraseña {editingUser && '(Dejar vacío para mantener)'}</label>
-                  <input type="password" required={!editingUser} className="w-full p-4 bg-slate-50 rounded-2xl outline-none font-bold text-sm focus:ring-2 focus:ring-indigo-500 transition-all" value={formData.password} onChange={e => setFormData({...formData, password: e.target.value})} />
-                </div>
+                {!editingUser && (
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-2">Contraseña Inicial</label>
+                    <input 
+                      type="password" 
+                      required 
+                      className="w-full p-4 bg-slate-50 rounded-2xl outline-none font-bold text-sm focus:ring-2 focus:ring-indigo-500 transition-all" 
+                      value={formData.password} 
+                      onChange={e => setFormData({...formData, password: e.target.value})} 
+                    />
+                    <p className="text-[8px] text-slate-400 font-bold uppercase mt-1 px-2">* El usuario recibirá un correo para confirmar cuenta.</p>
+                  </div>
+                )}
 
                 <div className="space-y-1">
                   <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-2">Rol del Usuario</label>
-                  <select className="w-full p-4 bg-indigo-50 text-indigo-700 rounded-2xl outline-none font-black text-xs uppercase cursor-pointer" value={formData.role} onChange={e => setFormData({...formData, role: e.target.value as Role})}>
+                  <select 
+                    className="w-full p-4 bg-indigo-50 text-indigo-700 rounded-2xl outline-none font-black text-xs uppercase cursor-pointer" 
+                    value={formData.role} 
+                    onChange={e => setFormData({...formData, role: e.target.value as Role})}
+                  >
                     <option value="ADMIN">Administrador (Control Total)</option>
                     <option value="USER">Usuario (Crear/Editar)</option>
                     <option value="VIEWER">Visor (Solo Lectura)</option>
                   </select>
-                  <div className="bg-slate-50 p-3 rounded-2xl mt-3">
-                    <p className="text-[9px] text-slate-500 font-bold uppercase tracking-tighter leading-relaxed">
-                      {formData.role === 'ADMIN' && "• Puede gestionar usuarios, auditorías y todo el stock."}
-                      {formData.role === 'USER' && "• Puede registrar entradas/salidas pero NO eliminar registros."}
-                      {formData.role === 'VIEWER' && "• Solo puede consultar existencias y reportes."}
-                    </p>
-                  </div>
                 </div>
 
                 <div className="flex gap-4 mt-10">
-                   <button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 text-[10px] font-black uppercase tracking-widest text-slate-400">Cancelar</button>
-                   <button type="submit" className="flex-[2] py-4 bg-indigo-600 text-white rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] shadow-xl shadow-indigo-100 flex items-center justify-center gap-2 hover:bg-indigo-700 transition-all">
-                     <Save className="w-4 h-4" /> Guardar
+                   <button 
+                    type="button" 
+                    disabled={saving}
+                    onClick={() => setIsModalOpen(false)} 
+                    className="flex-1 text-[10px] font-black uppercase tracking-widest text-slate-400 disabled:opacity-30"
+                   >
+                     Cancelar
+                   </button>
+                   <button 
+                    type="submit" 
+                    disabled={saving}
+                    className="flex-[2] py-4 bg-indigo-600 text-white rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] shadow-xl shadow-indigo-100 flex items-center justify-center gap-2 hover:bg-indigo-700 transition-all disabled:bg-slate-300 disabled:shadow-none"
+                   >
+                     {saving ? <Loader2 className="animate-spin w-4 h-4" /> : <><Save className="w-4 h-4" /> Guardar</>}
                    </button>
                 </div>
              </div>

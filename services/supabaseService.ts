@@ -10,44 +10,50 @@ export const getCurrentUserProfile = async (email: string): Promise<{role: Role}
   if (!useSupabase()) {
     const users = await getUsers();
     const user = users.find(u => u.email === email);
-    return user ? { role: user.role } : { role: 'ADMIN' }; // Local mode default admin
+    return user ? { role: user.role } : { role: 'ADMIN' };
   }
   
-  const { data, error } = await supabase.from('profiles').select('role').eq('email', email).maybeSingle();
-  
-  if (error || !data) {
-    // Si no existe, verificar si es el primer usuario para hacerlo ADMIN
-    const { count } = await supabase.from('profiles').select('*', { count: 'exact', head: true });
-    const initialRole: Role = (count === 0) ? 'ADMIN' : 'VIEWER';
+  try {
+    const { data, error } = await supabase.from('profiles').select('role').eq('email', email).maybeSingle();
     
-    // Auto-crear perfil si no existe
-    await saveUser({ email, role: initialRole });
-    return { role: initialRole };
+    if (error) throw error;
+
+    if (!data) {
+      const { count } = await supabase.from('profiles').select('*', { count: 'exact', head: true });
+      const initialRole: Role = (count === 0) ? 'ADMIN' : 'VIEWER';
+      
+      // Auto-crear perfil para el usuario actual si no existe
+      const { error: upsertError } = await supabase.from('profiles').upsert({ email, role: initialRole }, { onConflict: 'email' });
+      if (upsertError) console.error("Error auto-creando perfil:", upsertError);
+      
+      return { role: initialRole };
+    }
+    
+    return { role: data.role as Role };
+  } catch (e) {
+    console.error("Error en getCurrentUserProfile:", e);
+    return { role: 'VIEWER' };
   }
-  
-  return { role: data.role as Role };
 };
 
 export const getUsers = async (): Promise<UserAccount[]> => {
   if (!useSupabase()) {
     const data = localStorage.getItem('kardex_users');
-    return data ? JSON.parse(data) : [{ id: 'admin-1', email: 'admin@planta.com', role: 'ADMIN', createdAt: new Date().toISOString() }];
+    return data ? JSON.parse(data) : [];
   }
   
-  const { data, error } = await supabase.from('profiles').select('*').order('email');
-  
-  if (error) {
-    console.error("Error fetching users from Supabase:", error);
-    const localData = localStorage.getItem('kardex_users');
-    return localData ? JSON.parse(localData) : [];
+  try {
+    const { data, error } = await supabase.from('profiles').select('*').order('email');
+    if (error) throw error;
+    return (data || []).map(u => ({ 
+      id: u.id, 
+      email: u.email, 
+      role: u.role as Role, 
+      createdAt: u.created_at 
+    }));
+  } catch (e) {
+    return [];
   }
-  
-  return (data || []).map(u => ({ 
-    id: u.id, 
-    email: u.email, 
-    role: u.role as Role, 
-    createdAt: u.created_at 
-  }));
 };
 
 export const saveUser = async (user: Partial<UserAccount>) => {
@@ -58,29 +64,49 @@ export const saveUser = async (user: Partial<UserAccount>) => {
       users[idx] = { ...users[idx], ...user };
     } else {
       users.push({ 
-        id: crypto.randomUUID(), 
-        email: user.email!, 
-        role: user.role || 'VIEWER', 
-        createdAt: new Date().toISOString() 
+        id: crypto.randomUUID(), email: user.email!, role: user.role || 'VIEWER', createdAt: new Date().toISOString() 
       });
     }
     localStorage.setItem('kardex_users', JSON.stringify(users));
     return;
   }
 
-  const payload = { 
-    email: user.email, 
-    role: user.role
-  };
+  try {
+    // 1. Sincronizar con la tabla de Perfiles primero (Base de Datos)
+    // Esto asegura que el usuario aparezca en la lista de la app de inmediato
+    const payload = { 
+      email: user.email, 
+      role: user.role
+    };
 
-  let error;
-  // Intentar Upsert por email para evitar duplicados
-  const { error: upsertError } = await supabase.from('profiles').upsert(payload, { onConflict: 'email' });
-  error = upsertError;
+    const { error: upsertError } = await supabase.from('profiles').upsert(payload, { onConflict: 'email' });
+    if (upsertError) throw new Error(`No se pudo guardar el perfil: ${upsertError.message}`);
 
-  if (error) {
-    console.error("Error saving user profile:", error);
-    throw new Error(`Error en base de datos: ${error.message}`);
+    // 2. Intentar registrar en Auth solo si es nuevo y tiene password
+    // Usamos un bloque try/catch específico para Auth porque puede fallar si el Admin ya tiene sesión
+    if (!user.id && user.password) {
+      try {
+        const { error: authError } = await supabase.auth.signUp({
+          email: user.email!,
+          password: user.password,
+          options: {
+            data: { role: user.role },
+            // Evitamos que Supabase intente loguear al nuevo usuario automáticamente
+            emailRedirectTo: window.location.origin 
+          }
+        });
+        
+        if (authError) {
+          console.warn("Auth SignUp falló (posible sesión activa), pero el perfil fue creado:", authError.message);
+          // Si el error es que ya existe en Auth, está bien, ya creamos el perfil arriba.
+        }
+      } catch (authErr) {
+        console.error("Excepción en Auth:", authErr);
+      }
+    }
+  } catch (error: any) {
+    console.error("Error en saveUser:", error);
+    throw error;
   }
 };
 
@@ -90,19 +116,14 @@ export const deleteUser = async (id: string) => {
     localStorage.setItem('kardex_users', JSON.stringify(users));
     return;
   }
+  
   const { error } = await supabase.from('profiles').delete().eq('id', id);
-  if (error) {
-    console.error("Error deleting profile:", error);
-    throw new Error("No se pudo eliminar el perfil. Puede que el usuario tenga registros vinculados.");
-  }
+  if (error) throw new Error(`Error al eliminar de la base de datos: ${error.message}`);
 };
 
-// --- Maestros: Ubicaciones ---
-export const getLocationsMaster = async (): Promise<LocationMaster[]> => {
-  if (!useSupabase()) {
-    const data = localStorage.getItem('kardex_locations_master');
-    return data ? JSON.parse(data) : [{id: '1', name: 'Almacén Central'}];
-  }
+// ... resto de servicios ...
+export const getLocationsMaster = async () => {
+  if (!useSupabase()) return JSON.parse(localStorage.getItem('kardex_locations_master') || '[]');
   const { data } = await supabase.from('locations_master').select('*').order('name');
   return data || [];
 };
@@ -126,12 +147,8 @@ export const deleteLocationMaster = async (id: string) => {
   await supabase.from('locations_master').delete().eq('id', id);
 };
 
-// --- Maestros: Categorías ---
-export const getCategoriesMaster = async (): Promise<CategoryMaster[]> => {
-  if (!useSupabase()) {
-    const data = localStorage.getItem('kardex_categories_master');
-    return data ? JSON.parse(data) : [{id: '1', name: 'Lubricantes'}, {id: '2', name: 'Calzado Seguridad'}];
-  }
+export const getCategoriesMaster = async () => {
+  if (!useSupabase()) return JSON.parse(localStorage.getItem('kardex_categories_master') || '[]');
   const { data } = await supabase.from('categories_master').select('*').order('name');
   return data || [];
 };
@@ -155,11 +172,9 @@ export const deleteCategoryMaster = async (id: string) => {
   await supabase.from('categories_master').delete().eq('id', id);
 };
 
-// --- Productos ---
 export const getProducts = async (): Promise<Product[]> => {
   if (!useSupabase()) return localStorageApi.getProducts();
-  const { data, error } = await supabase.from('products').select('*').order('name');
-  if (error) return [];
+  const { data } = await supabase.from('products').select('*').order('name');
   return (data || []).map(p => ({
     id: p.id, code: p.code, name: p.name, 
     brand: p.brand || '', size: p.size || '', model: p.model || '',
@@ -181,33 +196,22 @@ export const saveProduct = async (product: Partial<Product>) => {
     localStorageApi.saveProduct(p);
     return;
   }
-
   const payload: any = {
     code: product.code, name: product.name, 
     brand: product.brand, size: product.size, model: product.model,
-    category: product.category,
-    location: product.location, stock: product.stock, min_stock: product.minStock,
-    critical_stock: product.criticalStock, precio_compra: product.purchasePrice,
-    precio_venta: product.salePrice, moneda: product.currency,
-    unit: product.unit, image_url: product.imageUrl, updated_at: new Date().toISOString()
+    category: product.category, location: product.location, stock: product.stock, 
+    min_stock: product.minStock, critical_stock: product.criticalStock, 
+    precio_compra: product.purchasePrice, precio_venta: product.salePrice, 
+    moneda: product.currency, unit: product.unit, image_url: product.imageUrl, 
+    updated_at: new Date().toISOString()
   };
-
-  if (product.id) {
-    await supabase.from('products').update(payload).eq('id', product.id);
-  } else {
-    await supabase.from('products').insert([payload]);
-  }
+  if (product.id) await supabase.from('products').update(payload).eq('id', product.id);
+  else await supabase.from('products').insert([payload]);
 };
 
-export const getAuditLogs = async (page = 0, limit = 50, filters?: any) => {
+export const getAuditLogs = async (page = 0, limit = 50) => {
   if (!useSupabase()) return localStorageApi.getAuditLogs(page, limit);
-  let query = supabase.from('audit_logs').select('*', { count: 'exact' });
-  if (filters) {
-    if (filters.action && filters.action !== 'ALL') query = query.eq('action', filters.action);
-    if (filters.tableName && filters.tableName !== 'ALL') query = query.eq('table_name', filters.tableName);
-    if (filters.userEmail) query = query.ilike('user_email', `%${filters.userEmail}%`);
-  }
-  const { data, count } = await query.order('created_at', { ascending: false }).range(page * limit, (page + 1) * limit - 1);
+  const { data, count } = await supabase.from('audit_logs').select('*', { count: 'exact' }).order('created_at', { ascending: false }).range(page * limit, (page + 1) * limit - 1);
   return { data: data || [], count: count || 0 };
 };
 
@@ -268,7 +272,7 @@ export const getMovements = async (): Promise<Movement[]> => {
     id: m.id, productId: m.product_id, productName: m.product_name,
     type: m.type, quantity: m.quantity, date: m.date,
     dispatcher: m.dispatcher, reason: m.reason, balanceAfter: m.balance_after,
-    destinationName: m.destino_nombre
+    destinationName: m.destino_nombre, destinationType: m.destination_type
   }));
 };
 
