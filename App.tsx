@@ -11,7 +11,7 @@ import { Destinos } from './pages/Destinos.tsx';
 import { AuditPage } from './pages/AuditLog.tsx';
 import { UsersPage } from './pages/Users.tsx';
 import { Login } from './pages/Login.tsx';
-import { Role, Product } from './types.ts';
+import { Role } from './types.ts';
 import * as api from './services/supabaseService.ts';
 import { Loader2 } from 'https://esm.sh/lucide-react@0.475.0?deps=react@19.2.3';
 
@@ -21,40 +21,40 @@ export default function App() {
   const [currentPage, setCurrentPage] = useState('dashboard');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [role, setRole] = useState<Role>('VIEWER');
-  const [publicProduct, setPublicProduct] = useState<Product | null>(null);
-  const [loadingPublic, setLoadingPublic] = useState(false);
 
   const fetchRole = async (email: string) => {
     try {
       const profile = await api.getCurrentUserProfile(email);
-      if (profile) {
-        setRole(profile.role);
-      }
+      if (profile) setRole(profile.role);
     } catch (e) {
-      console.error("Error fetching role:", e);
+      console.warn("Error al obtener rol, usando VIEWER por defecto.");
     }
   };
 
   useEffect(() => {
     const initAuth = async () => {
-      setLoading(true);
       try {
         if (isSupabaseConfigured) {
-          const { data: { session: currentSession } } = await supabase.auth.getSession();
-          setSession(currentSession);
-          if (currentSession?.user?.email) {
-            await fetchRole(currentSession.user.email);
+          // Obtener sesión inicial de forma síncrona si es posible
+          const { data: { session: initialSession } } = await supabase.auth.getSession();
+          if (initialSession) {
+            setSession(initialSession);
+            await fetchRole(initialSession.user.email!);
           }
 
-          const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
-            setSession(session);
-            if (session?.user?.email) {
-              await fetchRole(session.user.email);
-            } else {
-              setRole('VIEWER');
+          // Listener de cambios de auth
+          const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, newSession) => {
+            if (newSession?.user?.id !== session?.user?.id) {
+              setSession(newSession);
+              if (newSession?.user?.email) {
+                await fetchRole(newSession.user.email);
+              } else {
+                setRole('VIEWER');
+              }
             }
           });
-
+          
+          setLoading(false);
           return () => subscription.unsubscribe();
         } else {
           const localSession = localStorage.getItem('kardex_local_session');
@@ -63,48 +63,32 @@ export default function App() {
             setSession(parsed);
             await fetchRole(parsed.user.email);
           }
+          setLoading(false);
         }
       } catch (e) {
-        console.error("Auth error:", e);
-      } finally {
+        console.error("Auth init error:", e);
         setLoading(false);
       }
     };
     initAuth();
-  }, []);
+  }, [session?.user?.id]);
 
-  if (loading || loadingPublic) return (
+  if (loading) return (
     <div className="h-screen flex items-center justify-center bg-slate-50">
       <div className="text-center">
         <Loader2 className="animate-spin w-12 h-12 text-indigo-600 mx-auto mb-4" />
-        <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Iniciando Kardex Pro...</p>
+        <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Sincronizando acceso...</p>
       </div>
     </div>
   );
-
-  if (publicProduct) {
-    return (
-      <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-6 text-center">
-        <div className="bg-white p-10 rounded-[3rem] shadow-2xl border border-slate-100 max-w-sm w-full">
-           <h1 className="text-2xl font-black mb-2 text-slate-800 uppercase tracking-tight">{publicProduct.name}</h1>
-           <p className="text-[10px] font-black text-slate-400 uppercase mb-8">Información de Stock</p>
-           <div className="bg-indigo-50 p-6 rounded-3xl mb-8 border border-indigo-100">
-             <p className="text-4xl font-black text-indigo-600 mb-1">{publicProduct.stock}</p>
-             <p className="text-[10px] font-black text-indigo-400 uppercase tracking-widest">{publicProduct.unit} Disponibles</p>
-           </div>
-           <button onClick={() => window.location.href = window.location.origin} className="w-full bg-slate-900 text-white py-4 rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-xl">Volver al sistema</button>
-        </div>
-      </div>
-    );
-  }
 
   if (!session) return <Login />;
 
   const renderContent = () => {
     switch (currentPage) {
       case 'inventory': return <Inventory role={role} />;
-      case 'kardex': return <Kardex onNavigateToDestinos={() => setCurrentPage('destinos')} role={role} />;
-      case 'destinos': return <Destinos role={role} />;
+      case 'kardex': return <Kardex role={role} />;
+      case 'destinos': return <Destinos />;
       case 'contacts': return <Contacts role={role} />;
       case 'users': return role === 'ADMIN' ? <UsersPage /> : <Dashboard />;
       case 'audit': return role === 'ADMIN' ? <AuditPage /> : <Dashboard />;
@@ -115,9 +99,9 @@ export default function App() {
   return (
     <div className="flex h-screen overflow-hidden bg-slate-50 font-inter">
       <Sidebar currentPage={currentPage} onNavigate={setCurrentPage} isOpen={isSidebarOpen} setIsOpen={setIsSidebarOpen} role={role} />
-      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-        <Navbar onMenuClick={() => setIsSidebarOpen(true)} role={role} setRole={setRole} userEmail={session.user?.email || 'Admin Local'} />
-        <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">
+      <div className="flex-1 flex flex-col min-w-0 overflow-hidden relative">
+        <Navbar onMenuClick={() => setIsSidebarOpen(true)} role={role} setRole={setRole} userEmail={session.user?.email} />
+        <main className="flex-1 overflow-y-auto p-3 sm:p-6">
            <div className="max-w-7xl mx-auto">{renderContent()}</div>
         </main>
       </div>
