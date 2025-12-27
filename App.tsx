@@ -20,28 +20,24 @@ export default function App() {
   const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState('dashboard');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [role, setRole] = useState<Role>('VIEWER'); // Default a Viewer por seguridad
+  const [role, setRole] = useState<Role>('VIEWER');
   const [publicProduct, setPublicProduct] = useState<Product | null>(null);
   const [loadingPublic, setLoadingPublic] = useState(false);
 
   const fetchRole = async (email: string) => {
-    const profile = await api.getCurrentUserProfile(email);
-    if (profile) setRole(profile.role);
+    try {
+      const profile = await api.getCurrentUserProfile(email);
+      if (profile) {
+        setRole(profile.role);
+      }
+    } catch (e) {
+      console.error("Error fetching role:", e);
+    }
   };
 
   useEffect(() => {
-    const urlParams = new URLSearchParams(window.location.search);
-    const viewProductId = urlParams.get('view_product');
-    
-    if (viewProductId) {
-      setLoadingPublic(true);
-      api.getProductById(viewProductId).then(p => {
-        if (p) setPublicProduct(p);
-        setLoadingPublic(false);
-      });
-    }
-
     const initAuth = async () => {
+      setLoading(true);
       try {
         if (isSupabaseConfigured) {
           const { data: { session: currentSession } } = await supabase.auth.getSession();
@@ -54,6 +50,8 @@ export default function App() {
             setSession(session);
             if (session?.user?.email) {
               await fetchRole(session.user.email);
+            } else {
+              setRole('VIEWER');
             }
           });
 

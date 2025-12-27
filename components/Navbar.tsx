@@ -1,6 +1,6 @@
 
 import React from 'https://esm.sh/react@19.2.3';
-import { Menu, Package, Shield, User, LogOut } from 'https://esm.sh/lucide-react@0.475.0?deps=react@19.2.3';
+import { Menu, Package, Shield, User, LogOut, ShieldCheck, ShieldAlert, UserCheck } from 'https://esm.sh/lucide-react@0.475.0?deps=react@19.2.3';
 import { Role } from '../types.ts';
 import { supabase, isSupabaseConfigured } from '../supabaseClient.ts';
 
@@ -11,13 +11,21 @@ interface NavbarProps {
   userEmail?: string;
 }
 
-export const Navbar: React.FC<NavbarProps> = ({ onMenuClick, role, setRole, userEmail }) => {
+export const Navbar: React.FC<NavbarProps> = ({ onMenuClick, role, userEmail }) => {
   const handleLogout = async () => {
     if (isSupabaseConfigured) {
       await supabase.auth.signOut();
     }
     localStorage.removeItem('kardex_local_session');
     window.location.reload();
+  };
+
+  const getRoleIcon = () => {
+    switch(role) {
+      case 'ADMIN': return <ShieldCheck className="w-3 h-3 text-indigo-600" />;
+      case 'USER': return <UserCheck className="w-3 h-3 text-emerald-600" />;
+      default: return <ShieldAlert className="w-3 h-3 text-slate-400" />;
+    }
   };
 
   return (
@@ -35,30 +43,18 @@ export const Navbar: React.FC<NavbarProps> = ({ onMenuClick, role, setRole, user
           </div>
 
           <div className="flex items-center space-x-4">
-            <div className="hidden lg:flex items-center bg-slate-100 rounded-lg p-1 mr-4 border border-slate-200">
-                <button 
-                  onClick={() => setRole('ADMIN')}
-                  className={`flex items-center px-3 py-1.5 rounded-md text-xs font-bold transition-all ${role === 'ADMIN' ? 'bg-white shadow text-indigo-700' : 'text-slate-500'}`}
-                >
-                    <Shield className="w-3 h-3 mr-1" /> Admin
-                </button>
-                <button 
-                  onClick={() => setRole('USER')}
-                  className={`flex items-center px-3 py-1.5 rounded-md text-xs font-bold transition-all ${role === 'USER' ? 'bg-white shadow text-indigo-700' : 'text-slate-500'}`}
-                >
-                    <User className="w-3 h-3 mr-1" /> Usuario
-                </button>
-            </div>
-
-            <div className="flex items-center pl-4 border-l border-slate-200">
+            <div className="flex items-center pl-4">
               <div className="text-right mr-3 hidden sm:block">
                 <p className="text-xs font-bold text-slate-800 truncate max-w-[150px]">{userEmail}</p>
-                <p className="text-[10px] text-slate-500 uppercase font-black">{role}</p>
+                <div className="flex items-center justify-end gap-1 mt-0.5">
+                  {getRoleIcon()}
+                  <p className="text-[9px] text-slate-500 uppercase font-black tracking-widest">{role}</p>
+                </div>
               </div>
               
               <button 
                 onClick={handleLogout}
-                className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-full transition-all"
+                className="p-2.5 bg-slate-50 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-all border border-slate-100"
                 title="Cerrar Sesión"
               >
                 <LogOut className="h-5 w-5" />

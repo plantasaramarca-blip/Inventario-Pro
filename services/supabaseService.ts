@@ -10,10 +10,21 @@ export const getCurrentUserProfile = async (email: string): Promise<{role: Role}
   if (!useSupabase()) {
     const users = await getUsers();
     const user = users.find(u => u.email === email);
-    return user ? { role: user.role } : { role: 'VIEWER' };
+    return user ? { role: user.role } : { role: 'ADMIN' }; // Local mode default admin
   }
+  
   const { data, error } = await supabase.from('profiles').select('role').eq('email', email).maybeSingle();
-  if (error || !data) return { role: 'VIEWER' };
+  
+  if (error || !data) {
+    // Si no existe, verificar si es el primer usuario para hacerlo ADMIN
+    const { count } = await supabase.from('profiles').select('*', { count: 'exact', head: true });
+    const initialRole: Role = (count === 0) ? 'ADMIN' : 'VIEWER';
+    
+    // Auto-crear perfil si no existe
+    await saveUser({ email, role: initialRole });
+    return { role: initialRole };
+  }
+  
   return { role: data.role as Role };
 };
 
@@ -27,11 +38,8 @@ export const getUsers = async (): Promise<UserAccount[]> => {
   
   if (error) {
     console.error("Error fetching users from Supabase:", error);
-    if (error.code === 'PGRST116' || error.message.includes('not found')) {
-      const localData = localStorage.getItem('kardex_users');
-      return localData ? JSON.parse(localData) : [];
-    }
-    return [];
+    const localData = localStorage.getItem('kardex_users');
+    return localData ? JSON.parse(localData) : [];
   }
   
   return (data || []).map(u => ({ 
@@ -45,15 +53,14 @@ export const getUsers = async (): Promise<UserAccount[]> => {
 export const saveUser = async (user: Partial<UserAccount>) => {
   if (!useSupabase()) {
     const users = await getUsers();
-    const idx = users.findIndex(u => u.id === user.id);
+    const idx = users.findIndex(u => u.id === user.id || u.email === user.email);
     if (idx >= 0) {
       users[idx] = { ...users[idx], ...user };
     } else {
       users.push({ 
         id: crypto.randomUUID(), 
         email: user.email!, 
-        password: user.password, 
-        role: user.role || 'USER', 
+        role: user.role || 'VIEWER', 
         createdAt: new Date().toISOString() 
       });
     }
@@ -67,17 +74,13 @@ export const saveUser = async (user: Partial<UserAccount>) => {
   };
 
   let error;
-  if (user.id) {
-    const { error: updateError } = await supabase.from('profiles').update(payload).eq('id', user.id);
-    error = updateError;
-  } else {
-    const { error: insertError } = await supabase.from('profiles').insert([payload]);
-    error = insertError;
-  }
+  // Intentar Upsert por email para evitar duplicados
+  const { error: upsertError } = await supabase.from('profiles').upsert(payload, { onConflict: 'email' });
+  error = upsertError;
 
   if (error) {
-    console.error("Error saving user to Supabase:", error);
-    throw new Error(`Error en base de datos: ${error.message}. Asegúrese de crear la tabla 'profiles'.`);
+    console.error("Error saving user profile:", error);
+    throw new Error(`Error en base de datos: ${error.message}`);
   }
 };
 
@@ -88,7 +91,10 @@ export const deleteUser = async (id: string) => {
     return;
   }
   const { error } = await supabase.from('profiles').delete().eq('id', id);
-  if (error) throw error;
+  if (error) {
+    console.error("Error deleting profile:", error);
+    throw new Error("No se pudo eliminar el perfil. Puede que el usuario tenga registros vinculados.");
+  }
 };
 
 // --- Maestros: Ubicaciones ---
