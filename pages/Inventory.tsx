@@ -65,7 +65,6 @@ export const Inventory: React.FC<InventoryProps> = ({ role }) => {
 
   useEffect(() => { loadData(); }, []);
 
-  // Fix: Defined toggleSelect to handle selecting/deselecting items in the inventory list
   const toggleSelect = (id: string) => {
     const newSelected = new Set(selectedIds);
     if (newSelected.has(id)) {
