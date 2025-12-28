@@ -6,7 +6,7 @@ import { StockBadge } from '../components/StockBadge.tsx';
 import { ProductQRCode } from '../components/ProductQRCode.tsx';
 import { formatCurrency } from '../utils/currencyUtils.ts';
 import { 
-  Plus, Search, Edit2, ImageIcon, Loader2, QrCode, 
+  Plus, Search, Edit2, ImageIcon, Loader2, QrCode, Settings2,
   X, Trash2, Save, Package, Camera, AlertTriangle, CheckCircle
 } from 'https://esm.sh/lucide-react@0.475.0?deps=react@19.2.3';
 
@@ -23,6 +23,9 @@ export const Inventory: React.FC<InventoryProps> = ({ role }) => {
   const [toast, setToast] = useState<{msg: string, type: 'success' | 'error'} | null>(null);
   
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isMasterModalOpen, setIsMasterModalOpen] = useState<'category' | 'location' | null>(null);
+  const [masterName, setMasterName] = useState('');
+  
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [showQRModal, setShowQRModal] = useState(false);
   const [selectedProductForQR, setSelectedProductForQR] = useState<Product | null>(null);
@@ -53,18 +56,11 @@ export const Inventory: React.FC<InventoryProps> = ({ role }) => {
       setCategories(cats || []);
       setLocations(locs || []);
     } catch (e) { 
-      console.warn("Fallo carga de maestros, usando listas vacías.");
+      console.error("Error al cargar maestros");
     } finally { setLoading(false); }
   };
 
   useEffect(() => { loadData(); }, []);
-
-  const filteredProducts = useMemo(() => {
-    return products.filter(p => 
-      p.name.toLowerCase().includes(search.toLowerCase()) || 
-      p.code.toLowerCase().includes(search.toLowerCase())
-    ).sort((a, b) => a.name.localeCompare(b.name));
-  }, [products, search]);
 
   const handleOpenModal = (product?: Product) => {
     if (role === 'VIEWER') return;
@@ -109,81 +105,95 @@ export const Inventory: React.FC<InventoryProps> = ({ role }) => {
     }
   };
 
+  const handleSaveMaster = async () => {
+    if (!masterName) return;
+    try {
+      if (isMasterModalOpen === 'category') await api.saveCategoryMaster(masterName);
+      else await api.saveLocationMaster(masterName);
+      setMasterName('');
+      setIsMasterModalOpen(null);
+      loadData();
+      showToast("Maestro actualizado");
+    } catch (e) { showToast("Error al guardar", 'error'); }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (saving) return;
     setSaving(true);
     try {
-      await api.saveProduct({
-        ...formData,
-        stock: Number(formData.stock),
-        minStock: Number(formData.minStock),
-        criticalStock: Number(formData.criticalStock),
-        purchasePrice: Number(formData.purchasePrice)
-      });
+      await api.saveProduct(formData);
       showToast(editingProduct ? "Actualizado" : "Producto Guardado");
       setIsModalOpen(false);
       loadData();
     } catch (err: any) { 
-      showToast(err.message || "Error al guardar", 'error');
+      showToast(err.message, 'error');
     } finally {
       setSaving(false);
     }
   };
 
+  const filteredProducts = useMemo(() => {
+    return products.filter(p => 
+      p.name.toLowerCase().includes(search.toLowerCase()) || 
+      p.code.toLowerCase().includes(search.toLowerCase())
+    ).sort((a, b) => a.name.localeCompare(b.name));
+  }, [products, search]);
+
   return (
     <div className="space-y-4 pb-20 relative">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
         <div>
-          <h1 className="text-xl font-bold text-slate-900">Almacén Central</h1>
-          <p className="text-[10px] text-slate-500 uppercase font-bold tracking-widest">Gestión de Ítems</p>
+          <h1 className="text-xl font-bold text-slate-900">Catálogo de Inventario</h1>
+          <p className="text-[10px] text-slate-500 uppercase font-black tracking-widest mt-0.5">Control de Existencias</p>
         </div>
         {role !== 'VIEWER' && (
-          <button onClick={() => handleOpenModal()} className="w-full sm:w-auto bg-indigo-600 text-white px-5 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2 shadow-lg hover:bg-indigo-700 transition-all">
-            <Plus className="w-4 h-4" /> Nuevo Producto
+          <button onClick={() => handleOpenModal()} className="w-full sm:w-auto bg-indigo-600 text-white px-5 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2 shadow-lg shadow-indigo-100 hover:bg-indigo-700 transition-all">
+            <Plus className="w-4 h-4" /> Nuevo Ítem
           </button>
         )}
       </div>
 
       <div className="relative group">
         <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300" />
-        <input type="text" className="w-full pl-11 pr-4 py-3 bg-white border border-slate-100 rounded-xl text-sm outline-none shadow-sm focus:ring-2 focus:ring-indigo-500 transition-all" placeholder="Buscar producto..." value={search} onChange={e => setSearch(e.target.value)} />
+        <input type="text" className="w-full pl-11 pr-4 py-3 bg-white border border-slate-100 rounded-xl text-sm outline-none shadow-sm focus:ring-2 focus:ring-indigo-500 transition-all" placeholder="Filtrar por nombre o código..." value={search} onChange={e => setSearch(e.target.value)} />
       </div>
 
-      <div className="bg-white rounded-2xl border border-slate-100 overflow-hidden shadow-sm">
+      <div className="bg-white rounded-[2rem] border border-slate-100 overflow-hidden shadow-sm">
         <div className="overflow-x-auto no-scrollbar">
-          <table className="w-full text-sm min-w-[600px]">
+          <table className="w-full text-sm min-w-[650px]">
             <thead className="bg-slate-50/50 text-[9px] font-black uppercase text-slate-400 tracking-widest">
               <tr>
-                <th className="px-4 py-4 text-left">Ítem</th>
-                <th className="px-4 py-4 text-center">Estado</th>
-                <th className="px-4 py-4 text-center">Stock</th>
-                <th className="px-4 py-4 text-right pr-4">Acciones</th>
+                <th className="px-6 py-5 text-left">Producto</th>
+                <th className="px-4 py-5 text-center">Estado</th>
+                <th className="px-4 py-5 text-center">Stock</th>
+                <th className="px-4 py-5 text-center">Costo</th>
+                <th className="px-6 py-5 text-right">Opciones</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-50">
               {loading ? (
-                <tr><td colSpan={4} className="py-20 text-center"><Loader2 className="animate-spin w-8 h-8 text-indigo-500 mx-auto" /></td></tr>
+                <tr><td colSpan={5} className="py-20 text-center"><Loader2 className="animate-spin w-8 h-8 text-indigo-500 mx-auto" /></td></tr>
               ) : filteredProducts.map(p => (
                 <tr key={p.id} className="hover:bg-slate-50/30 transition-colors">
-                  <td className="px-4 py-3">
+                  <td className="px-6 py-4">
                     <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 bg-slate-50 rounded-lg flex items-center justify-center border border-slate-100 overflow-hidden">
+                      <div className="w-10 h-10 bg-slate-50 rounded-xl flex items-center justify-center border border-slate-100 overflow-hidden">
                         {p.imageUrl ? <img src={p.imageUrl} className="w-full h-full object-cover" /> : <ImageIcon className="text-slate-200 w-5 h-5" />}
                       </div>
-                      <div className="max-w-[150px] sm:max-w-xs">
+                      <div className="max-w-[180px] sm:max-w-xs">
                         <p className="font-bold text-slate-800 text-xs truncate">{p.name}</p>
-                        <p className="text-[9px] text-slate-400 font-black uppercase">{p.code}</p>
+                        <p className="text-[9px] text-slate-400 font-black uppercase tracking-tighter">{p.code} • {p.category}</p>
                       </div>
                     </div>
                   </td>
-                  <td className="px-4 py-3 text-center"><StockBadge stock={p.stock} minStock={p.minStock} criticalStock={p.criticalStock} /></td>
-                  <td className="px-4 py-3 text-center font-black text-slate-800 text-xs">{p.stock} <span className="text-[9px] text-slate-400 font-bold">{p.unit}</span></td>
-                  <td className="px-4 py-3 text-right pr-4">
+                  <td className="px-4 py-4 text-center"><StockBadge stock={p.stock} minStock={p.minStock} criticalStock={p.criticalStock} /></td>
+                  <td className="px-4 py-4 text-center font-black text-slate-800 text-xs">{p.stock} <span className="text-[9px] text-slate-400 font-bold">{p.unit}</span></td>
+                  <td className="px-4 py-4 text-center font-black text-indigo-600 text-xs">{formatCurrency(p.purchasePrice, p.currency)}</td>
+                  <td className="px-6 py-4 text-right">
                     <div className="flex items-center justify-end gap-1">
-                      <button onClick={() => { setSelectedProductForQR(p); setShowQRModal(true); }} className="p-2 text-indigo-600 hover:bg-indigo-50 rounded-lg"><QrCode className="w-4 h-4" /></button>
+                      <button onClick={() => { setSelectedProductForQR(p); setShowQRModal(true); }} className="p-2 text-indigo-600 hover:bg-indigo-50 rounded-lg" title="Imprimir QR"><QrCode className="w-4 h-4" /></button>
                       {role !== 'VIEWER' && <button onClick={() => handleOpenModal(p)} className="p-2 text-slate-400 hover:text-indigo-600 rounded-lg"><Edit2 className="w-4 h-4" /></button>}
-                      {role === 'ADMIN' && <button onClick={() => api.deleteProduct(p.id).then(loadData)} className="p-2 text-slate-400 hover:text-rose-600 rounded-lg"><Trash2 className="w-4 h-4" /></button>}
                     </div>
                   </td>
                 </tr>
@@ -196,81 +206,69 @@ export const Inventory: React.FC<InventoryProps> = ({ role }) => {
       {isModalOpen && (
         <div className="fixed inset-0 z-[100] flex flex-col items-center justify-center p-0 sm:p-4 animate-in fade-in duration-300">
           <div className="absolute inset-0 bg-slate-900/80 backdrop-blur-sm" onClick={() => !saving && setIsModalOpen(false)}></div>
-          <form onSubmit={handleSubmit} className="relative bg-white w-full h-full sm:h-auto sm:max-h-[90vh] sm:max-w-3xl sm:rounded-[2.5rem] flex flex-col shadow-2xl overflow-hidden">
+          <form onSubmit={handleSubmit} className="relative bg-white w-full h-full sm:h-auto sm:max-h-[90vh] sm:max-w-4xl sm:rounded-[2.5rem] flex flex-col shadow-2xl overflow-hidden">
             
-            <div className="p-4 sm:p-6 border-b border-slate-100 flex justify-between items-center shrink-0">
-               <h3 className="text-sm font-black text-slate-800 uppercase tracking-tighter">{editingProduct ? 'Editar' : 'Nuevo'} Producto</h3>
+            <div className="p-5 sm:p-6 border-b border-slate-100 flex justify-between items-center shrink-0">
+               <div>
+                  <h3 className="text-sm font-black text-slate-800 uppercase tracking-tighter">{editingProduct ? 'Editar' : 'Nuevo'} Registro de Producto</h3>
+                  <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest">Ficha Técnica y Stock</p>
+               </div>
                <button type="button" onClick={() => setIsModalOpen(false)} className="p-2 hover:bg-slate-50 rounded-xl"><X className="w-5 h-5 text-slate-400" /></button>
             </div>
 
-            <div className="flex-1 overflow-y-auto p-4 sm:p-8 space-y-6 no-scrollbar">
-               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {/* Imagen */}
+            <div className="flex-1 overflow-y-auto p-5 sm:p-8 space-y-6 no-scrollbar">
+               <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
                   <div className="space-y-2">
-                    <div className="aspect-video sm:aspect-square bg-slate-50 rounded-2xl border-2 border-dashed border-slate-200 flex flex-col items-center justify-center relative overflow-hidden group">
-                      {formData.imageUrl ? <img src={formData.imageUrl} className="w-full h-full object-cover" /> : <ImageIcon className="w-10 h-10 text-slate-200" />}
-                      <button type="button" onClick={() => fileInputRef.current?.click()} className="absolute inset-0 bg-indigo-600/60 text-white opacity-0 group-hover:opacity-100 flex flex-col items-center justify-center gap-1 font-black uppercase text-[10px] transition-all"><Camera className="w-6 h-6" /> Capturar Foto</button>
-                      <input type="file" accept="image/*" className="hidden" ref={fileInputRef} onChange={handleFileChange} />
+                    <div className="aspect-square bg-slate-50 rounded-[2rem] border-2 border-dashed border-slate-200 flex flex-col items-center justify-center relative overflow-hidden group">
+                      {formData.imageUrl ? <img src={formData.imageUrl} className="w-full h-full object-cover" /> : <div className="text-center p-4"><ImageIcon className="w-10 h-10 text-slate-200 mx-auto mb-2" /><p className="text-[9px] font-black text-slate-400 uppercase">Sin Imagen</p></div>}
+                      <button type="button" onClick={() => fileInputRef.current?.click()} className="absolute inset-0 bg-indigo-600/60 text-white opacity-0 group-hover:opacity-100 flex flex-col items-center justify-center gap-1 font-black uppercase text-[10px] transition-all"><Camera className="w-6 h-6" /> Abrir Cámara</button>
+                      <input type="file" accept="image/*" capture="environment" className="hidden" ref={fileInputRef} onChange={handleFileChange} />
                       {isOptimizing && <div className="absolute inset-0 bg-white/80 flex items-center justify-center"><Loader2 className="animate-spin text-indigo-600" /></div>}
                     </div>
                   </div>
 
-                  {/* Campos principales */}
-                  <div className="space-y-4">
-                    <div className="space-y-1">
-                      <label className="text-[9px] font-black text-slate-400 uppercase ml-1">Nombre Comercial *</label>
-                      <input type="text" required className="w-full p-3 bg-slate-50 border-2 border-transparent focus:border-indigo-500 rounded-xl outline-none font-bold text-sm" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} />
+                  <div className="md:col-span-2 space-y-5">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div className="space-y-1"><label className="text-[9px] font-black text-slate-400 uppercase ml-1">Nombre Comercial *</label><input type="text" required className="w-full p-4 bg-slate-50 border-2 border-transparent focus:border-indigo-500 rounded-2xl outline-none font-bold text-sm" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} /></div>
+                      <div className="space-y-1"><label className="text-[9px] font-black text-slate-400 uppercase ml-1">Marca</label><input type="text" className="w-full p-4 bg-slate-50 rounded-2xl outline-none font-bold text-sm" value={formData.brand} onChange={e => setFormData({...formData, brand: e.target.value})} /></div>
                     </div>
-                    <div className="grid grid-cols-2 gap-3">
-                      <div className="space-y-1">
-                        <label className="text-[9px] font-black text-slate-400 uppercase ml-1">Código SKU</label>
-                        <input type="text" className="w-full p-3 bg-indigo-50 text-indigo-700 rounded-xl outline-none font-black text-xs" value={formData.code} onChange={e => setFormData({...formData, code: e.target.value.toUpperCase()})} />
-                      </div>
-                      <div className="space-y-1">
-                        <label className="text-[9px] font-black text-slate-400 uppercase ml-1">Marca</label>
-                        <input type="text" className="w-full p-3 bg-slate-50 rounded-xl outline-none font-bold text-sm" value={formData.brand} onChange={e => setFormData({...formData, brand: e.target.value})} />
-                      </div>
+                    
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                      <div className="space-y-1"><label className="text-[9px] font-black text-indigo-500 uppercase ml-1 font-black">Talla / Medida</label><input type="text" className="w-full p-4 bg-indigo-50 text-indigo-700 rounded-2xl outline-none font-black text-sm" value={formData.size} onChange={e => setFormData({...formData, size: e.target.value})} /></div>
+                      <div className="space-y-1"><label className="text-[9px] font-black text-slate-400 uppercase ml-1">Modelo</label><input type="text" className="w-full p-4 bg-slate-50 rounded-2xl outline-none font-bold text-sm" value={formData.model} onChange={e => setFormData({...formData, model: e.target.value})} /></div>
+                      <div className="col-span-2 sm:col-span-1 space-y-1"><label className="text-[9px] font-black text-slate-400 uppercase ml-1">Código / SKU</label><input type="text" className="w-full p-4 bg-slate-50 border-2 border-transparent focus:border-indigo-500 rounded-2xl outline-none font-black text-xs" value={formData.code} onChange={e => setFormData({...formData, code: e.target.value.toUpperCase()})} /></div>
                     </div>
-                    <div className="grid grid-cols-2 gap-3">
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div className="space-y-1">
-                        <label className="text-[9px] font-black text-slate-400 uppercase ml-1">Categoría</label>
-                        <select className="w-full p-3 bg-slate-50 rounded-xl font-bold text-xs" value={formData.category} onChange={e => setFormData({...formData, category: e.target.value})}>
-                          {categories.length === 0 ? <option value="General">General</option> : categories.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
+                        <div className="flex justify-between items-center pr-1"><label className="text-[9px] font-black text-slate-400 uppercase ml-1">Categoría</label><button type="button" onClick={() => setIsMasterModalOpen('category')} className="text-[8px] font-black text-indigo-600 hover:underline">+ Gestionar</button></div>
+                        <select className="w-full p-4 bg-slate-50 rounded-2xl font-bold text-xs" value={formData.category} onChange={e => setFormData({...formData, category: e.target.value})}>
+                          {categories.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
+                          {categories.length === 0 && <option value="General">General</option>}
                         </select>
                       </div>
                       <div className="space-y-1">
-                        <label className="text-[9px] font-black text-slate-400 uppercase ml-1">Ubicación</label>
-                        <select className="w-full p-3 bg-slate-50 rounded-xl font-bold text-xs" value={formData.location} onChange={e => setFormData({...formData, location: e.target.value})}>
-                          {locations.length === 0 ? <option value="Almacén 1">Almacén 1</option> : locations.map(l => <option key={l.id} value={l.name}>{l.name}</option>)}
+                        <div className="flex justify-between items-center pr-1"><label className="text-[9px] font-black text-slate-400 uppercase ml-1">Ubicación</label><button type="button" onClick={() => setIsMasterModalOpen('location')} className="text-[8px] font-black text-indigo-600 hover:underline">+ Gestionar</button></div>
+                        <select className="w-full p-4 bg-slate-50 rounded-2xl font-bold text-xs" value={formData.location} onChange={e => setFormData({...formData, location: e.target.value})}>
+                          {locations.map(l => <option key={l.id} value={l.name}>{l.name}</option>)}
+                          {locations.length === 0 && <option value="Almacén 1">Almacén 1</option>}
                         </select>
                       </div>
                     </div>
                   </div>
                </div>
 
-               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-slate-50 p-4 rounded-2xl">
-                  <div className="space-y-1">
-                    <label className="text-[8px] font-black text-slate-400 uppercase">Stock Ini.</label>
-                    <input type="number" className="w-full p-2 bg-white rounded-lg text-center font-black text-sm" value={formData.stock} onChange={e => setFormData({...formData, stock: e.target.value})} disabled={!!editingProduct} />
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-[8px] font-black text-slate-400 uppercase">Unidad</label>
-                    <select className="w-full p-2 bg-white rounded-lg font-bold text-[10px]" value={formData.unit} onChange={e => setFormData({...formData, unit: e.target.value})}><option value="und">und</option><option value="kg">kg</option><option value="lt">lt</option></select>
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-[8px] font-black text-rose-400 uppercase">Crítico</label>
-                    <input type="number" className="w-full p-2 bg-white text-rose-600 rounded-lg text-center font-black text-sm" value={formData.criticalStock} onChange={e => setFormData({...formData, criticalStock: e.target.value})} />
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-[8px] font-black text-indigo-400 uppercase">Costo S/</label>
-                    <input type="number" step="0.01" className="w-full p-2 bg-indigo-50 text-indigo-700 rounded-lg text-center font-black text-sm" value={formData.purchasePrice} onChange={e => setFormData({...formData, purchasePrice: e.target.value})} />
-                  </div>
+               <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 bg-slate-50 p-6 rounded-[2.5rem]">
+                  <div className="space-y-1"><label className="text-[8px] font-black text-slate-400 uppercase">Stock Ini.</label><input type="number" className="w-full p-3 bg-white rounded-xl text-center font-black text-sm" value={formData.stock} onChange={e => setFormData({...formData, stock: e.target.value})} disabled={!!editingProduct} /></div>
+                  <div className="space-y-1"><label className="text-[8px] font-black text-slate-400 uppercase">Unidad</label><select className="w-full p-3 bg-white rounded-xl font-bold text-[10px]" value={formData.unit} onChange={e => setFormData({...formData, unit: e.target.value})}><option value="und">und</option><option value="paq">paq</option><option value="kg">kg</option></select></div>
+                  <div className="space-y-1"><label className="text-[8px] font-black text-rose-400 uppercase">Pto. Crítico</label><input type="number" className="w-full p-3 bg-white text-rose-600 rounded-xl text-center font-black text-sm" value={formData.criticalStock} onChange={e => setFormData({...formData, criticalStock: e.target.value})} /></div>
+                  <div className="space-y-1"><label className="text-[8px] font-black text-indigo-400 uppercase">Costo S/</label><input type="number" step="0.01" className="w-full p-3 bg-indigo-50 text-indigo-700 rounded-xl text-center font-black text-sm" value={formData.purchasePrice} onChange={e => setFormData({...formData, purchasePrice: e.target.value})} /></div>
                </div>
             </div>
 
-            <div className="p-4 sm:p-6 border-t border-slate-100 flex gap-2 shrink-0">
-               <button type="button" onClick={() => setIsModalOpen(false)} disabled={saving} className="flex-1 py-3 text-[10px] font-black uppercase text-slate-400">Cancelar</button>
-               <button type="submit" disabled={saving} className="flex-[2] py-3 bg-indigo-600 text-white rounded-xl text-[10px] font-black uppercase shadow-xl flex items-center justify-center gap-2">
+            <div className="p-5 sm:p-6 border-t border-slate-100 flex gap-3 shrink-0">
+               <button type="button" onClick={() => setIsModalOpen(false)} disabled={saving} className="flex-1 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400">Cancelar</button>
+               <button type="submit" disabled={saving} className="flex-[2] py-4 bg-indigo-600 text-white rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] shadow-xl shadow-indigo-100 flex items-center justify-center gap-2">
                   {saving ? <Loader2 className="animate-spin w-4 h-4" /> : <><Save className="w-4 h-4" /> Guardar Producto</>}
                </button>
             </div>
@@ -278,16 +276,29 @@ export const Inventory: React.FC<InventoryProps> = ({ role }) => {
         </div>
       )}
 
-      {toast && (
-        <div className={`fixed bottom-6 right-6 z-[200] px-4 py-3 rounded-xl shadow-2xl flex items-center gap-2 border animate-in slide-in-from-right-5 ${toast.type === 'success' ? 'bg-white border-emerald-100 text-emerald-800' : 'bg-rose-600 text-white'}`}>
-           {toast.type === 'success' ? <CheckCircle className="w-4 h-4 text-emerald-500" /> : <AlertTriangle className="w-4 h-4" />}
-           <p className="text-[10px] font-black uppercase">{toast.msg}</p>
+      {/* Modal para Maestros (Categoría/Ubicación) */}
+      {isMasterModalOpen && (
+        <div className="fixed inset-0 z-[150] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-md" onClick={() => setIsMasterModalOpen(null)}></div>
+          <div className="relative bg-white p-8 rounded-[3rem] w-full max-w-sm shadow-2xl">
+             <h4 className="text-xs font-black text-slate-800 uppercase tracking-widest mb-6">Nuevo {isMasterModalOpen === 'category' ? 'Categoría' : 'Ubicación'}</h4>
+             <input type="text" autoFocus className="w-full p-4 bg-slate-50 rounded-2xl outline-none font-bold text-sm mb-4" placeholder="Nombre..." value={masterName} onChange={e => setMasterName(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleSaveMaster()} />
+             <div className="flex gap-2">
+               <button onClick={() => setIsMasterModalOpen(null)} className="flex-1 py-3 text-[10px] font-black text-slate-400 uppercase">Cerrar</button>
+               <button onClick={handleSaveMaster} className="flex-1 py-3 bg-indigo-600 text-white rounded-xl text-[10px] font-black uppercase">Añadir</button>
+             </div>
+          </div>
         </div>
       )}
 
-      {showQRModal && selectedProductForQR && (
-        <ProductQRCode product={selectedProductForQR} onClose={() => { setShowQRModal(false); setSelectedProductForQR(null); }} />
+      {toast && (
+        <div className={`fixed bottom-6 right-6 z-[200] px-5 py-3 rounded-2xl shadow-2xl flex items-center gap-3 border animate-in slide-in-from-right-10 ${toast.type === 'success' ? 'bg-white border-emerald-100 text-emerald-800' : 'bg-rose-600 text-white'}`}>
+           {toast.type === 'success' ? <CheckCircle className="w-5 h-5 text-emerald-500" /> : <AlertTriangle className="w-5 h-5" />}
+           <p className="text-[10px] font-black uppercase tracking-tight">{toast.msg}</p>
+        </div>
       )}
+
+      {showQRModal && selectedProductForQR && <ProductQRCode product={selectedProductForQR} onClose={() => { setShowQRModal(false); setSelectedProductForQR(null); }} />}
     </div>
   );
 };

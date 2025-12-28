@@ -27,57 +27,49 @@ export default function App() {
       const profile = await api.getCurrentUserProfile(email);
       if (profile) setRole(profile.role);
     } catch (e) {
-      console.warn("Error al obtener rol, usando VIEWER por defecto.");
+      setRole('VIEWER');
     }
   };
 
   useEffect(() => {
     const initAuth = async () => {
-      try {
-        if (isSupabaseConfigured) {
-          // Obtener sesión inicial de forma síncrona si es posible
-          const { data: { session: initialSession } } = await supabase.auth.getSession();
-          if (initialSession) {
-            setSession(initialSession);
-            await fetchRole(initialSession.user.email!);
-          }
-
-          // Listener de cambios de auth
-          const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, newSession) => {
-            if (newSession?.user?.id !== session?.user?.id) {
-              setSession(newSession);
-              if (newSession?.user?.email) {
-                await fetchRole(newSession.user.email);
-              } else {
-                setRole('VIEWER');
-              }
-            }
-          });
-          
-          setLoading(false);
-          return () => subscription.unsubscribe();
-        } else {
-          const localSession = localStorage.getItem('kardex_local_session');
-          if (localSession) {
-            const parsed = JSON.parse(localSession);
-            setSession(parsed);
-            await fetchRole(parsed.user.email);
-          }
-          setLoading(false);
+      if (isSupabaseConfigured) {
+        const { data: { session: initialSession } } = await supabase.auth.getSession();
+        if (initialSession) {
+          setSession(initialSession);
+          await fetchRole(initialSession.user.email!);
         }
-      } catch (e) {
-        console.error("Auth init error:", e);
+        
+        const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, newSession) => {
+          setSession(newSession);
+          if (newSession?.user?.email) {
+            await fetchRole(newSession.user.email);
+          } else {
+            setRole('VIEWER');
+            setCurrentPage('dashboard');
+          }
+        });
+        
+        setLoading(false);
+        return () => subscription.unsubscribe();
+      } else {
+        const localSession = localStorage.getItem('kardex_local_session');
+        if (localSession) {
+          const parsed = JSON.parse(localSession);
+          setSession(parsed);
+          await fetchRole(parsed.user.email);
+        }
         setLoading(false);
       }
     };
     initAuth();
-  }, [session?.user?.id]);
+  }, []);
 
   if (loading) return (
     <div className="h-screen flex items-center justify-center bg-slate-50">
       <div className="text-center">
         <Loader2 className="animate-spin w-12 h-12 text-indigo-600 mx-auto mb-4" />
-        <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Sincronizando acceso...</p>
+        <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Sincronizando Sistema...</p>
       </div>
     </div>
   );
@@ -101,7 +93,7 @@ export default function App() {
       <Sidebar currentPage={currentPage} onNavigate={setCurrentPage} isOpen={isSidebarOpen} setIsOpen={setIsSidebarOpen} role={role} />
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden relative">
         <Navbar onMenuClick={() => setIsSidebarOpen(true)} role={role} setRole={setRole} userEmail={session.user?.email} />
-        <main className="flex-1 overflow-y-auto p-3 sm:p-6">
+        <main className="flex-1 overflow-y-auto p-3 sm:p-6 no-scrollbar">
            <div className="max-w-7xl mx-auto">{renderContent()}</div>
         </main>
       </div>
