@@ -33,7 +33,6 @@ export default function App() {
     }
   };
 
-  // Manejo de Navegación e Historial (Botón Atrás del móvil)
   useEffect(() => {
     const handlePopState = (event: PopStateEvent) => {
       if (event.state && event.state.page) {
@@ -99,7 +98,7 @@ export default function App() {
   const renderContent = () => {
     switch (currentPage) {
       case 'inventory': return <Inventory role={role} />;
-      case 'kardex': return <Kardex role={role} />;
+      case 'kardex': return <Kardex role={role} userEmail={session.user?.email} />;
       case 'destinos': return <Destinos />;
       case 'contacts': return <Contacts role={role} />;
       case 'categories': return <CategoryManagement role={role} />;

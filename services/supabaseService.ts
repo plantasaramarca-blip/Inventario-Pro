@@ -97,11 +97,10 @@ export const deleteUser = async (id: string) => {
   });
 };
 
-// --- Maestros con manejo de error 404 silencioso ---
+// --- Maestros ---
 export const getLocationsMaster = async (): Promise<LocationMaster[]> => {
   if (!useSupabase()) return JSON.parse(localStorage.getItem('kardex_locations_master') || '[]');
   try {
-    // Intentamos obtener datos, pero si la tabla no existe (404), Supabase devolverá error
     const { data, error, status } = await supabase.from('locations_master').select('*').order('name');
     if (error || status === 404) return JSON.parse(localStorage.getItem('kardex_locations_master') || '[]');
     return data || [];
@@ -263,6 +262,29 @@ export const registerMovement = async (movement: any) => {
     quantity: movement.quantity, dispatcher: movement.dispatcher, reason: movement.reason,
     balance_after: newStock, destino_nombre: movement.destinationName, date: new Date().toISOString()
   }]);
+};
+
+// --- Registro en Lote ---
+export const registerBatchMovements = async (items: any[]) => {
+  if (!useSupabase()) {
+    for (const item of items) {
+      localStorageApi.registerMovement(item);
+    }
+    return;
+  }
+  
+  // En Supabase lo hacemos secuencial para asegurar consistencia de stock
+  for (const item of items) {
+     const { data: product } = await supabase.from('products').select('name, stock').eq('id', item.productId).single();
+     if (!product) continue;
+     const newStock = product.stock + (item.type === 'INGRESO' ? item.quantity : -item.quantity);
+     await supabase.from('products').update({ stock: newStock }).eq('id', item.productId);
+     await supabase.from('movements').insert([{
+        product_id: item.productId, product_name: product.name, type: item.type,
+        quantity: item.quantity, dispatcher: item.dispatcher, reason: item.reason,
+        balance_after: newStock, destino_nombre: item.destinationName, date: new Date().toISOString()
+     }]);
+  }
 };
 
 export const getContacts = async (): Promise<Contact[]> => {
