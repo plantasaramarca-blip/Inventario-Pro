@@ -50,31 +50,42 @@ export const Kardex: React.FC<KardexProps> = ({ role, userEmail, initialProductI
   };
 
   const loadData = async () => {
+    // Si ya estamos cargando, no re-iniciar para evitar loops
     setLoading(true);
+    
     try {
-      const [m, p, d] = await Promise.all([
+      // Implementamos una carga más robusta para evitar que un solo fallo de Supabase cuelgue todo
+      const [m, p, d] = await Promise.allSettled([
         api.getMovements(), 
         api.getProducts(),
         api.getDestinos()
       ]);
-      setMovements(m);
-      setProducts(p);
-      setDestinos(d.filter(dest => dest.active));
+
+      setMovements(m.status === 'fulfilled' ? m.value : []);
+      setProducts(p.status === 'fulfilled' ? p.value : []);
+      const allDestinos = d.status === 'fulfilled' ? d.value : [];
+      setDestinos(allDestinos.filter((dest: any) => dest.active));
 
       // Si venimos de un escaneo QR, abrir modal automáticamente
-      if (initialProductId) {
-        const prod = p.find(prod => prod.id === initialProductId);
+      if (initialProductId && p.status === 'fulfilled') {
+        const prod = (p.value as Product[]).find(prod => prod.id === initialProductId);
         if (prod) {
           setType('SALIDA');
           setCartItems([{ productId: prod.id, name: prod.name, code: prod.code, quantity: 1, stock: prod.stock }]);
           setIsModalOpen(true);
         }
       }
-    } catch (e) {}
-    finally { setLoading(false); }
+    } catch (e) {
+      console.error("Fallo crítico en carga de Kardex:", e);
+      showToast("Error de conexión, intente de nuevo", "error");
+    } finally {
+      setLoading(false);
+    }
   };
 
-  useEffect(() => { loadData(); }, [initialProductId]);
+  useEffect(() => { 
+    loadData(); 
+  }, [initialProductId]);
 
   const handleExportExcel = () => {
     const data = movements.map(m => ({
@@ -84,7 +95,7 @@ export const Kardex: React.FC<KardexProps> = ({ role, userEmail, initialProductI
       Cantidad: m.quantity,
       Responsable: m.dispatcher,
       Motivo: m.reason,
-      Destino: m.destinationName || '-',
+      'Centro de Costo': m.destinationName || '-',
       'Stock Final': m.balanceAfter
     }));
     exportToExcel(data, `Kardex_${new Date().toLocaleDateString()}`, 'Movimientos');
@@ -158,12 +169,12 @@ export const Kardex: React.FC<KardexProps> = ({ role, userEmail, initialProductI
           <p className="text-xs text-slate-500 font-black uppercase tracking-widest mt-0.5">Control Logístico</p>
         </div>
         <div className="flex flex-wrap gap-2 w-full sm:w-auto">
-          <button onClick={handleExportExcel} className="bg-emerald-50 text-emerald-700 p-3 rounded-xl border border-emerald-100 flex items-center gap-2 text-[9px] font-black uppercase"><FileSpreadsheet className="w-4 h-4" /> Excel</button>
-          <button onClick={handleExportPDF} className="bg-rose-50 text-rose-700 p-3 rounded-xl border border-rose-100 flex items-center gap-2 text-[9px] font-black uppercase"><FileText className="w-4 h-4" /> PDF</button>
+          <button onClick={handleExportExcel} className="bg-emerald-50 text-emerald-700 p-3 rounded-xl border border-emerald-100 flex items-center gap-2 text-[9px] font-black uppercase shadow-sm"><FileSpreadsheet className="w-4 h-4" /> Excel</button>
+          <button onClick={handleExportPDF} className="bg-rose-50 text-rose-700 p-3 rounded-xl border border-rose-100 flex items-center gap-2 text-[9px] font-black uppercase shadow-sm"><FileText className="w-4 h-4" /> PDF</button>
           {role !== 'VIEWER' && (
             <div className="flex gap-1 bg-white p-1 rounded-2xl shadow-sm border border-slate-100">
-              <button onClick={() => handleOpenModal('INGRESO')} className="bg-indigo-600 text-white px-4 py-2.5 rounded-xl text-[9px] font-black uppercase hover:bg-indigo-700">Stock Entrada</button>
-              <button onClick={() => handleOpenModal('SALIDA')} className="bg-rose-600 text-white px-4 py-2.5 rounded-xl text-[9px] font-black uppercase hover:bg-rose-700">Stock Despacho</button>
+              <button onClick={() => handleOpenModal('INGRESO')} className="bg-indigo-600 text-white px-4 py-2.5 rounded-xl text-[9px] font-black uppercase hover:bg-indigo-700 shadow-lg shadow-indigo-100 transition-all">Stock Entrada</button>
+              <button onClick={() => handleOpenModal('SALIDA')} className="bg-rose-600 text-white px-4 py-2.5 rounded-xl text-[9px] font-black uppercase hover:bg-rose-700 shadow-lg shadow-rose-100 transition-all">Stock Despacho</button>
             </div>
           )}
         </div>
@@ -184,6 +195,8 @@ export const Kardex: React.FC<KardexProps> = ({ role, userEmail, initialProductI
             <tbody className="divide-y divide-slate-50">
               {loading ? (
                 <tr><td colSpan={5} className="py-20 text-center"><Loader2 className="w-8 h-8 text-indigo-500 animate-spin mx-auto" /></td></tr>
+              ) : movements.length === 0 ? (
+                <tr><td colSpan={5} className="py-20 text-center text-slate-400 font-black uppercase text-[10px]">No hay movimientos registrados</td></tr>
               ) : movements.map((m) => (
                 <tr key={m.id} className="hover:bg-slate-50/30 transition-colors">
                   <td className="px-6 py-4 text-[9px] font-bold text-slate-500 uppercase">{new Date(m.date).toLocaleString()}</td>
@@ -216,13 +229,13 @@ export const Kardex: React.FC<KardexProps> = ({ role, userEmail, initialProductI
        {isModalOpen && (
         <div className="fixed inset-0 z-[100] flex flex-col items-center justify-center p-0 sm:p-4">
           <div className="absolute inset-0 bg-slate-900/80 backdrop-blur-md" onClick={() => !saving && setIsModalOpen(false)}></div>
-          <form onSubmit={handleSubmit} className="relative bg-white w-full h-full sm:h-auto sm:max-h-[90vh] sm:max-w-3xl sm:rounded-[3rem] flex flex-col shadow-2xl animate-in slide-in-from-bottom-4">
+          <form onSubmit={handleSubmit} className="relative bg-white w-full h-full sm:h-auto sm:max-h-[90vh] sm:max-w-3xl sm:rounded-[3rem] flex flex-col shadow-2xl animate-in slide-in-from-bottom-4 overflow-hidden">
                <div className="p-6 border-b border-slate-100 flex justify-between items-center shrink-0">
                   <div>
                     <h3 className="text-sm font-black text-slate-800 uppercase tracking-widest">{type === 'INGRESO' ? 'Registro de Ingreso' : 'Registro de Despacho'}</h3>
                     <p className="text-[9px] text-slate-400 font-bold uppercase tracking-[0.2em] mt-1">Multi-ítem Procesamiento</p>
                   </div>
-                  <button type="button" onClick={() => setIsModalOpen(false)} className="p-2 hover:bg-slate-50 rounded-2xl"><X className="w-6 h-6 text-slate-400" /></button>
+                  <button type="button" onClick={() => setIsModalOpen(false)} className="p-2 hover:bg-slate-50 rounded-2xl transition-colors"><X className="w-6 h-6 text-slate-400" /></button>
                </div>
                <div className="flex-1 overflow-y-auto p-6 space-y-6 no-scrollbar">
                   {error && <div className="p-4 bg-rose-50 text-rose-700 text-[10px] font-black uppercase rounded-2xl flex items-center gap-3"><AlertTriangle className="w-4 h-4" /> {error}</div>}
@@ -246,7 +259,9 @@ export const Kardex: React.FC<KardexProps> = ({ role, userEmail, initialProductI
                   <div className="space-y-3">
                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-2">2. Lista de Ítems ({cartItems.length})</label>
                      <div className="bg-slate-50 rounded-3xl overflow-hidden border border-slate-100">
-                        {cartItems.map(item => (
+                        {cartItems.length === 0 ? (
+                           <div className="p-10 text-center"><p className="text-[10px] font-black text-slate-300 uppercase">Sin productos seleccionados</p></div>
+                        ) : cartItems.map(item => (
                           <div key={item.productId} className="p-4 flex items-center justify-between border-b border-slate-100 last:border-0">
                              <div className="flex-1"><p className="text-xs font-black text-slate-800 uppercase">{item.name}</p><p className="text-[9px] text-indigo-500 font-black">{item.code}</p></div>
                              <div className="flex items-center gap-4">
@@ -267,13 +282,13 @@ export const Kardex: React.FC<KardexProps> = ({ role, userEmail, initialProductI
                   </div>
                   {type === 'SALIDA' && (
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                       <div className="space-y-1"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-2">Punto de Costo *</label><select required className="w-full p-4 bg-slate-50 rounded-2xl font-black text-xs uppercase" value={selectedDestinoId} onChange={e => setSelectedDestinoId(e.target.value)}><option value="">Seleccionar...</option>{destinos.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}</select></div>
+                       <div className="space-y-1"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-2">Centro de Costo *</label><select required className="w-full p-4 bg-slate-50 rounded-2xl font-black text-xs uppercase cursor-pointer" value={selectedDestinoId} onChange={e => setSelectedDestinoId(e.target.value)}><option value="">Seleccionar...</option>{destinos.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}</select></div>
                        <div className="space-y-1"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-2">Motivo / Observación</label><input type="text" className="w-full p-4 bg-slate-50 rounded-2xl outline-none font-bold text-sm" value={reason} onChange={e => setReason(e.target.value)} /></div>
                     </div>
                   )}
                </div>
                <div className="p-6 border-t border-slate-100 bg-slate-50/50 shrink-0">
-                  <button type="submit" disabled={saving || cartItems.length === 0} className={`w-full py-5 rounded-[2rem] text-[11px] font-black uppercase tracking-[0.25em] text-white shadow-2xl transition-all ${type === 'INGRESO' ? 'bg-indigo-600 hover:bg-indigo-700' : 'bg-rose-600 hover:bg-rose-700'} disabled:opacity-30`}>
+                  <button type="submit" disabled={saving || cartItems.length === 0} className={`w-full py-5 rounded-[2rem] text-[11px] font-black uppercase tracking-[0.25em] text-white shadow-2xl transition-all ${type === 'INGRESO' ? 'bg-indigo-600 hover:bg-indigo-700' : 'bg-rose-600 hover:bg-rose-700'} disabled:opacity-30 active:scale-95`}>
                     {saving ? <Loader2 className="animate-spin w-5 h-5 mx-auto" /> : (type === 'INGRESO' ? 'Confirmar Ingreso' : 'Confirmar Despacho Total')}
                   </button>
                </div>

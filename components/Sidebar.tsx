@@ -37,7 +37,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentPage, onNavigate, isOpe
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, adminOnly: false },
     { id: 'inventory', label: 'Productos', icon: Boxes, adminOnly: false, hasBadge: true },
     { id: 'kardex', label: 'Kardex / Movimientos', icon: ClipboardList, adminOnly: false },
-    { id: 'destinos', label: 'Puntos de Costo', icon: MapPin, adminOnly: false },
+    { id: 'destinos', label: 'Centros de Costos', icon: MapPin, adminOnly: false },
     { id: 'contacts', label: 'Agenda CRM', icon: Users, adminOnly: false },
   ];
 

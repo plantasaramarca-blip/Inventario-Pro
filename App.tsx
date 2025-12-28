@@ -32,6 +32,15 @@ export default function App() {
     } catch (e) { setRole('VIEWER'); }
   };
 
+  const handleLogout = async () => {
+    if (isSupabaseConfigured) {
+      await supabase.auth.signOut();
+    }
+    localStorage.removeItem('kardex_local_session');
+    setSession(null);
+    window.location.href = window.location.origin;
+  };
+
   const checkUrlParams = async () => {
     const params = new URLSearchParams(window.location.search);
     const action = params.get('action');
@@ -48,35 +57,63 @@ export default function App() {
 
   useEffect(() => {
     const initAuth = async () => {
-      if (isSupabaseConfigured) {
-        const { data: { session: initialSession } } = await supabase.auth.getSession();
-        if (initialSession) {
-          setSession(initialSession);
-          await fetchRole(initialSession.user.email!);
-          await checkUrlParams();
+      try {
+        if (isSupabaseConfigured) {
+          const { data: { session: initialSession }, error } = await supabase.auth.getSession();
+          
+          // Si hay error 400 o refresh_token fallido, limpiamos sesión
+          if (error && error.status === 400) {
+            console.warn("Sesión expirada o inválida detectada.");
+            handleLogout();
+            return;
+          }
+
+          if (initialSession) {
+            setSession(initialSession);
+            await fetchRole(initialSession.user.email!);
+            await checkUrlParams();
+          }
+          
+          supabase.auth.onAuthStateChange(async (event, newSession) => {
+            if (event === 'SIGNED_OUT' || event === 'USER_UPDATED' && !newSession) {
+               setSession(null);
+               return;
+            }
+            
+            if (newSession) {
+              setSession(newSession);
+              if (newSession?.user?.email) { 
+                await fetchRole(newSession.user.email); 
+                await checkUrlParams(); 
+              }
+            }
+          });
+        } else {
+          const localSession = localStorage.getItem('kardex_local_session');
+          if (localSession) {
+            const parsed = JSON.parse(localSession);
+            setSession(parsed);
+            await fetchRole(parsed.user.email);
+            await checkUrlParams();
+          }
         }
-        supabase.auth.onAuthStateChange(async (_event, newSession) => {
-          setSession(newSession);
-          if (newSession?.user?.email) { await fetchRole(newSession.user.email); await checkUrlParams(); }
-        });
-      } else {
-        const localSession = localStorage.getItem('kardex_local_session');
-        if (localSession) {
-          const parsed = JSON.parse(localSession);
-          setSession(parsed);
-          await fetchRole(parsed.user.email);
-          await checkUrlParams();
-        }
+      } catch (e) {
+        console.error("Error en inicialización de Auth:", e);
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     };
     initAuth();
   }, []);
 
-  if (loading) return <div className="h-screen flex items-center justify-center"><Loader2 className="animate-spin w-10 h-10 text-indigo-600" /></div>;
+  if (loading) return <div className="h-screen flex items-center justify-center bg-slate-50"><div className="text-center"><Loader2 className="animate-spin w-10 h-10 text-indigo-600 mx-auto" /><p className="mt-4 text-[10px] font-black uppercase text-slate-400 tracking-widest">Sincronizando Almacén...</p></div></div>;
   if (!session) return <Login />;
 
-  const navigateTo = (page: string) => { setCurrentPage(page); window.history.pushState({ page }, '', ''); };
+  const navigateTo = (page: string) => { 
+    setCurrentPage(page); 
+    if (isSidebarOpen) setIsSidebarOpen(false);
+    window.history.pushState({ page }, '', ''); 
+  };
 
   const renderContent = () => {
     switch (currentPage) {
