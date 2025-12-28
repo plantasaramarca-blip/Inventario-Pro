@@ -19,23 +19,30 @@ export const ProductQRCode: React.FC<ProductQRCodeProps> = ({ product, onClose }
   const labelRef = useRef<HTMLDivElement>(null);
   
   const displayCode = product.code || 'SIN-CODIGO';
-  // El link ahora incluye un parámetro de acción rápida
   const qrUrl = `${window.location.origin}?action=quick_move&id=${product.id}`;
 
   const handleDownload = async () => {
     if (!labelRef.current) return;
     try {
-      // Optimizamos para impresión térmica: blanco y negro, sin suavizado excesivo
+      // FACTOR DE ESCALA 5.0 para nitidez extrema en impresión
       const canvas = await html2canvas(labelRef.current, { 
-        scale: 4, 
+        scale: 5, 
         backgroundColor: '#ffffff',
         logging: false,
-        useCORS: true
+        useCORS: true,
+        imageTimeout: 0,
+        removeContainer: true
       });
-      const imgData = canvas.toDataURL('image/png');
-      // Tamaño estándar de etiqueta térmica: 50mm x 30mm
-      const pdf = new jsPDF({ orientation: 'l', unit: 'mm', format: [50, 30] });
-      pdf.addImage(imgData, 'PNG', 0, 0, 50, 30);
+      
+      const imgData = canvas.toDataURL('image/png', 1.0);
+      const pdf = new jsPDF({ 
+        orientation: 'l', 
+        unit: 'mm', 
+        format: [50, 30],
+        compress: false // Evitar compresión que genere ruido
+      });
+      
+      pdf.addImage(imgData, 'PNG', 0, 0, 50, 30, undefined, 'FAST');
       pdf.save(`ETIQUETA_${displayCode}.pdf`);
     } catch (e) {
       console.error('Error al generar PDF:', e);
@@ -63,23 +70,21 @@ export const ProductQRCode: React.FC<ProductQRCodeProps> = ({ product, onClose }
           </div>
 
           <div className="flex flex-col items-center gap-8">
-            {/* Contenedor de la Etiqueta Real (Lo que se imprime) */}
             <div className="bg-slate-50 rounded-[2.5rem] p-10 border-2 border-dashed border-slate-200 w-full flex justify-center">
+              {/* Contenedor de la Etiqueta - Diseño Limpio Sin Sombras para Térmica */}
               <div 
                 ref={labelRef} 
                 className="bg-white flex flex-col items-center justify-between p-2" 
-                style={{ width: '188px', height: '113px', border: '1px solid #eee' }}
+                style={{ width: '188px', height: '113px', border: '1px solid #000' }}
               >
-                {/* QR más grande para facilitar lectura */}
                 <div className="mt-1">
-                  <QRCodeSVG value={qrUrl} size={70} level="H" includeMargin={false} />
+                  <QRCodeSVG value={qrUrl} size={75} level="H" includeMargin={false} />
                 </div>
                 <div className="text-center w-full px-1 mb-1">
-                  {/* Nombre con ajuste de línea si es largo */}
-                  <p className="text-[9px] font-black uppercase text-slate-900 leading-[1.1] mb-0.5 max-h-[22px] overflow-hidden">
+                  <p style={{ fontSize: '10px', fontWeight: '900', color: '#000', textTransform: 'uppercase', lineHeight: '1.1', margin: '0', padding: '0', height: '22px', overflow: 'hidden' }}>
                     {product.name}
                   </p>
-                  <p className="text-[10px] font-black text-indigo-600 tracking-widest leading-none">
+                  <p style={{ fontSize: '14px', fontWeight: '900', color: '#4f46e5', margin: '2px 0 0 0', padding: '0', letterSpacing: '1px' }}>
                     {displayCode}
                   </p>
                 </div>
@@ -89,9 +94,9 @@ export const ProductQRCode: React.FC<ProductQRCodeProps> = ({ product, onClose }
             <div className="w-full space-y-3">
               <button onClick={handleDownload} className="w-full py-5 bg-slate-900 text-white rounded-[2rem] text-[11px] font-black uppercase tracking-[0.2em] shadow-2xl hover:bg-indigo-600 transition-all flex items-center justify-center gap-3 active:scale-95">
                 <FileDown className="w-5 h-5" /> 
-                Descargar Etiqueta (PDF)
+                Descargar Etiqueta (PDF HQ)
               </button>
-              <p className="text-center text-[9px] text-slate-400 font-bold uppercase">Formato compatible con Zebra / Brother / XPprinter</p>
+              <p className="text-center text-[9px] text-slate-400 font-bold uppercase tracking-widest">Apto para: Zebra, Brother, Godex, Xprinter</p>
             </div>
           </div>
         </div>
