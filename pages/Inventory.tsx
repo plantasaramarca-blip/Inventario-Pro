@@ -5,10 +5,12 @@ import * as api from '../services/supabaseService.ts';
 import { StockBadge } from '../components/StockBadge.tsx';
 import { ProductQRCode } from '../components/ProductQRCode.tsx';
 import { formatCurrency } from '../utils/currencyUtils.ts';
+import { jsPDF } from 'https://esm.sh/jspdf@2.5.1';
+import html2canvas from 'https://esm.sh/html2canvas@1.4.1';
 import { 
   Plus, Search, Edit2, ImageIcon, Loader2, QrCode, Settings2,
   X, Trash2, Save, Package, Camera, AlertTriangle, CheckCircle,
-  Database, Zap, ArrowRight
+  Database, Zap, ArrowRight, Printer, CheckSquare, Square
 } from 'https://esm.sh/lucide-react@0.475.0?deps=react@19.2.3';
 
 interface InventoryProps { role: Role; }
@@ -21,7 +23,9 @@ export const Inventory: React.FC<InventoryProps> = ({ role }) => {
   const [isOptimizing, setIsOptimizing] = useState(false); 
   const [optStats, setOptStats] = useState({ original: '0KB', compressed: '0KB', percent: 0 });
   const [saving, setSaving] = useState(false);
+  const [isPrintingBulk, setIsPrintingBulk] = useState(false);
   const [search, setSearch] = useState('');
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [toast, setToast] = useState<{msg: string, type: 'success' | 'error'} | null>(null);
   
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -30,6 +34,7 @@ export const Inventory: React.FC<InventoryProps> = ({ role }) => {
   const [selectedProductForQR, setSelectedProductForQR] = useState<Product | null>(null);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const bulkPrintRef = useRef<HTMLDivElement>(null);
   
   const [formData, setFormData] = useState<any>({
     code: '', name: '', brand: '', size: '', model: '', 
@@ -55,11 +60,69 @@ export const Inventory: React.FC<InventoryProps> = ({ role }) => {
       setCategories(cats || []);
       setLocations(locs || []);
     } catch (e) { 
-      console.error("Fallo carga de maestros");
     } finally { setLoading(false); }
   };
 
   useEffect(() => { loadData(); }, []);
+
+  const toggleSelect = (id: string) => {
+    const newSelected = new Set(selectedIds);
+    if (newSelected.has(id)) newSelected.delete(id);
+    else newSelected.add(id);
+    setSelectedIds(newSelected);
+  };
+
+  const handleBulkPrint = async () => {
+    if (selectedIds.size === 0) return;
+    setIsPrintingBulk(true);
+    showToast(`Generando ${selectedIds.size} etiquetas...`);
+    
+    try {
+      const pdf = new jsPDF({ orientation: 'l', unit: 'mm', format: [50, 30] });
+      const selectedProducts = products.filter(p => selectedIds.has(p.id));
+
+      for (let i = 0; i < selectedProducts.length; i++) {
+        const p = selectedProducts[i];
+        const tempDiv = document.createElement('div');
+        tempDiv.style.width = '188px';
+        tempDiv.style.height = '113px';
+        tempDiv.style.padding = '8px';
+        tempDiv.style.display = 'flex';
+        tempDiv.style.flexDirection = 'column';
+        tempDiv.style.alignItems = 'center';
+        tempDiv.style.justifyContent = 'space-between';
+        tempDiv.style.backgroundColor = 'white';
+        tempDiv.style.position = 'absolute';
+        tempDiv.style.left = '-9999px';
+        
+        const qrUrl = `${window.location.origin}?action=quick_move&id=${p.id}`;
+        
+        tempDiv.innerHTML = `
+          <div style="margin-top:2px"><img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(qrUrl)}" style="width:70px;height:70px" /></div>
+          <div style="text-align:center;width:100%;margin-bottom:2px">
+            <p style="font-family:sans-serif;font-size:9px;font-weight:900;text-transform:uppercase;margin:0;padding:0;line-height:1.1">${p.name}</p>
+            <p style="font-family:sans-serif;font-size:10px;font-weight:900;color:#4f46e5;margin:0;padding:0;letter-spacing:1px">${p.code}</p>
+          </div>
+        `;
+        
+        document.body.appendChild(tempDiv);
+        const canvas = await html2canvas(tempDiv, { scale: 3, backgroundColor: '#ffffff' });
+        const imgData = canvas.toDataURL('image/png');
+        
+        if (i > 0) pdf.addPage([50, 30], 'l');
+        pdf.addImage(imgData, 'PNG', 0, 0, 50, 30);
+        document.body.removeChild(tempDiv);
+      }
+      
+      pdf.save(`ETIQUETAS_MASIVAS_${new Date().getTime()}.pdf`);
+      showToast("PDF generado con éxito");
+      setSelectedIds(new Set());
+    } catch (e) {
+      showToast("Error al generar masivo", "error");
+    } finally {
+      setIsPrintingBulk(false);
+    }
+  };
 
   const handleOpenModal = (product?: Product) => {
     if (role === 'VIEWER') return;
@@ -96,19 +159,13 @@ export const Inventory: React.FC<InventoryProps> = ({ role }) => {
           const scale = MAX_WIDTH / img.width;
           canvas.width = MAX_WIDTH;
           canvas.height = img.height * scale;
-          
           const ctx = canvas.getContext('2d');
           ctx?.drawImage(img, 0, 0, canvas.width, canvas.height);
-          
           const compressedData = canvas.toDataURL('image/jpeg', 0.6);
-          const compressedSize = Math.round((compressedData.length * 3) / 4);
-          const compressedKB = (compressedSize / 1024).toFixed(1);
+          const compressedKB = (Math.round((compressedData.length * 3) / 4) / 1024).toFixed(1);
           const savingPercent = Math.round(100 - (Number(compressedKB) / Number(originalKB)) * 100);
-
           setOptStats({ original: `${originalKB}KB`, compressed: `${compressedKB}KB`, percent: savingPercent });
           setFormData({ ...formData, imageUrl: compressedData });
-          
-          // Mantenemos el loader un segundo para que se vea la optimización
           setTimeout(() => setIsOptimizing(false), 800);
         };
         img.src = event.target?.result as string;
@@ -147,11 +204,19 @@ export const Inventory: React.FC<InventoryProps> = ({ role }) => {
           <h1 className="text-xl font-bold text-slate-900">Catálogo de Productos</h1>
           <p className="text-[10px] text-slate-500 uppercase font-black tracking-widest mt-0.5">Control de Existencias</p>
         </div>
-        {role !== 'VIEWER' && (
-          <button onClick={() => handleOpenModal()} className="w-full sm:w-auto bg-indigo-600 text-white px-5 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2 shadow-lg hover:bg-indigo-700 transition-all">
-            <Plus className="w-4 h-4" /> Nuevo Producto
-          </button>
-        )}
+        <div className="flex gap-2 w-full sm:w-auto">
+          {selectedIds.size > 0 && (
+            <button onClick={handleBulkPrint} disabled={isPrintingBulk} className="flex-1 sm:flex-none bg-indigo-50 text-indigo-700 px-5 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2 border border-indigo-100 shadow-sm active:scale-95 transition-all">
+              {isPrintingBulk ? <Loader2 className="w-4 h-4 animate-spin" /> : <Printer className="w-4 h-4" />}
+              Imprimir ({selectedIds.size})
+            </button>
+          )}
+          {role !== 'VIEWER' && (
+            <button onClick={() => handleOpenModal()} className="flex-1 sm:flex-none bg-indigo-600 text-white px-5 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2 shadow-lg hover:bg-indigo-700 active:scale-95 transition-all">
+              <Plus className="w-4 h-4" /> Nuevo Producto
+            </button>
+          )}
+        </div>
       </div>
 
       <div className="relative group">
@@ -169,7 +234,12 @@ export const Inventory: React.FC<InventoryProps> = ({ role }) => {
           <table className="w-full text-sm min-w-[650px]">
             <thead className="bg-slate-50/50 text-[9px] font-black uppercase text-slate-400 tracking-widest">
               <tr>
-                <th className="px-6 py-5 text-left">Producto</th>
+                <th className="px-6 py-5 text-left w-10">
+                   <button onClick={() => setSelectedIds(selectedIds.size === filteredProducts.length ? new Set() : new Set(filteredProducts.map(p => p.id)))}>
+                      {selectedIds.size === filteredProducts.length ? <CheckSquare className="w-4 h-4 text-indigo-600" /> : <Square className="w-4 h-4" />}
+                   </button>
+                </th>
+                <th className="px-2 py-5 text-left">Producto</th>
                 <th className="px-4 py-5 text-center">Estado</th>
                 <th className="px-4 py-5 text-center">Stock</th>
                 <th className="px-4 py-5 text-center">Costo</th>
@@ -178,10 +248,15 @@ export const Inventory: React.FC<InventoryProps> = ({ role }) => {
             </thead>
             <tbody className="divide-y divide-slate-50">
               {loading ? (
-                <tr><td colSpan={5} className="py-20 text-center"><Loader2 className="animate-spin w-8 h-8 text-indigo-500 mx-auto" /></td></tr>
+                <tr><td colSpan={6} className="py-20 text-center"><Loader2 className="animate-spin w-8 h-8 text-indigo-500 mx-auto" /></td></tr>
               ) : filteredProducts.map(p => (
-                <tr key={p.id} className="hover:bg-slate-50/30 transition-colors">
+                <tr key={p.id} className={`hover:bg-slate-50/30 transition-colors ${selectedIds.has(p.id) ? 'bg-indigo-50/20' : ''}`}>
                   <td className="px-6 py-4">
+                     <button onClick={() => toggleSelect(p.id)} className="p-1">
+                        {selectedIds.has(p.id) ? <CheckSquare className="w-4 h-4 text-indigo-600" /> : <Square className="w-4 h-4 text-slate-300 hover:text-indigo-400" />}
+                     </button>
+                  </td>
+                  <td className="px-2 py-4">
                     <div className="flex items-center gap-3">
                       <div className="w-10 h-10 bg-slate-50 rounded-xl flex items-center justify-center border border-slate-100 overflow-hidden">
                         {p.imageUrl ? <img src={p.imageUrl} className="w-full h-full object-cover" /> : <ImageIcon className="text-slate-200 w-5 h-5" />}
@@ -222,7 +297,6 @@ export const Inventory: React.FC<InventoryProps> = ({ role }) => {
             </div>
             <div className="flex-1 overflow-y-auto p-5 sm:p-8 space-y-6 no-scrollbar">
                
-               {/* BARRA DE OPTIMIZACIÓN SI ESTÁ CARGANDO O SI SE SUBIÓ UNA IMAGEN */}
                {isOptimizing && (
                  <div className="bg-indigo-50 rounded-3xl p-6 border-2 border-indigo-100 animate-in slide-in-from-top-4">
                     <div className="flex items-center justify-between mb-3">
