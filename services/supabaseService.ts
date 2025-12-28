@@ -25,7 +25,9 @@ export const saveAuditLog = async (log: Partial<AuditLog>) => {
     localStorage.setItem('kardex_audit', JSON.stringify(logs.slice(0, 500)));
     return;
   }
-  await supabase.from('audit_logs').insert([payload]);
+  try {
+    await supabase.from('audit_logs').insert([payload]);
+  } catch (e) {}
 };
 
 // --- Usuarios y Perfiles ---
@@ -44,8 +46,13 @@ export const getCurrentUserProfile = async (email: string): Promise<{role: Role}
 
 export const getUsers = async (): Promise<UserAccount[]> => {
   if (!useSupabase()) return JSON.parse(localStorage.getItem('kardex_users') || '[]');
-  const { data } = await supabase.from('profiles').select('*').order('email');
-  return (data || []).map(u => ({ id: u.id, email: u.email, role: u.role, createdAt: u.created_at }));
+  try {
+    const { data, error } = await supabase.from('profiles').select('*').order('email');
+    if (error) throw error;
+    return (data || []).map(u => ({ id: u.id, email: u.email, role: u.role, createdAt: u.created_at }));
+  } catch (e) {
+    return JSON.parse(localStorage.getItem('kardex_users') || '[]');
+  }
 };
 
 export const saveUser = async (user: Partial<UserAccount>) => {
@@ -90,12 +97,13 @@ export const deleteUser = async (id: string) => {
   });
 };
 
-// --- Maestros (Categorías y Almacenes) ---
+// --- Maestros con manejo de error 404 silencioso ---
 export const getLocationsMaster = async (): Promise<LocationMaster[]> => {
   if (!useSupabase()) return JSON.parse(localStorage.getItem('kardex_locations_master') || '[]');
   try {
-    const { data, error } = await supabase.from('locations_master').select('*').order('name');
-    if (error) return JSON.parse(localStorage.getItem('kardex_locations_master') || '[]');
+    // Intentamos obtener datos, pero si la tabla no existe (404), Supabase devolverá error
+    const { data, error, status } = await supabase.from('locations_master').select('*').order('name');
+    if (error || status === 404) return JSON.parse(localStorage.getItem('kardex_locations_master') || '[]');
     return data || [];
   } catch (e) {
     return JSON.parse(localStorage.getItem('kardex_locations_master') || '[]');
@@ -128,8 +136,8 @@ export const deleteLocationMaster = async (id: string) => {
 export const getCategoriesMaster = async (): Promise<CategoryMaster[]> => {
   if (!useSupabase()) return JSON.parse(localStorage.getItem('kardex_categories_master') || '[]');
   try {
-    const { data, error } = await supabase.from('categories_master').select('*').order('name');
-    if (error) return JSON.parse(localStorage.getItem('kardex_categories_master') || '[]');
+    const { data, error, status } = await supabase.from('categories_master').select('*').order('name');
+    if (error || status === 404) return JSON.parse(localStorage.getItem('kardex_categories_master') || '[]');
     return data || [];
   } catch (e) {
     return JSON.parse(localStorage.getItem('kardex_categories_master') || '[]');
@@ -162,13 +170,18 @@ export const deleteCategoryMaster = async (id: string) => {
 // --- Productos ---
 export const getProducts = async (): Promise<Product[]> => {
   if (!useSupabase()) return localStorageApi.getProducts();
-  const { data } = await supabase.from('products').select('*').order('name');
-  return (data || []).map(p => ({
-    id: p.id, code: p.code, name: p.name, brand: p.brand || '', size: p.size || '', model: p.model || '',
-    category: p.category, location: p.location, stock: p.stock || 0, minStock: p.min_stock ?? 30, criticalStock: p.critical_stock ?? 10,
-    purchasePrice: Number(p.precio_compra || p.price) || 0, currency: p.moneda || 'PEN', unit: p.unit || 'und', imageUrl: p.image_url, updatedAt: p.updated_at,
-    price: Number(p.precio_compra || p.price) || 0
-  }));
+  try {
+    const { data, error } = await supabase.from('products').select('*').order('name');
+    if (error) throw error;
+    return (data || []).map(p => ({
+      id: p.id, code: p.code, name: p.name, brand: p.brand || '', size: p.size || '', model: p.model || '',
+      category: p.category, location: p.location, stock: p.stock || 0, minStock: p.min_stock ?? 30, criticalStock: p.critical_stock ?? 10,
+      purchasePrice: Number(p.precio_compra || p.price) || 0, currency: p.moneda || 'PEN', unit: p.unit || 'und', imageUrl: p.image_url, updatedAt: p.updated_at,
+      price: Number(p.precio_compra || p.price) || 0
+    }));
+  } catch (e) {
+    return localStorageApi.getProducts();
+  }
 };
 
 export const saveProduct = async (product: Partial<Product>) => {
@@ -227,11 +240,16 @@ export const getStats = async (): Promise<InventoryStats> => {
 
 export const getMovements = async (): Promise<Movement[]> => {
   if (!useSupabase()) return localStorageApi.getMovements();
-  const { data } = await supabase.from('movements').select('*').order('date', { ascending: false });
-  return (data || []).map(m => ({
-    id: m.id, productId: m.product_id, productName: m.product_name, type: m.type, quantity: m.quantity, date: m.date,
-    dispatcher: m.dispatcher, reason: m.reason, balanceAfter: m.balance_after, destinationName: m.destino_nombre
-  }));
+  try {
+    const { data, error } = await supabase.from('movements').select('*').order('date', { ascending: false });
+    if (error) throw error;
+    return (data || []).map(m => ({
+      id: m.id, productId: m.product_id, productName: m.product_name, type: m.type, quantity: m.quantity, date: m.date,
+      dispatcher: m.dispatcher, reason: m.reason, balanceAfter: m.balance_after, destinationName: m.destino_nombre
+    }));
+  } catch (e) {
+    return localStorageApi.getMovements();
+  }
 };
 
 export const registerMovement = async (movement: any) => {
@@ -249,14 +267,24 @@ export const registerMovement = async (movement: any) => {
 
 export const getContacts = async (): Promise<Contact[]> => {
   if (!useSupabase()) return localStorageApi.getContacts();
-  const { data } = await supabase.from('contacts').select('*').order('name');
-  return data || [];
+  try {
+    const { data, error } = await supabase.from('contacts').select('*').order('name');
+    if (error) throw error;
+    return data || [];
+  } catch (e) {
+    return localStorageApi.getContacts();
+  }
 };
 
 export const getDestinos = async () => {
   if (!useSupabase()) return localStorageApi.getDestinos();
-  const { data } = await supabase.from('destinos').select('*');
-  return (data || []).map(d => ({ id: d.id, name: d.nombre, type: d.tipo, active: d.activo }));
+  try {
+    const { data, error } = await supabase.from('destinos').select('*');
+    if (error) throw error;
+    return (data || []).map(d => ({ id: d.id, name: d.nombre, type: d.tipo, active: d.activo }));
+  } catch (e) {
+    return localStorageApi.getDestinos();
+  }
 };
 
 export const saveDestino = async (d: any) => {
@@ -282,11 +310,16 @@ export const getAuditLogs = async (page = 0, limit = 50) => {
     const logs = JSON.parse(localStorage.getItem('kardex_audit') || '[]');
     return { data: logs.slice(page * limit, (page + 1) * limit), count: logs.length };
   }
-  const { data, count, error } = await supabase
-    .from('audit_logs')
-    .select('*', { count: 'exact' })
-    .order('created_at', { ascending: false })
-    .range(page * limit, (page + 1) * limit - 1);
-  if (error) return { data: [], count: 0 };
-  return { data: data || [], count: count || 0 };
+  try {
+    const { data, count, error } = await supabase
+      .from('audit_logs')
+      .select('*', { count: 'exact' })
+      .order('created_at', { ascending: false })
+      .range(page * limit, (page + 1) * limit - 1);
+    if (error) return { data: [], count: 0 };
+    return { data: data || [], count: count || 0 };
+  } catch (e) {
+    const logs = JSON.parse(localStorage.getItem('kardex_audit') || '[]');
+    return { data: logs.slice(page * limit, (page + 1) * limit), count: logs.length };
+  }
 };

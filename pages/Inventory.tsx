@@ -7,7 +7,8 @@ import { ProductQRCode } from '../components/ProductQRCode.tsx';
 import { formatCurrency } from '../utils/currencyUtils.ts';
 import { 
   Plus, Search, Edit2, ImageIcon, Loader2, QrCode, Settings2,
-  X, Trash2, Save, Package, Camera, AlertTriangle, CheckCircle
+  X, Trash2, Save, Package, Camera, AlertTriangle, CheckCircle,
+  Database, Zap, ArrowRight
 } from 'https://esm.sh/lucide-react@0.475.0?deps=react@19.2.3';
 
 interface InventoryProps { role: Role; }
@@ -18,6 +19,7 @@ export const Inventory: React.FC<InventoryProps> = ({ role }) => {
   const [locations, setLocations] = useState<LocationMaster[]>([]);
   const [loading, setLoading] = useState(true);
   const [isOptimizing, setIsOptimizing] = useState(false); 
+  const [optStats, setOptStats] = useState({ original: '0KB', compressed: '0KB', percent: 0 });
   const [saving, setSaving] = useState(false);
   const [search, setSearch] = useState('');
   const [toast, setToast] = useState<{msg: string, type: 'success' | 'error'} | null>(null);
@@ -75,26 +77,39 @@ export const Inventory: React.FC<InventoryProps> = ({ role }) => {
         currency: 'PEN', unit: 'und', imageUrl: '' 
       });
     }
+    setOptStats({ original: '0KB', compressed: '0KB', percent: 0 });
     setIsModalOpen(true);
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
+      const originalKB = (file.size / 1024).toFixed(1);
       setIsOptimizing(true);
+      
       const reader = new FileReader();
       reader.onload = (event) => {
         const img = new Image();
         img.onload = () => {
           const canvas = document.createElement('canvas');
-          const MAX_WIDTH = 600;
+          const MAX_WIDTH = 800;
           const scale = MAX_WIDTH / img.width;
           canvas.width = MAX_WIDTH;
           canvas.height = img.height * scale;
+          
           const ctx = canvas.getContext('2d');
           ctx?.drawImage(img, 0, 0, canvas.width, canvas.height);
-          setFormData({ ...formData, imageUrl: canvas.toDataURL('image/jpeg', 0.6) });
-          setIsOptimizing(false);
+          
+          const compressedData = canvas.toDataURL('image/jpeg', 0.6);
+          const compressedSize = Math.round((compressedData.length * 3) / 4);
+          const compressedKB = (compressedSize / 1024).toFixed(1);
+          const savingPercent = Math.round(100 - (Number(compressedKB) / Number(originalKB)) * 100);
+
+          setOptStats({ original: `${originalKB}KB`, compressed: `${compressedKB}KB`, percent: savingPercent });
+          setFormData({ ...formData, imageUrl: compressedData });
+          
+          // Mantenemos el loader un segundo para que se vea la optimización
+          setTimeout(() => setIsOptimizing(false), 800);
         };
         img.src = event.target?.result as string;
       };
@@ -206,13 +221,49 @@ export const Inventory: React.FC<InventoryProps> = ({ role }) => {
                <button type="button" onClick={() => setIsModalOpen(false)} className="p-2 hover:bg-slate-50 rounded-xl"><X className="w-5 h-5 text-slate-400" /></button>
             </div>
             <div className="flex-1 overflow-y-auto p-5 sm:p-8 space-y-6 no-scrollbar">
+               
+               {/* BARRA DE OPTIMIZACIÓN SI ESTÁ CARGANDO O SI SE SUBIÓ UNA IMAGEN */}
+               {isOptimizing && (
+                 <div className="bg-indigo-50 rounded-3xl p-6 border-2 border-indigo-100 animate-in slide-in-from-top-4">
+                    <div className="flex items-center justify-between mb-3">
+                       <div className="flex items-center gap-2">
+                          <Zap className="w-4 h-4 text-indigo-600 animate-pulse" />
+                          <span className="text-[10px] font-black uppercase text-indigo-800">Optimizando Imagen...</span>
+                       </div>
+                       <Loader2 className="animate-spin w-4 h-4 text-indigo-600" />
+                    </div>
+                    <div className="w-full bg-indigo-100 h-2 rounded-full overflow-hidden">
+                       <div className="bg-indigo-600 h-full animate-progress-fast" style={{ width: '100%' }}></div>
+                    </div>
+                 </div>
+               )}
+
+               {optStats.percent > 0 && !isOptimizing && (
+                 <div className="bg-emerald-50 rounded-3xl p-4 border border-emerald-100 flex items-center justify-between animate-in fade-in">
+                    <div className="flex items-center gap-3">
+                       <div className="p-2 bg-emerald-500 rounded-xl text-white shadow-sm"><Database className="w-4 h-4" /></div>
+                       <div>
+                          <p className="text-[9px] font-black text-emerald-800 uppercase tracking-tighter">Imagen Optimizada</p>
+                          <div className="flex items-center gap-1.5 text-[10px] font-bold text-slate-500">
+                             <span className="line-through">{optStats.original}</span>
+                             <ArrowRight className="w-3 h-3" />
+                             <span className="text-emerald-600">{optStats.compressed}</span>
+                          </div>
+                       </div>
+                    </div>
+                    <div className="text-right">
+                       <p className="text-[12px] font-black text-emerald-600 tracking-tighter">-{optStats.percent}%</p>
+                       <p className="text-[8px] font-black text-slate-400 uppercase">Ahorrado</p>
+                    </div>
+                 </div>
+               )}
+
                <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
                   <div className="space-y-2">
                     <div className="aspect-square bg-slate-50 rounded-[2rem] border-2 border-dashed border-slate-200 flex flex-col items-center justify-center relative overflow-hidden group">
                       {formData.imageUrl ? <img src={formData.imageUrl} className="w-full h-full object-cover" /> : <div className="text-center p-4"><ImageIcon className="w-10 h-10 text-slate-200 mx-auto mb-2" /><p className="text-[9px] font-black text-slate-400 uppercase">Sin Imagen</p></div>}
                       <button type="button" onClick={() => fileInputRef.current?.click()} className="absolute inset-0 bg-indigo-600/60 text-white opacity-0 group-hover:opacity-100 flex flex-col items-center justify-center gap-1 font-black uppercase text-[10px] transition-all"><Camera className="w-6 h-6" /> Abrir Cámara</button>
                       <input type="file" accept="image/*" capture="environment" className="hidden" ref={fileInputRef} onChange={handleFileChange} />
-                      {isOptimizing && <div className="absolute inset-0 bg-white/80 flex items-center justify-center"><Loader2 className="animate-spin text-indigo-600" /></div>}
                     </div>
                   </div>
                   <div className="md:col-span-2 space-y-5">
