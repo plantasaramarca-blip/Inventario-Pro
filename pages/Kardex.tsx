@@ -3,6 +3,7 @@ import React, { useState, useEffect, useMemo } from 'https://esm.sh/react@19.2.3
 import { Movement, Product, TransactionType, Destination, Role } from '../types.ts';
 import * as api from '../services/supabaseService.ts';
 import { exportToExcel, exportToPDF } from '../services/excelService.ts';
+import { CustomDialog } from '../components/CustomDialog.tsx';
 import { 
   ArrowDownCircle, ArrowUpCircle, User, 
   Calendar, Loader2, X, MapPin, Building2, ShoppingBag, 
@@ -13,7 +14,7 @@ import {
 interface KardexProps {
   role: Role;
   userEmail?: string;
-  initialProductId?: string; // Para apertura rápida
+  initialProductId?: string;
 }
 
 interface CartItem {
@@ -31,42 +32,35 @@ export const Kardex: React.FC<KardexProps> = ({ role, userEmail, initialProductI
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [toast, setToast] = useState<{msg: string, type: 'success' | 'error'} | null>(null);
+  
+  const [dialog, setDialog] = useState<{isOpen: boolean, title: string, message: string, type: any} | null>(null);
   
   const [type, setType] = useState<TransactionType>('SALIDA');
-  
   const [productSearch, setProductSearch] = useState('');
   const [isSearchOpen, setIsSearchOpen] = useState(false);
-  
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [selectedDestinoId, setSelectedDestinoId] = useState('');
   const [carriedBy, setCarriedBy] = useState('');
   const [reason, setReason] = useState('');
   const [error, setError] = useState('');
 
-  const showToast = (msg: string, type: 'success' | 'error' = 'success') => {
-    setToast({ msg, type });
-    setTimeout(() => setToast(null), 3000);
+  const showDialog = (title: string, message: string, type: 'success' | 'error' | 'alert' = 'success') => {
+    setDialog({ isOpen: true, title, message, type });
   };
 
   const loadData = async () => {
-    // Si ya estamos cargando, no re-iniciar para evitar loops
     setLoading(true);
-    
     try {
-      // Implementamos una carga más robusta para evitar que un solo fallo de Supabase cuelgue todo
       const [m, p, d] = await Promise.allSettled([
         api.getMovements(), 
         api.getProducts(),
         api.getDestinos()
       ]);
-
       setMovements(m.status === 'fulfilled' ? m.value : []);
       setProducts(p.status === 'fulfilled' ? p.value : []);
       const allDestinos = d.status === 'fulfilled' ? d.value : [];
       setDestinos(allDestinos.filter((dest: any) => dest.active));
 
-      // Si venimos de un escaneo QR, abrir modal automáticamente
       if (initialProductId && p.status === 'fulfilled') {
         const prod = (p.value as Product[]).find(prod => prod.id === initialProductId);
         if (prod) {
@@ -76,16 +70,13 @@ export const Kardex: React.FC<KardexProps> = ({ role, userEmail, initialProductI
         }
       }
     } catch (e) {
-      console.error("Fallo crítico en carga de Kardex:", e);
-      showToast("Error de conexión, intente de nuevo", "error");
+      showDialog("Conexión", "Error al sincronizar datos de Kardex", "error");
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => { 
-    loadData(); 
-  }, [initialProductId]);
+  useEffect(() => { loadData(); }, [initialProductId]);
 
   const handleExportExcel = () => {
     const data = movements.map(m => ({
@@ -154,10 +145,12 @@ export const Kardex: React.FC<KardexProps> = ({ role, userEmail, initialProductI
         destinationName: destinoObj?.name
       }));
       await api.registerBatchMovements(batchPayload);
-      showToast("Procesado con éxito");
+      showDialog("Operación Exitosa", `Se han procesado ${cartItems.length} ítems correctamente`, "success");
       setIsModalOpen(false);
       loadData();
-    } catch (err: any) { setError(err.message); }
+    } catch (err: any) { 
+      showDialog("Fallo en Sistema", err.message, "error");
+    }
     finally { setSaving(false); }
   };
 
@@ -296,8 +289,14 @@ export const Kardex: React.FC<KardexProps> = ({ role, userEmail, initialProductI
         </div>
        )}
 
-       {toast && (
-        <div className={`fixed bottom-6 right-6 z-[200] px-5 py-3 rounded-2xl shadow-2xl flex items-center gap-3 border animate-in slide-in-from-right-10 ${toast.type === 'success' ? 'bg-white border-emerald-100 text-emerald-800' : 'bg-rose-600 text-white'}`}><CheckCircle className="w-5 h-5" /><p className="text-[10px] font-black uppercase">{toast.msg}</p></div>
+       {dialog && (
+        <CustomDialog 
+          isOpen={dialog.isOpen}
+          title={dialog.title}
+          message={dialog.message}
+          type={dialog.type}
+          onCancel={() => setDialog(null)}
+        />
       )}
     </div>
   );

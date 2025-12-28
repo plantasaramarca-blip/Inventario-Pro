@@ -4,6 +4,7 @@ import { Product, Role, CategoryMaster, LocationMaster } from '../types.ts';
 import * as api from '../services/supabaseService.ts';
 import { StockBadge } from '../components/StockBadge.tsx';
 import { ProductQRCode } from '../components/ProductQRCode.tsx';
+import { CustomDialog } from '../components/CustomDialog.tsx';
 import { formatCurrency } from '../utils/currencyUtils.ts';
 import { jsPDF } from 'https://esm.sh/jspdf@2.5.1';
 import html2canvas from 'https://esm.sh/html2canvas@1.4.1';
@@ -24,7 +25,9 @@ export const Inventory: React.FC<InventoryProps> = ({ role }) => {
   const [isPrintingBulk, setIsPrintingBulk] = useState(false);
   const [search, setSearch] = useState('');
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  const [toast, setToast] = useState<{msg: string, type: 'success' | 'error'} | null>(null);
+  
+  // Nuevo sistema de Diálogos
+  const [dialog, setDialog] = useState<{isOpen: boolean, title: string, message: string, type: any} | null>(null);
   
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
@@ -40,9 +43,8 @@ export const Inventory: React.FC<InventoryProps> = ({ role }) => {
     currency: 'PEN', unit: 'und', imageUrl: ''
   });
 
-  const showToast = (msg: string, type: 'success' | 'error' = 'success') => {
-    setToast({ msg, type });
-    setTimeout(() => setToast(null), 3000);
+  const showDialog = (title: string, message: string, type: 'success' | 'error' | 'alert' = 'success') => {
+    setDialog({ isOpen: true, title, message, type });
   };
   
   const loadData = async () => {
@@ -106,7 +108,6 @@ export const Inventory: React.FC<InventoryProps> = ({ role }) => {
   const handleBulkPrint = async () => {
     if (selectedIds.size === 0) return;
     setIsPrintingBulk(true);
-    showToast(`Generando ${selectedIds.size} etiquetas...`);
     
     try {
       const pdf = new jsPDF({ orientation: 'l', unit: 'mm', format: [50, 30], compress: false });
@@ -148,10 +149,10 @@ export const Inventory: React.FC<InventoryProps> = ({ role }) => {
       }
       
       pdf.save(`ETIQUETAS_LOTE_${new Date().getTime()}.pdf`);
-      showToast("Etiquetas generadas en HQ");
+      showDialog("Éxito", "Etiquetas generadas correctamente", "success");
       setSelectedIds(new Set());
     } catch (e) {
-      showToast("Error en impresión masiva", "error");
+      showDialog("Error", "Error al generar etiquetas masivas", "error");
     } finally {
       setIsPrintingBulk(false);
     }
@@ -205,11 +206,11 @@ export const Inventory: React.FC<InventoryProps> = ({ role }) => {
     setSaving(true);
     try {
       await api.saveProduct(formData);
-      showToast(editingProduct ? "Actualizado" : "Guardado");
+      showDialog("Sincronización", editingProduct ? "Producto actualizado en la nube" : "Nuevo producto registrado", "success");
       setIsModalOpen(false);
       loadData();
     } catch (err: any) { 
-      showToast(err.message, 'error');
+      showDialog("Error", err.message, "error");
     } finally {
       setSaving(false);
     }
@@ -359,11 +360,14 @@ export const Inventory: React.FC<InventoryProps> = ({ role }) => {
         </div>
       )}
 
-      {toast && (
-        <div className={`fixed bottom-6 right-6 z-[200] px-5 py-3 rounded-2xl shadow-2xl flex items-center gap-3 border animate-in slide-in-from-right-10 ${toast.type === 'success' ? 'bg-white border-emerald-100 text-emerald-800' : 'bg-rose-600 text-white'}`}>
-           <CheckCircle className="w-5 h-5 text-emerald-500" />
-           <p className="text-[10px] font-black uppercase tracking-tight">{toast.msg}</p>
-        </div>
+      {dialog && (
+        <CustomDialog 
+          isOpen={dialog.isOpen}
+          title={dialog.title}
+          message={dialog.message}
+          type={dialog.type}
+          onCancel={() => setDialog(null)}
+        />
       )}
 
       {showQRModal && selectedProductForQR && <ProductQRCode product={selectedProductForQR} onClose={() => { setShowQRModal(false); setSelectedProductForQR(null); }} />}
