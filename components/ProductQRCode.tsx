@@ -39,7 +39,7 @@ export const ProductQRCode: React.FC<ProductQRCodeProps> = ({ product, onClose }
         orientation: 'l', 
         unit: 'mm', 
         format: [50, 30],
-        compress: false // Evitar compresión que genere ruido
+        compress: false
       });
       
       pdf.addImage(imgData, 'PNG', 0, 0, 50, 30, undefined, 'FAST');
@@ -71,20 +71,20 @@ export const ProductQRCode: React.FC<ProductQRCodeProps> = ({ product, onClose }
 
           <div className="flex flex-col items-center gap-8">
             <div className="bg-slate-50 rounded-[2.5rem] p-10 border-2 border-dashed border-slate-200 w-full flex justify-center">
-              {/* Contenedor de la Etiqueta - Diseño Limpio Sin Sombras para Térmica */}
+              {/* Contenedor de la Etiqueta - Ajustado para que no se corte el código */}
               <div 
                 ref={labelRef} 
-                className="bg-white flex flex-col items-center justify-between p-2" 
-                style={{ width: '188px', height: '113px', border: '1px solid #000' }}
+                className="bg-white flex flex-col items-center justify-center" 
+                style={{ width: '188px', height: '113px', border: '1px solid #000', boxSizing: 'border-box', padding: '4px' }}
               >
-                <div className="mt-1">
-                  <QRCodeSVG value={qrUrl} size={75} level="H" includeMargin={false} />
+                <div style={{ marginBottom: '2px' }}>
+                  <QRCodeSVG value={qrUrl} size={65} level="H" includeMargin={false} />
                 </div>
-                <div className="text-center w-full px-1 mb-1">
-                  <p style={{ fontSize: '10px', fontWeight: '900', color: '#000', textTransform: 'uppercase', lineHeight: '1.1', margin: '0', padding: '0', height: '22px', overflow: 'hidden' }}>
+                <div className="text-center w-full">
+                  <p style={{ fontSize: '9px', fontWeight: '900', color: '#000', textTransform: 'uppercase', lineHeight: '1.0', margin: '0', padding: '0', height: '18px', overflow: 'hidden' }}>
                     {product.name}
                   </p>
-                  <p style={{ fontSize: '14px', fontWeight: '900', color: '#4f46e5', margin: '2px 0 0 0', padding: '0', letterSpacing: '1px' }}>
+                  <p style={{ fontSize: '13px', fontWeight: '900', color: '#000', margin: '1px 0 0 0', padding: '0', letterSpacing: '0.5px' }}>
                     {displayCode}
                   </p>
                 </div>

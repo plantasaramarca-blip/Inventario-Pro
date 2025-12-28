@@ -111,23 +111,24 @@ export const Inventory: React.FC<InventoryProps> = ({ role }) => {
         const tempDiv = document.createElement('div');
         tempDiv.style.width = '188px';
         tempDiv.style.height = '113px';
-        tempDiv.style.padding = '8px';
+        tempDiv.style.padding = '4px';
         tempDiv.style.display = 'flex';
         tempDiv.style.flexDirection = 'column';
         tempDiv.style.alignItems = 'center';
-        tempDiv.style.justifyContent = 'space-between';
+        tempDiv.style.justifyContent = 'center';
         tempDiv.style.backgroundColor = 'white';
         tempDiv.style.position = 'absolute';
         tempDiv.style.left = '-9999px';
         tempDiv.style.border = '1px solid #000';
+        tempDiv.style.boxSizing = 'border-box';
         
         const qrUrl = `${window.location.origin}?action=quick_move&id=${p.id}`;
         
         tempDiv.innerHTML = `
-          <div style="margin-top:2px"><img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(qrUrl)}" style="width:75px;height:75px" /></div>
-          <div style="text-align:center;width:100%;margin-bottom:2px">
-            <p style="font-family:sans-serif;font-size:10px;font-weight:900;text-transform:uppercase;margin:0;padding:0;line-height:1.1;color:#000;height:22px;overflow:hidden">${p.name}</p>
-            <p style="font-family:sans-serif;font-size:14px;font-weight:900;color:#4f46e5;margin:2px 0 0 0;padding:0;letter-spacing:1px">${p.code}</p>
+          <div style="margin-bottom:2px"><img src="https://api.qrserver.com/v1/create-qr-code/?size=130x130&data=${encodeURIComponent(qrUrl)}" style="width:65px;height:65px" /></div>
+          <div style="text-align:center;width:100%">
+            <p style="font-family:sans-serif;font-size:9px;font-weight:900;text-transform:uppercase;margin:0;padding:0;line-height:1.0;color:#000;height:18px;overflow:hidden">${p.name}</p>
+            <p style="font-family:sans-serif;font-size:13px;font-weight:900;color:#000;margin:1px 0 0 0;padding:0;letter-spacing:0.5px">${p.code}</p>
           </div>
         `;
         
