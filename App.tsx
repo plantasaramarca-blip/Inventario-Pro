@@ -10,6 +10,8 @@ import { Contacts } from './pages/Contacts.tsx';
 import { Destinos } from './pages/Destinos.tsx';
 import { AuditPage } from './pages/AuditLog.tsx';
 import { UsersPage } from './pages/Users.tsx';
+import { CategoryManagement } from './pages/Categories.tsx';
+import { LocationManagement } from './pages/Locations.tsx';
 import { Login } from './pages/Login.tsx';
 import { Role } from './types.ts';
 import * as api from './services/supabaseService.ts';
@@ -28,6 +30,24 @@ export default function App() {
       if (profile) setRole(profile.role);
     } catch (e) {
       setRole('VIEWER');
+    }
+  };
+
+  // Manejo de Navegación e Historial (Botón Atrás del móvil)
+  useEffect(() => {
+    const handlePopState = (event: PopStateEvent) => {
+      if (event.state && event.state.page) {
+        setCurrentPage(event.state.page);
+      }
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
+
+  const navigateTo = (page: string) => {
+    if (page !== currentPage) {
+      setCurrentPage(page);
+      window.history.pushState({ page }, '', '');
     }
   };
 
@@ -82,6 +102,8 @@ export default function App() {
       case 'kardex': return <Kardex role={role} />;
       case 'destinos': return <Destinos />;
       case 'contacts': return <Contacts role={role} />;
+      case 'categories': return <CategoryManagement role={role} />;
+      case 'locations': return <LocationManagement role={role} />;
       case 'users': return role === 'ADMIN' ? <UsersPage /> : <Dashboard />;
       case 'audit': return role === 'ADMIN' ? <AuditPage /> : <Dashboard />;
       default: return <Dashboard />;
@@ -90,7 +112,7 @@ export default function App() {
 
   return (
     <div className="flex h-screen overflow-hidden bg-slate-50 font-inter">
-      <Sidebar currentPage={currentPage} onNavigate={setCurrentPage} isOpen={isSidebarOpen} setIsOpen={setIsSidebarOpen} role={role} />
+      <Sidebar currentPage={currentPage} onNavigate={navigateTo} isOpen={isSidebarOpen} setIsOpen={setIsSidebarOpen} role={role} />
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden relative">
         <Navbar onMenuClick={() => setIsSidebarOpen(true)} role={role} setRole={setRole} userEmail={session.user?.email} />
         <main className="flex-1 overflow-y-auto p-3 sm:p-6 no-scrollbar">

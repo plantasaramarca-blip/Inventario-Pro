@@ -1,6 +1,9 @@
 
 import React, { useEffect, useState } from 'https://esm.sh/react@19.2.3';
-import { LayoutDashboard, Boxes, ClipboardList, Users, ClipboardCheck, MapPin, UserPlus } from 'https://esm.sh/lucide-react@0.475.0?deps=react@19.2.3';
+import { 
+  LayoutDashboard, Boxes, ClipboardList, Users, 
+  ClipboardCheck, MapPin, UserPlus, Tags, Warehouse, Settings 
+} from 'https://esm.sh/lucide-react@0.475.0?deps=react@19.2.3';
 import { Role } from '../types.ts';
 import * as api from '../services/supabaseService.ts';
 
@@ -32,11 +35,16 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentPage, onNavigate, isOpe
 
   const menuItems = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, adminOnly: false },
-    { id: 'inventory', label: 'Inventario', icon: Boxes, adminOnly: false, hasBadge: true },
+    { id: 'inventory', label: 'Productos', icon: Boxes, adminOnly: false, hasBadge: true },
     { id: 'kardex', label: 'Kardex / Movimientos', icon: ClipboardList, adminOnly: false },
     { id: 'destinos', label: 'Puntos de Costo', icon: MapPin, adminOnly: false },
-    { id: 'contacts', label: 'CRM / Contactos', icon: Users, adminOnly: false },
-    { id: 'users', label: 'Usuarios', icon: UserPlus, adminOnly: true }, // Solo para ADMIN
+    { id: 'contacts', label: 'Agenda CRM', icon: Users, adminOnly: false },
+  ];
+
+  const adminItems = [
+    { id: 'categories', label: 'Categorías', icon: Tags, adminOnly: true },
+    { id: 'locations', label: 'Almacenes', icon: Warehouse, adminOnly: true },
+    { id: 'users', label: 'Usuarios', icon: UserPlus, adminOnly: true },
     { id: 'audit', label: 'Auditoría', icon: ClipboardCheck, adminOnly: true },
   ];
 
@@ -47,25 +55,24 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentPage, onNavigate, isOpe
       )}
 
       <div className={`fixed inset-y-0 left-0 z-30 w-64 bg-slate-900 text-white transform transition-transform duration-300 md:relative md:translate-x-0 border-r border-slate-800 ${isOpen ? 'translate-x-0' : '-translate-x-full'}`}>
-        <div className="h-full flex flex-col pt-5 pb-4 overflow-y-auto">
+        <div className="h-full flex flex-col pt-5 pb-4 overflow-y-auto no-scrollbar">
           <div className="px-6 mb-8 flex items-center">
             <div className="bg-indigo-600 p-2 rounded-xl mr-3 shadow-lg">
                <Boxes className="h-5 w-5 text-white" />
             </div>
-            <p className="text-sm font-bold text-white tracking-tight">Kardex Pro</p>
+            <p className="text-sm font-black text-white tracking-tight uppercase">Kardex Pro</p>
           </div>
           
-          <nav className="mt-2 flex-1 space-y-1.5 px-4">
-            {menuItems
-              .filter(item => !item.adminOnly || role === 'ADMIN')
-              .map((item) => {
+          <nav className="mt-2 flex-1 space-y-1 px-4">
+            <p className="px-4 text-[9px] font-black text-slate-500 uppercase tracking-widest mb-2">Principal</p>
+            {menuItems.map((item) => {
                 const Icon = item.icon;
                 const isActive = currentPage === item.id;
                 return (
                   <button
                     key={item.id}
                     onClick={() => { onNavigate(item.id); setIsOpen(false); }}
-                    className={`group flex w-full items-center px-4 py-3.5 text-xs font-bold rounded-2xl transition-all ${isActive ? 'bg-indigo-600 text-white shadow-xl' : 'text-slate-400 hover:bg-slate-800/50 hover:text-white'}`}
+                    className={`group flex w-full items-center px-4 py-3 text-xs font-bold rounded-2xl transition-all ${isActive ? 'bg-indigo-600 text-white shadow-xl' : 'text-slate-400 hover:bg-slate-800/50 hover:text-white'}`}
                   >
                     <Icon className={`mr-3 h-5 w-5 ${isActive ? 'text-white' : 'text-slate-500'}`} />
                     <span className="uppercase tracking-widest">{item.label}</span>
@@ -76,7 +83,27 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentPage, onNavigate, isOpe
                     )}
                   </button>
                 );
-              })}
+            })}
+
+            {role === 'ADMIN' && (
+              <div className="pt-6">
+                <p className="px-4 text-[9px] font-black text-slate-500 uppercase tracking-widest mb-2">Administración</p>
+                {adminItems.map((item) => {
+                  const Icon = item.icon;
+                  const isActive = currentPage === item.id;
+                  return (
+                    <button
+                      key={item.id}
+                      onClick={() => { onNavigate(item.id); setIsOpen(false); }}
+                      className={`group flex w-full items-center px-4 py-3 text-xs font-bold rounded-2xl transition-all ${isActive ? 'bg-indigo-600 text-white shadow-xl' : 'text-slate-400 hover:bg-slate-800/50 hover:text-white'}`}
+                    >
+                      <Icon className={`mr-3 h-5 w-5 ${isActive ? 'text-white' : 'text-slate-500'}`} />
+                      <span className="uppercase tracking-widest">{item.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
           </nav>
         </div>
       </div>

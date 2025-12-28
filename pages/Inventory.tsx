@@ -23,9 +23,6 @@ export const Inventory: React.FC<InventoryProps> = ({ role }) => {
   const [toast, setToast] = useState<{msg: string, type: 'success' | 'error'} | null>(null);
   
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [isMasterModalOpen, setIsMasterModalOpen] = useState<'category' | 'location' | null>(null);
-  const [masterName, setMasterName] = useState('');
-  
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [showQRModal, setShowQRModal] = useState(false);
   const [selectedProductForQR, setSelectedProductForQR] = useState<Product | null>(null);
@@ -56,7 +53,7 @@ export const Inventory: React.FC<InventoryProps> = ({ role }) => {
       setCategories(cats || []);
       setLocations(locs || []);
     } catch (e) { 
-      console.error("Error al cargar maestros");
+      console.error("Fallo carga de maestros");
     } finally { setLoading(false); }
   };
 
@@ -105,18 +102,6 @@ export const Inventory: React.FC<InventoryProps> = ({ role }) => {
     }
   };
 
-  const handleSaveMaster = async () => {
-    if (!masterName) return;
-    try {
-      if (isMasterModalOpen === 'category') await api.saveCategoryMaster(masterName);
-      else await api.saveLocationMaster(masterName);
-      setMasterName('');
-      setIsMasterModalOpen(null);
-      loadData();
-      showToast("Maestro actualizado");
-    } catch (e) { showToast("Error al guardar", 'error'); }
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (saving) return;
@@ -144,19 +129,24 @@ export const Inventory: React.FC<InventoryProps> = ({ role }) => {
     <div className="space-y-4 pb-20 relative">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
         <div>
-          <h1 className="text-xl font-bold text-slate-900">Catálogo de Inventario</h1>
+          <h1 className="text-xl font-bold text-slate-900">Catálogo de Productos</h1>
           <p className="text-[10px] text-slate-500 uppercase font-black tracking-widest mt-0.5">Control de Existencias</p>
         </div>
         {role !== 'VIEWER' && (
-          <button onClick={() => handleOpenModal()} className="w-full sm:w-auto bg-indigo-600 text-white px-5 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2 shadow-lg shadow-indigo-100 hover:bg-indigo-700 transition-all">
-            <Plus className="w-4 h-4" /> Nuevo Ítem
+          <button onClick={() => handleOpenModal()} className="w-full sm:w-auto bg-indigo-600 text-white px-5 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2 shadow-lg hover:bg-indigo-700 transition-all">
+            <Plus className="w-4 h-4" /> Nuevo Producto
           </button>
         )}
       </div>
 
       <div className="relative group">
         <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300" />
-        <input type="text" className="w-full pl-11 pr-4 py-3 bg-white border border-slate-100 rounded-xl text-sm outline-none shadow-sm focus:ring-2 focus:ring-indigo-500 transition-all" placeholder="Filtrar por nombre o código..." value={search} onChange={e => setSearch(e.target.value)} />
+        <input type="text" className="w-full pl-11 pr-11 py-3 bg-white border border-slate-100 rounded-xl text-sm outline-none shadow-sm focus:ring-2 focus:ring-indigo-500 transition-all" placeholder="Buscar por nombre o SKU..." value={search} onChange={e => setSearch(e.target.value)} />
+        {search && (
+          <button onClick={() => setSearch('')} className="absolute right-4 top-1/2 -translate-y-1/2 p-1 hover:bg-slate-50 rounded-lg text-slate-300 hover:text-slate-500 transition-colors">
+            <X className="w-4 h-4" />
+          </button>
+        )}
       </div>
 
       <div className="bg-white rounded-[2rem] border border-slate-100 overflow-hidden shadow-sm">
@@ -194,6 +184,7 @@ export const Inventory: React.FC<InventoryProps> = ({ role }) => {
                     <div className="flex items-center justify-end gap-1">
                       <button onClick={() => { setSelectedProductForQR(p); setShowQRModal(true); }} className="p-2 text-indigo-600 hover:bg-indigo-50 rounded-lg" title="Imprimir QR"><QrCode className="w-4 h-4" /></button>
                       {role !== 'VIEWER' && <button onClick={() => handleOpenModal(p)} className="p-2 text-slate-400 hover:text-indigo-600 rounded-lg"><Edit2 className="w-4 h-4" /></button>}
+                      {role === 'ADMIN' && <button onClick={() => confirm("¿Eliminar producto?") && api.deleteProduct(p.id).then(loadData)} className="p-2 text-slate-400 hover:text-rose-600 rounded-lg"><Trash2 className="w-4 h-4" /></button>}
                     </div>
                   </td>
                 </tr>
@@ -207,15 +198,13 @@ export const Inventory: React.FC<InventoryProps> = ({ role }) => {
         <div className="fixed inset-0 z-[100] flex flex-col items-center justify-center p-0 sm:p-4 animate-in fade-in duration-300">
           <div className="absolute inset-0 bg-slate-900/80 backdrop-blur-sm" onClick={() => !saving && setIsModalOpen(false)}></div>
           <form onSubmit={handleSubmit} className="relative bg-white w-full h-full sm:h-auto sm:max-h-[90vh] sm:max-w-4xl sm:rounded-[2.5rem] flex flex-col shadow-2xl overflow-hidden">
-            
             <div className="p-5 sm:p-6 border-b border-slate-100 flex justify-between items-center shrink-0">
                <div>
                   <h3 className="text-sm font-black text-slate-800 uppercase tracking-tighter">{editingProduct ? 'Editar' : 'Nuevo'} Registro de Producto</h3>
-                  <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest">Ficha Técnica y Stock</p>
+                  <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest mt-1">Ficha Técnica y Stock</p>
                </div>
                <button type="button" onClick={() => setIsModalOpen(false)} className="p-2 hover:bg-slate-50 rounded-xl"><X className="w-5 h-5 text-slate-400" /></button>
             </div>
-
             <div className="flex-1 overflow-y-auto p-5 sm:p-8 space-y-6 no-scrollbar">
                <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
                   <div className="space-y-2">
@@ -226,29 +215,26 @@ export const Inventory: React.FC<InventoryProps> = ({ role }) => {
                       {isOptimizing && <div className="absolute inset-0 bg-white/80 flex items-center justify-center"><Loader2 className="animate-spin text-indigo-600" /></div>}
                     </div>
                   </div>
-
                   <div className="md:col-span-2 space-y-5">
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div className="space-y-1"><label className="text-[9px] font-black text-slate-400 uppercase ml-1">Nombre Comercial *</label><input type="text" required className="w-full p-4 bg-slate-50 border-2 border-transparent focus:border-indigo-500 rounded-2xl outline-none font-bold text-sm" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} /></div>
                       <div className="space-y-1"><label className="text-[9px] font-black text-slate-400 uppercase ml-1">Marca</label><input type="text" className="w-full p-4 bg-slate-50 rounded-2xl outline-none font-bold text-sm" value={formData.brand} onChange={e => setFormData({...formData, brand: e.target.value})} /></div>
                     </div>
-                    
                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
                       <div className="space-y-1"><label className="text-[9px] font-black text-indigo-500 uppercase ml-1 font-black">Talla / Medida</label><input type="text" className="w-full p-4 bg-indigo-50 text-indigo-700 rounded-2xl outline-none font-black text-sm" value={formData.size} onChange={e => setFormData({...formData, size: e.target.value})} /></div>
                       <div className="space-y-1"><label className="text-[9px] font-black text-slate-400 uppercase ml-1">Modelo</label><input type="text" className="w-full p-4 bg-slate-50 rounded-2xl outline-none font-bold text-sm" value={formData.model} onChange={e => setFormData({...formData, model: e.target.value})} /></div>
                       <div className="col-span-2 sm:col-span-1 space-y-1"><label className="text-[9px] font-black text-slate-400 uppercase ml-1">Código / SKU</label><input type="text" className="w-full p-4 bg-slate-50 border-2 border-transparent focus:border-indigo-500 rounded-2xl outline-none font-black text-xs" value={formData.code} onChange={e => setFormData({...formData, code: e.target.value.toUpperCase()})} /></div>
                     </div>
-
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div className="space-y-1">
-                        <div className="flex justify-between items-center pr-1"><label className="text-[9px] font-black text-slate-400 uppercase ml-1">Categoría</label><button type="button" onClick={() => setIsMasterModalOpen('category')} className="text-[8px] font-black text-indigo-600 hover:underline">+ Gestionar</button></div>
+                        <label className="text-[9px] font-black text-slate-400 uppercase ml-1">Categoría</label>
                         <select className="w-full p-4 bg-slate-50 rounded-2xl font-bold text-xs" value={formData.category} onChange={e => setFormData({...formData, category: e.target.value})}>
                           {categories.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
                           {categories.length === 0 && <option value="General">General</option>}
                         </select>
                       </div>
                       <div className="space-y-1">
-                        <div className="flex justify-between items-center pr-1"><label className="text-[9px] font-black text-slate-400 uppercase ml-1">Ubicación</label><button type="button" onClick={() => setIsMasterModalOpen('location')} className="text-[8px] font-black text-indigo-600 hover:underline">+ Gestionar</button></div>
+                        <label className="text-[9px] font-black text-slate-400 uppercase ml-1">Ubicación / Almacén</label>
                         <select className="w-full p-4 bg-slate-50 rounded-2xl font-bold text-xs" value={formData.location} onChange={e => setFormData({...formData, location: e.target.value})}>
                           {locations.map(l => <option key={l.id} value={l.name}>{l.name}</option>)}
                           {locations.length === 0 && <option value="Almacén 1">Almacén 1</option>}
@@ -257,7 +243,6 @@ export const Inventory: React.FC<InventoryProps> = ({ role }) => {
                     </div>
                   </div>
                </div>
-
                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 bg-slate-50 p-6 rounded-[2.5rem]">
                   <div className="space-y-1"><label className="text-[8px] font-black text-slate-400 uppercase">Stock Ini.</label><input type="number" className="w-full p-3 bg-white rounded-xl text-center font-black text-sm" value={formData.stock} onChange={e => setFormData({...formData, stock: e.target.value})} disabled={!!editingProduct} /></div>
                   <div className="space-y-1"><label className="text-[8px] font-black text-slate-400 uppercase">Unidad</label><select className="w-full p-3 bg-white rounded-xl font-bold text-[10px]" value={formData.unit} onChange={e => setFormData({...formData, unit: e.target.value})}><option value="und">und</option><option value="paq">paq</option><option value="kg">kg</option></select></div>
@@ -265,29 +250,13 @@ export const Inventory: React.FC<InventoryProps> = ({ role }) => {
                   <div className="space-y-1"><label className="text-[8px] font-black text-indigo-400 uppercase">Costo S/</label><input type="number" step="0.01" className="w-full p-3 bg-indigo-50 text-indigo-700 rounded-xl text-center font-black text-sm" value={formData.purchasePrice} onChange={e => setFormData({...formData, purchasePrice: e.target.value})} /></div>
                </div>
             </div>
-
             <div className="p-5 sm:p-6 border-t border-slate-100 flex gap-3 shrink-0">
                <button type="button" onClick={() => setIsModalOpen(false)} disabled={saving} className="flex-1 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400">Cancelar</button>
-               <button type="submit" disabled={saving} className="flex-[2] py-4 bg-indigo-600 text-white rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] shadow-xl shadow-indigo-100 flex items-center justify-center gap-2">
+               <button type="submit" disabled={saving} className="flex-[2] py-4 bg-indigo-600 text-white rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] shadow-xl flex items-center justify-center gap-2">
                   {saving ? <Loader2 className="animate-spin w-4 h-4" /> : <><Save className="w-4 h-4" /> Guardar Producto</>}
                </button>
             </div>
           </form>
-        </div>
-      )}
-
-      {/* Modal para Maestros (Categoría/Ubicación) */}
-      {isMasterModalOpen && (
-        <div className="fixed inset-0 z-[150] flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-md" onClick={() => setIsMasterModalOpen(null)}></div>
-          <div className="relative bg-white p-8 rounded-[3rem] w-full max-w-sm shadow-2xl">
-             <h4 className="text-xs font-black text-slate-800 uppercase tracking-widest mb-6">Nuevo {isMasterModalOpen === 'category' ? 'Categoría' : 'Ubicación'}</h4>
-             <input type="text" autoFocus className="w-full p-4 bg-slate-50 rounded-2xl outline-none font-bold text-sm mb-4" placeholder="Nombre..." value={masterName} onChange={e => setMasterName(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleSaveMaster()} />
-             <div className="flex gap-2">
-               <button onClick={() => setIsMasterModalOpen(null)} className="flex-1 py-3 text-[10px] font-black text-slate-400 uppercase">Cerrar</button>
-               <button onClick={handleSaveMaster} className="flex-1 py-3 bg-indigo-600 text-white rounded-xl text-[10px] font-black uppercase">Añadir</button>
-             </div>
-          </div>
         </div>
       )}
 

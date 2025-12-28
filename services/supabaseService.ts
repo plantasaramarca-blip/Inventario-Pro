@@ -5,6 +5,29 @@ import * as localStorageApi from './storageService.ts';
 
 const useSupabase = () => isSupabaseConfigured;
 
+// --- Sistema de Auditoría Interno ---
+export const saveAuditLog = async (log: Partial<AuditLog>) => {
+  const user = (await supabase.auth.getSession()).data.session?.user;
+  const payload = {
+    user_id: user?.id || 'system',
+    user_email: user?.email || 'Sistema Local',
+    action: log.action,
+    table_name: log.table_name,
+    record_id: log.record_id,
+    record_name: log.record_name,
+    changes_summary: log.changes_summary,
+    created_at: new Date().toISOString()
+  };
+
+  if (!useSupabase()) {
+    const logs = JSON.parse(localStorage.getItem('kardex_audit') || '[]');
+    logs.unshift({ ...payload, id: crypto.randomUUID() });
+    localStorage.setItem('kardex_audit', JSON.stringify(logs.slice(0, 500)));
+    return;
+  }
+  await supabase.from('audit_logs').insert([payload]);
+};
+
 // --- Usuarios y Perfiles ---
 export const getCurrentUserProfile = async (email: string): Promise<{role: Role} | null> => {
   const cleanEmail = email.trim().toLowerCase();
@@ -26,52 +49,114 @@ export const getUsers = async (): Promise<UserAccount[]> => {
 };
 
 export const saveUser = async (user: Partial<UserAccount>) => {
-  if (!useSupabase()) return;
+  if (!useSupabase()) {
+    const users = JSON.parse(localStorage.getItem('kardex_users') || '[]');
+    const idx = users.findIndex((u: any) => u.email === user.email);
+    if (idx >= 0) users[idx] = { ...users[idx], ...user };
+    else users.push({ ...user, id: crypto.randomUUID(), createdAt: new Date().toISOString() });
+    localStorage.setItem('kardex_users', JSON.stringify(users));
+    return;
+  }
   const cleanEmail = user.email?.trim().toLowerCase();
   await supabase.from('profiles').upsert({ email: cleanEmail, role: user.role }, { onConflict: 'email' });
+  
+  await saveAuditLog({
+    action: user.id ? 'UPDATE' : 'CREATE',
+    table_name: 'profiles',
+    record_name: cleanEmail,
+    changes_summary: `Usuario ${cleanEmail} configurado con rol ${user.role}`
+  });
 };
 
-// --- Maestros (Restaurados con lógica Dual: Supabase o Local) ---
+export const deleteUser = async (id: string) => {
+  let email = id;
+  if (useSupabase()) {
+    const { data } = await supabase.from('profiles').select('email').eq('id', id).single();
+    email = data?.email || id;
+    await supabase.from('profiles').delete().eq('id', id);
+  } else {
+    const users = JSON.parse(localStorage.getItem('kardex_users') || '[]');
+    const user = users.find((u: any) => u.id === id);
+    email = user?.email || id;
+    const filtered = users.filter((u: any) => u.id !== id);
+    localStorage.setItem('kardex_users', JSON.stringify(filtered));
+  }
+  
+  await saveAuditLog({
+    action: 'DELETE',
+    table_name: 'profiles',
+    record_name: email,
+    changes_summary: `Eliminado acceso de usuario ${email}`
+  });
+};
+
+// --- Maestros (Categorías y Almacenes) ---
 export const getLocationsMaster = async (): Promise<LocationMaster[]> => {
   if (!useSupabase()) return JSON.parse(localStorage.getItem('kardex_locations_master') || '[]');
   try {
     const { data, error } = await supabase.from('locations_master').select('*').order('name');
-    if (error) throw error;
+    if (error) return JSON.parse(localStorage.getItem('kardex_locations_master') || '[]');
     return data || [];
   } catch (e) {
     return JSON.parse(localStorage.getItem('kardex_locations_master') || '[]');
   }
 };
 
-export const saveLocationMaster = async (name: string) => {
+export const saveLocationMaster = async (loc: Partial<LocationMaster>) => {
   if (!useSupabase()) {
     const locs = await getLocationsMaster();
-    locs.push({ id: crypto.randomUUID(), name });
+    if (loc.id) {
+      const idx = locs.findIndex(l => l.id === loc.id);
+      locs[idx] = { ...locs[idx], ...loc };
+    } else {
+      locs.push({ id: crypto.randomUUID(), name: loc.name! });
+    }
     localStorage.setItem('kardex_locations_master', JSON.stringify(locs));
     return;
   }
-  await supabase.from('locations_master').insert([{ name }]);
+  await supabase.from('locations_master').upsert(loc);
+};
+
+export const deleteLocationMaster = async (id: string) => {
+  if (useSupabase()) await supabase.from('locations_master').delete().eq('id', id);
+  else {
+    const locs = (await getLocationsMaster()).filter(l => l.id !== id);
+    localStorage.setItem('kardex_locations_master', JSON.stringify(locs));
+  }
 };
 
 export const getCategoriesMaster = async (): Promise<CategoryMaster[]> => {
   if (!useSupabase()) return JSON.parse(localStorage.getItem('kardex_categories_master') || '[]');
   try {
     const { data, error } = await supabase.from('categories_master').select('*').order('name');
-    if (error) throw error;
+    if (error) return JSON.parse(localStorage.getItem('kardex_categories_master') || '[]');
     return data || [];
   } catch (e) {
     return JSON.parse(localStorage.getItem('kardex_categories_master') || '[]');
   }
 };
 
-export const saveCategoryMaster = async (name: string) => {
+export const saveCategoryMaster = async (cat: Partial<CategoryMaster>) => {
   if (!useSupabase()) {
     const cats = await getCategoriesMaster();
-    cats.push({ id: crypto.randomUUID(), name });
+    if (cat.id) {
+      const idx = cats.findIndex(c => c.id === cat.id);
+      cats[idx] = { ...cats[idx], ...cat };
+    } else {
+      cats.push({ id: crypto.randomUUID(), name: cat.name! });
+    }
     localStorage.setItem('kardex_categories_master', JSON.stringify(cats));
     return;
   }
-  await supabase.from('categories_master').insert([{ name }]);
+  await supabase.from('categories_master').upsert(cat);
+};
+
+export const deleteCategoryMaster = async (id: string) => {
+  if (useSupabase()) await supabase.from('categories_master').delete().eq('id', id);
+  else {
+    const cats = (await getCategoriesMaster()).filter(c => c.id !== id);
+    localStorage.setItem('kardex_categories_master', JSON.stringify(cats));
+  }
 };
 
 // --- Productos ---
@@ -101,12 +186,30 @@ export const saveProduct = async (product: Partial<Product>) => {
   const { error } = product.id 
     ? await supabase.from('products').update(payload).eq('id', product.id)
     : await supabase.from('products').insert([payload]);
+  
+  if (!error) {
+    await saveAuditLog({
+      action: product.id ? 'UPDATE' : 'CREATE',
+      table_name: 'products',
+      record_name: product.name,
+      changes_summary: `${product.id ? 'Editado' : 'Creado'} producto ${product.name} (${product.code})`
+    });
+  }
   if (error) throw error;
 };
 
 export const deleteProduct = async (id: string) => {
-  if (useSupabase()) await supabase.from('products').delete().eq('id', id);
-  else localStorageApi.deleteProduct(id);
+  let name = '';
+  if (useSupabase()) {
+    const { data } = await supabase.from('products').select('name').eq('id', id).single();
+    name = data?.name || '';
+    await supabase.from('products').delete().eq('id', id);
+  } else {
+    const p = localStorageApi.getProducts().find(p => p.id === id);
+    name = p?.name || '';
+    localStorageApi.deleteProduct(id);
+  }
+  await saveAuditLog({ action: 'DELETE', table_name: 'products', record_name: name, changes_summary: `Producto eliminado: ${name}` });
 };
 
 export const getStats = async (): Promise<InventoryStats> => {
@@ -157,60 +260,33 @@ export const getDestinos = async () => {
 };
 
 export const saveDestino = async (d: any) => {
-  if (useSupabase()) await supabase.from('destinos').upsert({ nombre: d.name, tipo: d.type, activo: d.active });
+  if (useSupabase()) await supabase.from('destinos').upsert({ id: d.id, nombre: d.name, tipo: d.type, activo: d.active });
   else localStorageApi.saveDestino(d);
 };
 
-// --- Added missing exports for Contacts, AuditLog, and Users ---
-
-/**
- * Deletes a contact from Supabase or LocalStorage.
- */
 export const deleteContact = async (id: string) => {
-  if (useSupabase()) {
-    const { error } = await supabase.from('contacts').delete().eq('id', id);
-    if (error) throw error;
-  } else {
-    localStorageApi.deleteContact(id);
-  }
+  if (useSupabase()) await supabase.from('contacts').delete().eq('id', id);
+  else localStorageApi.deleteContact(id);
 };
 
-/**
- * Saves or updates a contact in Supabase or LocalStorage.
- */
 export const saveContact = async (contact: Partial<Contact>) => {
   if (!useSupabase()) {
     localStorageApi.saveContact({ ...contact, id: contact.id || crypto.randomUUID() } as Contact);
     return;
   }
-  const { error } = await supabase.from('contacts').upsert(contact);
-  if (error) throw error;
+  await supabase.from('contacts').upsert(contact);
 };
 
-/**
- * Fetches audit logs from Supabase or LocalStorage with pagination.
- */
 export const getAuditLogs = async (page = 0, limit = 50) => {
-  if (!useSupabase()) return localStorageApi.getAuditLogs(page, limit);
+  if (!useSupabase()) {
+    const logs = JSON.parse(localStorage.getItem('kardex_audit') || '[]');
+    return { data: logs.slice(page * limit, (page + 1) * limit), count: logs.length };
+  }
   const { data, count, error } = await supabase
     .from('audit_logs')
     .select('*', { count: 'exact' })
     .order('created_at', { ascending: false })
     .range(page * limit, (page + 1) * limit - 1);
-  if (error) throw error;
+  if (error) return { data: [], count: 0 };
   return { data: data || [], count: count || 0 };
-};
-
-/**
- * Deletes a user profile from Supabase or LocalStorage.
- */
-export const deleteUser = async (id: string) => {
-  if (useSupabase()) {
-    const { error } = await supabase.from('profiles').delete().eq('id', id);
-    if (error) throw error;
-  } else {
-    const users = JSON.parse(localStorage.getItem('kardex_users') || '[]');
-    const filtered = users.filter((u: any) => u.id !== id);
-    localStorage.setItem('kardex_users', JSON.stringify(filtered));
-  }
 };
