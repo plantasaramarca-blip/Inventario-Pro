@@ -1,33 +1,29 @@
 
 import { supabase, isSupabaseConfigured } from '../supabaseClient.ts';
 import { Product, Movement, Contact, InventoryStats, AuditLog, Destination, LocationMaster, CategoryMaster, UserAccount, Role } from '../types.ts';
-import * as localStorageApi from './storageService.ts';
 
 const useSupabase = () => isSupabaseConfigured;
 
-// --- Sistema de Auditoría Interno ---
+// --- Sistema de Auditoría ---
 export const saveAuditLog = async (log: Partial<AuditLog>) => {
-  const user = (await supabase.auth.getSession()).data.session?.user;
-  const payload = {
-    user_id: user?.id || 'system',
-    user_email: user?.email || 'Sistema Local',
-    action: log.action,
-    table_name: log.table_name,
-    record_id: log.record_id,
-    record_name: log.record_name,
-    changes_summary: log.changes_summary,
-    created_at: new Date().toISOString()
-  };
-
-  if (!useSupabase()) {
-    const logs = JSON.parse(localStorage.getItem('kardex_audit') || '[]');
-    logs.unshift({ ...payload, id: crypto.randomUUID() });
-    localStorage.setItem('kardex_audit', JSON.stringify(logs.slice(0, 500)));
-    return;
-  }
+  if (!useSupabase()) return;
+  const session = (await supabase.auth.getSession()).data.session;
+  const user = session?.user;
+  
   try {
-    await supabase.from('audit_logs').insert([payload]);
-  } catch (e) {}
+    await supabase.from('audit_logs').insert([{
+      user_id: user?.id || 'system',
+      user_email: user?.email || 'Sistema',
+      action: log.action,
+      table_name: log.table_name,
+      record_id: log.record_id,
+      record_name: log.record_name,
+      changes_summary: log.changes_summary,
+      created_at: new Date().toISOString()
+    }]);
+  } catch (e) {
+    console.warn("No se pudo registrar auditoría en la nube");
+  }
 };
 
 // --- Usuarios y Perfiles ---
@@ -45,25 +41,18 @@ export const getCurrentUserProfile = async (email: string): Promise<{role: Role}
 };
 
 export const getUsers = async (): Promise<UserAccount[]> => {
-  if (!useSupabase()) return JSON.parse(localStorage.getItem('kardex_users') || '[]');
+  if (!useSupabase()) return [];
   try {
     const { data, error } = await supabase.from('profiles').select('*').order('email');
     if (error) throw error;
     return (data || []).map(u => ({ id: u.id, email: u.email, role: u.role, createdAt: u.created_at }));
   } catch (e) {
-    return JSON.parse(localStorage.getItem('kardex_users') || '[]');
+    return [];
   }
 };
 
 export const saveUser = async (user: Partial<UserAccount>) => {
-  if (!useSupabase()) {
-    const users = JSON.parse(localStorage.getItem('kardex_users') || '[]');
-    const idx = users.findIndex((u: any) => u.email === user.email);
-    if (idx >= 0) users[idx] = { ...users[idx], ...user };
-    else users.push({ ...user, id: crypto.randomUUID(), createdAt: new Date().toISOString() });
-    localStorage.setItem('kardex_users', JSON.stringify(users));
-    return;
-  }
+  if (!useSupabase()) return;
   const cleanEmail = user.email?.trim().toLowerCase();
   await supabase.from('profiles').upsert({ email: cleanEmail, role: user.role }, { onConflict: 'email' });
   
@@ -76,18 +65,10 @@ export const saveUser = async (user: Partial<UserAccount>) => {
 };
 
 export const deleteUser = async (id: string) => {
-  let email = id;
-  if (useSupabase()) {
-    const { data } = await supabase.from('profiles').select('email').eq('id', id).single();
-    email = data?.email || id;
-    await supabase.from('profiles').delete().eq('id', id);
-  } else {
-    const users = JSON.parse(localStorage.getItem('kardex_users') || '[]');
-    const user = users.find((u: any) => u.id === id);
-    email = user?.email || id;
-    const filtered = users.filter((u: any) => u.id !== id);
-    localStorage.setItem('kardex_users', JSON.stringify(filtered));
-  }
+  if (!useSupabase()) return;
+  const { data } = await supabase.from('profiles').select('email').eq('id', id).single();
+  const email = data?.email || id;
+  await supabase.from('profiles').delete().eq('id', id);
   
   await saveAuditLog({
     action: 'DELETE',
@@ -97,78 +78,64 @@ export const deleteUser = async (id: string) => {
   });
 };
 
-// --- Maestros ---
+// --- Maestros (Categorías y Almacenes) ---
 export const getLocationsMaster = async (): Promise<LocationMaster[]> => {
-  if (!useSupabase()) return JSON.parse(localStorage.getItem('kardex_locations_master') || '[]');
+  if (!useSupabase()) return [{ id: '1', name: 'Almacén Principal' }];
   try {
-    const { data, error, status } = await supabase.from('locations_master').select('*').order('name');
-    if (error || status === 404) return JSON.parse(localStorage.getItem('kardex_locations_master') || '[]');
+    const { data, error } = await supabase.from('locations_master').select('*').order('name');
+    if (error) throw error;
     return data || [];
   } catch (e) {
-    return JSON.parse(localStorage.getItem('kardex_locations_master') || '[]');
+    console.error("Error al obtener almacenes de Supabase:", e);
+    return [];
   }
 };
 
 export const saveLocationMaster = async (loc: Partial<LocationMaster>) => {
-  if (!useSupabase()) {
-    const locs = await getLocationsMaster();
-    if (loc.id) {
-      const idx = locs.findIndex(l => l.id === loc.id);
-      locs[idx] = { ...locs[idx], ...loc };
-    } else {
-      locs.push({ id: crypto.randomUUID(), name: loc.name! });
-    }
-    localStorage.setItem('kardex_locations_master', JSON.stringify(locs));
-    return;
-  }
-  await supabase.from('locations_master').upsert(loc);
+  if (!useSupabase()) return;
+  const { error } = await supabase.from('locations_master').upsert({
+    id: loc.id,
+    name: loc.name
+  });
+  if (error) throw error;
 };
 
 export const deleteLocationMaster = async (id: string) => {
-  if (useSupabase()) await supabase.from('locations_master').delete().eq('id', id);
-  else {
-    const locs = (await getLocationsMaster()).filter(l => l.id !== id);
-    localStorage.setItem('kardex_locations_master', JSON.stringify(locs));
-  }
+  if (!useSupabase()) return;
+  const { error } = await supabase.from('locations_master').delete().eq('id', id);
+  if (error) throw error;
 };
 
 export const getCategoriesMaster = async (): Promise<CategoryMaster[]> => {
-  if (!useSupabase()) return JSON.parse(localStorage.getItem('kardex_categories_master') || '[]');
+  if (!useSupabase()) return [{ id: '1', name: 'General' }];
   try {
-    const { data, error, status } = await supabase.from('categories_master').select('*').order('name');
-    if (error || status === 404) return JSON.parse(localStorage.getItem('kardex_categories_master') || '[]');
+    const { data, error } = await supabase.from('categories_master').select('*').order('name');
+    if (error) throw error;
     return data || [];
   } catch (e) {
-    return JSON.parse(localStorage.getItem('kardex_categories_master') || '[]');
+    console.error("Error al obtener categorías de Supabase:", e);
+    return [];
   }
 };
 
 export const saveCategoryMaster = async (cat: Partial<CategoryMaster>) => {
-  if (!useSupabase()) {
-    const cats = await getCategoriesMaster();
-    if (cat.id) {
-      const idx = cats.findIndex(c => c.id === cat.id);
-      cats[idx] = { ...cats[idx], ...cat };
-    } else {
-      cats.push({ id: crypto.randomUUID(), name: cat.name! });
-    }
-    localStorage.setItem('kardex_categories_master', JSON.stringify(cats));
-    return;
-  }
-  await supabase.from('categories_master').upsert(cat);
+  if (!useSupabase()) return;
+  const { error } = await supabase.from('categories_master').upsert({
+    id: cat.id,
+    name: cat.name
+  });
+  if (error) throw error;
 };
 
 export const deleteCategoryMaster = async (id: string) => {
-  if (useSupabase()) await supabase.from('categories_master').delete().eq('id', id);
-  else {
-    const cats = (await getCategoriesMaster()).filter(c => c.id !== id);
-    localStorage.setItem('kardex_categories_master', JSON.stringify(cats));
-  }
+  if (!useSupabase()) return;
+  const { error } = await supabase.from('categories_master').delete().eq('id', id);
+  if (error) throw error;
 };
 
 // --- Productos ---
 export const getProducts = async (): Promise<Product[]> => {
-  if (!useSupabase()) return localStorageApi.getProducts();
+  if (!useSupabase()) return [];
   try {
     const { data, error } = await supabase.from('products').select('*').order('name');
     if (error) throw error;
@@ -179,15 +146,12 @@ export const getProducts = async (): Promise<Product[]> => {
       price: Number(p.precio_compra || p.price) || 0
     }));
   } catch (e) {
-    return localStorageApi.getProducts();
+    return [];
   }
 };
 
 export const saveProduct = async (product: Partial<Product>) => {
-  if (!useSupabase()) {
-    localStorageApi.saveProduct({ ...product, id: product.id || crypto.randomUUID() } as any);
-    return;
-  }
+  if (!useSupabase()) return;
   const payload = {
     code: product.code, name: product.name, brand: product.brand, size: product.size, model: product.model,
     category: product.category, location: product.location, stock: Number(product.stock) || 0,
@@ -211,16 +175,10 @@ export const saveProduct = async (product: Partial<Product>) => {
 };
 
 export const deleteProduct = async (id: string) => {
-  let name = '';
-  if (useSupabase()) {
-    const { data } = await supabase.from('products').select('name').eq('id', id).single();
-    name = data?.name || '';
-    await supabase.from('products').delete().eq('id', id);
-  } else {
-    const p = localStorageApi.getProducts().find(p => p.id === id);
-    name = p?.name || '';
-    localStorageApi.deleteProduct(id);
-  }
+  if (!useSupabase()) return;
+  const { data } = await supabase.from('products').select('name').eq('id', id).single();
+  const name = data?.name || '';
+  await supabase.from('products').delete().eq('id', id);
   await saveAuditLog({ action: 'DELETE', table_name: 'products', record_name: name, changes_summary: `Producto eliminado: ${name}` });
 };
 
@@ -238,7 +196,7 @@ export const getStats = async (): Promise<InventoryStats> => {
 };
 
 export const getMovements = async (): Promise<Movement[]> => {
-  if (!useSupabase()) return localStorageApi.getMovements();
+  if (!useSupabase()) return [];
   try {
     const { data, error } = await supabase.from('movements').select('*').order('date', { ascending: false });
     if (error) throw error;
@@ -247,33 +205,13 @@ export const getMovements = async (): Promise<Movement[]> => {
       dispatcher: m.dispatcher, reason: m.reason, balanceAfter: m.balance_after, destinationName: m.destino_nombre
     }));
   } catch (e) {
-    return localStorageApi.getMovements();
+    return [];
   }
 };
 
-export const registerMovement = async (movement: any) => {
-  if (!useSupabase()) return localStorageApi.registerMovement(movement);
-  const { data: product } = await supabase.from('products').select('name, stock').eq('id', movement.productId).single();
-  if (!product) throw new Error("Producto no encontrado");
-  const newStock = product.stock + (movement.type === 'INGRESO' ? movement.quantity : -movement.quantity);
-  await supabase.from('products').update({ stock: newStock }).eq('id', movement.productId);
-  await supabase.from('movements').insert([{
-    product_id: movement.productId, product_name: product.name, type: movement.type,
-    quantity: movement.quantity, dispatcher: movement.dispatcher, reason: movement.reason,
-    balance_after: newStock, destino_nombre: movement.destinationName, date: new Date().toISOString()
-  }]);
-};
-
-// --- Registro en Lote ---
 export const registerBatchMovements = async (items: any[]) => {
-  if (!useSupabase()) {
-    for (const item of items) {
-      localStorageApi.registerMovement(item);
-    }
-    return;
-  }
+  if (!useSupabase()) return;
   
-  // En Supabase lo hacemos secuencial para asegurar consistencia de stock
   for (const item of items) {
      const { data: product } = await supabase.from('products').select('name, stock').eq('id', item.productId).single();
      if (!product) continue;
@@ -288,50 +226,43 @@ export const registerBatchMovements = async (items: any[]) => {
 };
 
 export const getContacts = async (): Promise<Contact[]> => {
-  if (!useSupabase()) return localStorageApi.getContacts();
+  if (!useSupabase()) return [];
   try {
     const { data, error } = await supabase.from('contacts').select('*').order('name');
     if (error) throw error;
     return data || [];
   } catch (e) {
-    return localStorageApi.getContacts();
+    return [];
   }
 };
 
 export const getDestinos = async () => {
-  if (!useSupabase()) return localStorageApi.getDestinos();
+  if (!useSupabase()) return [];
   try {
-    const { data, error } = await supabase.from('destinos').select('*');
+    const { data, error } = await supabase.from('destinos').select('*').order('nombre');
     if (error) throw error;
     return (data || []).map(d => ({ id: d.id, name: d.nombre, type: d.tipo, active: d.activo }));
   } catch (e) {
-    return localStorageApi.getDestinos();
+    return [];
   }
 };
 
 export const saveDestino = async (d: any) => {
-  if (useSupabase()) await supabase.from('destinos').upsert({ id: d.id, nombre: d.name, tipo: d.type, activo: d.active });
-  else localStorageApi.saveDestino(d);
+  if (!useSupabase()) return;
+  await supabase.from('destinos').upsert({ id: d.id, nombre: d.name, tipo: d.type, activo: d.active });
 };
 
 export const deleteContact = async (id: string) => {
   if (useSupabase()) await supabase.from('contacts').delete().eq('id', id);
-  else localStorageApi.deleteContact(id);
 };
 
 export const saveContact = async (contact: Partial<Contact>) => {
-  if (!useSupabase()) {
-    localStorageApi.saveContact({ ...contact, id: contact.id || crypto.randomUUID() } as Contact);
-    return;
-  }
+  if (!useSupabase()) return;
   await supabase.from('contacts').upsert(contact);
 };
 
 export const getAuditLogs = async (page = 0, limit = 50) => {
-  if (!useSupabase()) {
-    const logs = JSON.parse(localStorage.getItem('kardex_audit') || '[]');
-    return { data: logs.slice(page * limit, (page + 1) * limit), count: logs.length };
-  }
+  if (!useSupabase()) return { data: [], count: 0 };
   try {
     const { data, count, error } = await supabase
       .from('audit_logs')
@@ -341,7 +272,6 @@ export const getAuditLogs = async (page = 0, limit = 50) => {
     if (error) return { data: [], count: 0 };
     return { data: data || [], count: count || 0 };
   } catch (e) {
-    const logs = JSON.parse(localStorage.getItem('kardex_audit') || '[]');
-    return { data: logs.slice(page * limit, (page + 1) * limit), count: logs.length };
+    return { data: [], count: 0 };
   }
 };

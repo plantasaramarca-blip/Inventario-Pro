@@ -9,9 +9,8 @@ import { jsPDF } from 'https://esm.sh/jspdf@2.5.1';
 import html2canvas from 'https://esm.sh/html2canvas@1.4.1';
 import { exportToExcel, exportToPDF } from '../services/excelService.ts';
 import { 
-  Plus, Search, Edit2, ImageIcon, Loader2, QrCode, Settings2,
-  X, Trash2, Save, Package, Camera, AlertTriangle, CheckCircle,
-  Database, Zap, ArrowRight, Printer, CheckSquare, Square, FileSpreadsheet, FileText
+  Plus, Search, Edit2, ImageIcon, Loader2, QrCode,
+  X, Trash2, Save, Camera, CheckCircle, Printer, CheckSquare, Square, FileSpreadsheet, FileText
 } from 'https://esm.sh/lucide-react@0.475.0?deps=react@19.2.3';
 
 interface InventoryProps { role: Role; }
@@ -21,8 +20,6 @@ export const Inventory: React.FC<InventoryProps> = ({ role }) => {
   const [categories, setCategories] = useState<CategoryMaster[]>([]);
   const [locations, setLocations] = useState<LocationMaster[]>([]);
   const [loading, setLoading] = useState(true);
-  const [isOptimizing, setIsOptimizing] = useState(false); 
-  const [optStats, setOptStats] = useState({ original: '0KB', compressed: '0KB', percent: 0 });
   const [saving, setSaving] = useState(false);
   const [isPrintingBulk, setIsPrintingBulk] = useState(false);
   const [search, setSearch] = useState('');
@@ -38,7 +35,7 @@ export const Inventory: React.FC<InventoryProps> = ({ role }) => {
   
   const [formData, setFormData] = useState<any>({
     code: '', name: '', brand: '', size: '', model: '', 
-    category: 'General', location: 'Almacén 1', stock: 0, 
+    category: 'General', location: 'Almacén Principal', stock: 0, 
     minStock: 30, criticalStock: 10, purchasePrice: 0, 
     currency: 'PEN', unit: 'und', imageUrl: ''
   });
@@ -51,16 +48,25 @@ export const Inventory: React.FC<InventoryProps> = ({ role }) => {
   const loadData = async () => {
     setLoading(true);
     try {
-      const [prods, cats, locs] = await Promise.all([
+      const results = await Promise.allSettled([
         api.getProducts(), 
         api.getCategoriesMaster(),
         api.getLocationsMaster()
       ]);
+
+      const prods = results[0].status === 'fulfilled' ? results[0].value : [];
+      const cats = results[1].status === 'fulfilled' ? results[1].value : [];
+      const locs = results[2].status === 'fulfilled' ? results[2].value : [];
+
       setProducts(prods || []);
       setCategories(cats || []);
       setLocations(locs || []);
+
     } catch (e) { 
-    } finally { setLoading(false); }
+      console.warn("Fallo al sincronizar con Supabase:", e);
+    } finally { 
+      setLoading(false); 
+    }
   };
 
   useEffect(() => { loadData(); }, []);
@@ -162,7 +168,7 @@ export const Inventory: React.FC<InventoryProps> = ({ role }) => {
         code: `SKU-${String(products.length + 1).padStart(4, '0')}`, 
         name: '', brand: '', size: '', model: '',
         category: categories[0]?.name || 'General', 
-        location: locations[0]?.name || 'Almacén 1', 
+        location: locations[0]?.name || 'Almacén Principal', 
         stock: 0, minStock: 30, criticalStock: 10, purchasePrice: 0, 
         currency: 'PEN', unit: 'und', imageUrl: '' 
       });
@@ -173,7 +179,6 @@ export const Inventory: React.FC<InventoryProps> = ({ role }) => {
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      setIsOptimizing(true);
       const reader = new FileReader();
       reader.onload = (event) => {
         const img = new Image();
@@ -187,7 +192,6 @@ export const Inventory: React.FC<InventoryProps> = ({ role }) => {
           ctx?.drawImage(img, 0, 0, canvas.width, canvas.height);
           const compressedData = canvas.toDataURL('image/jpeg', 0.6);
           setFormData({ ...formData, imageUrl: compressedData });
-          setIsOptimizing(false);
         };
         img.src = event.target?.result as string;
       };
@@ -271,6 +275,8 @@ export const Inventory: React.FC<InventoryProps> = ({ role }) => {
             <tbody className="divide-y divide-slate-50">
               {loading ? (
                 <tr><td colSpan={6} className="py-20 text-center"><Loader2 className="animate-spin w-8 h-8 text-indigo-500 mx-auto" /></td></tr>
+              ) : filteredProducts.length === 0 ? (
+                <tr><td colSpan={6} className="py-20 text-center text-slate-400 font-black uppercase text-[10px]">No se encontraron productos</td></tr>
               ) : filteredProducts.map(p => (
                 <tr key={p.id} className={`hover:bg-slate-50/30 transition-colors ${selectedIds.has(p.id) ? 'bg-indigo-50/20' : ''}`}>
                   <td className="px-6 py-4">
@@ -330,7 +336,9 @@ export const Inventory: React.FC<InventoryProps> = ({ role }) => {
                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
                       <div className="space-y-1"><label className="text-[9px] font-black text-indigo-500 uppercase">Talla</label><input type="text" className="w-full p-4 bg-indigo-50 text-indigo-700 rounded-2xl outline-none font-black text-sm" value={formData.size} onChange={e => setFormData({...formData, size: e.target.value})} /></div>
                       <div className="space-y-1"><label className="text-[9px] font-black text-slate-400 uppercase">SKU / Código</label><input type="text" className="w-full p-4 bg-slate-50 rounded-2xl outline-none font-black text-xs" value={formData.code} onChange={e => setFormData({...formData, code: e.target.value.toUpperCase()})} /></div>
-                      <div className="space-y-1"><label className="text-[9px] font-black text-slate-400 uppercase">Ubicación</label><select className="w-full p-4 bg-slate-50 rounded-2xl font-bold text-xs" value={formData.location} onChange={e => setFormData({...formData, location: e.target.value})}>{locations.map(l => <option key={l.id} value={l.name}>{l.name}</option>)}</select></div>
+                      <div className="space-y-1"><label className="text-[9px] font-black text-slate-400 uppercase">Ubicación</label><select className="w-full p-4 bg-slate-50 rounded-2xl font-bold text-xs" value={formData.location} onChange={e => setFormData({...formData, location: e.target.value})}>
+                        {locations.length > 0 ? locations.map(l => <option key={l.id} value={l.name}>{l.name}</option>) : <option>General</option>}
+                      </select></div>
                     </div>
                   </div>
                </div>
