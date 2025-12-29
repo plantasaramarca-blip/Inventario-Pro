@@ -1,13 +1,13 @@
+
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Product, Role, CategoryMaster, LocationMaster } from '../types.ts';
 import * as api from '../services/supabaseService.ts';
 import { StockBadge } from '../components/StockBadge.tsx';
-import { CustomDialog } from '../components/CustomDialog.tsx';
 import { formatCurrency } from '../utils/currencyUtils.ts';
-import { exportToExcel, exportToPDF } from '../services/excelService.ts';
+import { exportToPDF } from '../services/excelService.ts';
 import { 
-  Plus, Search, Edit2, ImageIcon, Loader2, QrCode, X, Save, Camera, FileSpreadsheet, FileText
-} from 'https://esm.sh/lucide-react@0.475.0?external=react,react-dom';
+  Plus, Search, Edit2, ImageIcon, Loader2, X, Save, Camera, FileText, Trash2, Info
+} from 'lucide-react';
 
 export const Inventory: React.FC<{ role: Role }> = ({ role }) => {
   const [products, setProducts] = useState<Product[]>([]);
@@ -18,7 +18,7 @@ export const Inventory: React.FC<{ role: Role }> = ({ role }) => {
   const [search, setSearch] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
-  const [optimizing, setOptimizing] = useState(false);
+  const [imageInfo, setImageInfo] = useState<{ size: string; status: string } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [formData, setFormData] = useState<any>({});
 
@@ -29,18 +29,26 @@ export const Inventory: React.FC<{ role: Role }> = ({ role }) => {
       setProducts(p || []);
       setCategories(c || []);
       setLocations(l || []);
-    } catch (e) {} finally { setLoading(false); }
+    } catch (e) { console.error(e); } finally { setLoading(false); }
   };
 
   useEffect(() => { loadData(); }, []);
 
+  const handleExportPDF = () => {
+    if (products.length === 0) return;
+    const headers = [['SKU', 'PRODUCTO', 'MARCA', 'MODELO', 'ALMACEN', 'STOCK', 'COSTO']];
+    const body = products.map(p => [p.code, p.name, p.brand, p.model, p.location, p.stock.toString(), formatCurrency(p.purchasePrice)]);
+    exportToPDF("CATALOGO DE PRODUCTOS", headers, body, "Inventario_Completo");
+  };
+
   const handleOpenModal = (product?: Product) => {
+    setImageInfo(null);
     if (product) { setEditingProduct(product); setFormData({ ...product }); }
     else {
       setEditingProduct(null);
       setFormData({ 
         code: `SKU-${String(products.length + 1).padStart(4, '0')}`, name: '', brand: '', size: '', model: '',
-        category: categories[0]?.name || 'General', location: locations[0]?.name || 'Almacén Principal', 
+        category: '', location: '', 
         stock: 0, minStock: 30, criticalStock: 10, purchasePrice: 0, currency: 'PEN', unit: 'UND', imageUrl: '' 
       });
     }
@@ -50,7 +58,7 @@ export const Inventory: React.FC<{ role: Role }> = ({ role }) => {
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      setOptimizing(true);
+      setImageInfo({ size: '...', status: 'Procesando' });
       const reader = new FileReader();
       reader.onload = (event) => {
         const img = new Image();
@@ -62,8 +70,10 @@ export const Inventory: React.FC<{ role: Role }> = ({ role }) => {
           canvas.height = img.height * scale;
           const ctx = canvas.getContext('2d');
           ctx?.drawImage(img, 0, 0, canvas.width, canvas.height);
-          setFormData({ ...formData, imageUrl: canvas.toDataURL('image/jpeg', 0.6) });
-          setOptimizing(false);
+          const dataUrl = canvas.toDataURL('image/jpeg', 0.6);
+          const kbSize = Math.round((dataUrl.length * 3/4) / 1024);
+          setFormData({ ...formData, imageUrl: dataUrl });
+          setImageInfo({ size: `${kbSize} KB`, status: 'Optimizado' });
         };
         img.src = event.target?.result as string;
       };
@@ -74,39 +84,75 @@ export const Inventory: React.FC<{ role: Role }> = ({ role }) => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
-    try { await api.saveProduct(formData); setIsModalOpen(false); loadData(); } catch (err) {} finally { setSaving(false); }
+    try { 
+      await api.saveProduct(formData); 
+      setIsModalOpen(false); 
+      loadData(); 
+    } catch (err) { 
+      alert("Error: Asegúrate de ejecutar el SQL en Supabase para las columnas brand, model y size."); 
+    } finally { setSaving(false); }
   };
 
   const filtered = products.filter(p => p.name.toLowerCase().includes(search.toLowerCase()) || p.code.toLowerCase().includes(search.toLowerCase()));
 
   return (
     <div className="space-y-4 animate-in fade-in pb-10">
-      <div className="flex justify-between items-center">
-        <div><h1 className="text-xl font-black text-slate-900 uppercase">Inventario</h1><p className="text-[9px] text-slate-500 font-black uppercase tracking-widest">Maestro de Stock</p></div>
+      <div className="flex justify-between items-end">
+        <div>
+          <h1 className="text-2xl font-black text-slate-900 uppercase tracking-tight">PRODUCTOS</h1>
+          <p className="text-[9px] text-slate-500 font-black uppercase tracking-widest mt-0.5">Control Maestro de Inventario</p>
+        </div>
         <div className="flex gap-2">
-          <button onClick={() => exportToPDF("REPORTE DE INVENTARIO", [['SKU','PRODUCTO','STOCK','COSTO']], products.map(p=>[p.code,p.name,p.stock,formatCurrency(p.purchasePrice)]), "Inventario")} className="bg-slate-100 text-slate-600 p-2 rounded-lg"><FileText className="w-4 h-4" /></button>
-          {role !== 'VIEWER' && <button onClick={() => handleOpenModal()} className="bg-indigo-600 text-white px-4 py-2 rounded-xl text-[9px] font-black uppercase flex items-center gap-1.5 shadow-lg shadow-indigo-100"><Plus className="w-3.5 h-3.5" /> Nuevo</button>}
+          <button onClick={handleExportPDF} className="bg-white border border-slate-200 text-slate-600 px-3 py-2 rounded-xl text-[9px] font-black uppercase flex items-center gap-1.5 hover:bg-slate-50 transition-all"><FileText className="w-3.5 h-3.5" /> Exportar PDF</button>
+          {role !== 'VIEWER' && <button onClick={() => handleOpenModal()} className="bg-indigo-600 text-white px-4 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest flex items-center gap-1.5 shadow-lg shadow-indigo-100 hover:bg-indigo-700 active:scale-95 transition-all"><Plus className="w-3.5 h-3.5" /> + NUEVO PRODUCTO</button>}
         </div>
       </div>
 
-      <div className="relative">
-        <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-300" />
-        <input type="text" className="w-full pl-9 pr-4 py-2 bg-white border border-slate-100 rounded-xl text-xs outline-none shadow-sm focus:ring-1 focus:ring-indigo-500" placeholder="Buscar..." value={search} onChange={e => setSearch(e.target.value)} />
+      <div className="relative group">
+        <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300 group-focus-within:text-indigo-500 transition-colors" />
+        <input type="text" className="w-full pl-10 pr-10 py-2.5 bg-white border border-slate-100 rounded-2xl text-xs outline-none shadow-sm focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all" placeholder="Buscar por nombre, SKU o marca..." value={search} onChange={e => setSearch(e.target.value)} />
+        {search && <button onClick={() => setSearch('')} className="absolute right-3.5 top-1/2 -translate-y-1/2 p-1 hover:bg-slate-100 rounded-full"><X className="w-3 h-3 text-slate-400" /></button>}
       </div>
 
-      <div className="bg-white rounded-2xl border border-slate-100 overflow-hidden shadow-sm overflow-x-auto no-scrollbar">
-        <table className="w-full text-xs min-w-[700px]">
+      <div className="bg-white rounded-[2.5rem] border border-slate-100 overflow-hidden shadow-sm overflow-x-auto no-scrollbar">
+        <table className="w-full text-xs min-w-[800px]">
           <thead className="bg-slate-50/50 text-[8px] font-black uppercase text-slate-400 tracking-widest border-b">
-            <tr><th className="px-4 py-3 text-left">Producto</th><th className="px-4 py-3 text-center">Estado</th><th className="px-4 py-3 text-center">Stock</th><th className="px-4 py-3 text-center">Costo</th><th className="px-4 py-3 text-right"></th></tr>
+            <tr>
+              <th className="px-6 py-4 text-left">Producto</th>
+              <th className="px-4 py-4 text-left">Especificaciones</th>
+              <th className="px-4 py-4 text-center">Estado</th>
+              <th className="px-4 py-4 text-center">Stock</th>
+              <th className="px-4 py-4 text-center">Precio Compra</th>
+              <th className="px-6 py-4 text-right"></th>
+            </tr>
           </thead>
           <tbody className="divide-y divide-slate-50">
-            {loading ? <tr><td colSpan={5} className="py-10 text-center"><Loader2 className="animate-spin w-6 h-6 mx-auto text-indigo-500" /></td></tr> : filtered.map(p => (
-              <tr key={p.id} className="hover:bg-slate-50/40">
-                <td className="px-4 py-2"><div className="flex items-center gap-2"><div className="w-8 h-8 bg-slate-50 rounded-lg overflow-hidden border">{p.imageUrl ? <img src={p.imageUrl} className="w-full h-full object-cover" /> : <ImageIcon className="w-3.5 h-3.5 text-slate-200 m-auto" />}</div><div><p className="font-bold text-slate-800 text-[10px] uppercase truncate max-w-[120px]">{p.name}</p><p className="text-[7px] text-slate-400 font-black uppercase">{p.code}</p></div></div></td>
-                <td className="px-4 py-2 text-center"><StockBadge stock={p.stock} minStock={p.minStock} /></td>
-                <td className="px-4 py-2 text-center font-black text-slate-800">{p.stock} <span className="text-[7px] text-slate-400 uppercase">{p.unit}</span></td>
-                <td className="px-4 py-2 text-center font-black text-indigo-600">{formatCurrency(p.purchasePrice)}</td>
-                <td className="px-4 py-2 text-right">{role !== 'VIEWER' && <button onClick={() => handleOpenModal(p)} className="p-1.5 text-slate-300 hover:text-indigo-600"><Edit2 className="w-3.5 h-3.5" /></button>}</td>
+            {loading ? <tr><td colSpan={6} className="py-20 text-center"><Loader2 className="animate-spin w-8 h-8 mx-auto text-indigo-500" /></td></tr> : filtered.map(p => (
+              <tr key={p.id} className="hover:bg-slate-50/40 transition-colors">
+                <td className="px-6 py-3">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-slate-100 rounded-xl overflow-hidden border border-slate-200 shrink-0">
+                      {p.imageUrl ? <img src={p.imageUrl} className="w-full h-full object-cover" /> : <ImageIcon className="w-4 h-4 text-slate-300 m-auto mt-3" />}
+                    </div>
+                    <div>
+                      <p className="font-black text-slate-800 text-[11px] uppercase truncate max-w-[150px]">{p.name}</p>
+                      <p className="text-[8px] text-slate-400 font-black uppercase tracking-tighter">{p.code}</p>
+                    </div>
+                  </div>
+                </td>
+                <td className="px-4 py-3">
+                  <p className="text-[10px] font-bold text-slate-700 uppercase">{p.brand || 'Genérico'}</p>
+                  <p className="text-[8px] text-slate-400 uppercase">{p.model || '-'} | Talla: {p.size || '-'}</p>
+                </td>
+                <td className="px-4 py-3 text-center"><StockBadge stock={p.stock} minStock={p.minStock} /></td>
+                <td className="px-4 py-3 text-center">
+                  <span className="font-black text-slate-800 text-sm">{p.stock}</span>
+                  <span className="text-[8px] text-slate-400 uppercase font-black ml-1">{p.unit}</span>
+                </td>
+                <td className="px-4 py-3 text-center font-black text-indigo-600 text-[11px]">{formatCurrency(p.purchasePrice)}</td>
+                <td className="px-6 py-3 text-right">
+                  {role !== 'VIEWER' && <button onClick={() => handleOpenModal(p)} className="p-2 text-slate-300 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl transition-all"><Edit2 className="w-4 h-4" /></button>}
+                </td>
               </tr>
             ))}
           </tbody>
@@ -114,37 +160,119 @@ export const Inventory: React.FC<{ role: Role }> = ({ role }) => {
       </div>
 
       {isModalOpen && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-2">
-          <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => !saving && setIsModalOpen(false)}></div>
-          <form onSubmit={handleSubmit} className="relative bg-white w-full max-w-2xl rounded-[2rem] overflow-hidden flex flex-col shadow-2xl animate-in zoom-in-95 max-h-[90vh]">
-            <div className="px-5 py-3 border-b flex justify-between items-center shrink-0">
-               <h3 className="text-sm font-black text-slate-800 uppercase tracking-tight">{editingProduct ? 'Editar' : 'Nuevo'} Producto</h3>
-               <button type="button" onClick={() => setIsModalOpen(false)} className="p-1 hover:bg-slate-50 rounded-lg"><X className="w-5 h-5 text-slate-400" /></button>
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-slate-900/80 backdrop-blur-md" onClick={() => !saving && setIsModalOpen(false)}></div>
+          <form onSubmit={handleSubmit} className="relative bg-white w-full max-w-4xl rounded-[3rem] overflow-hidden flex flex-col shadow-2xl animate-in zoom-in-95 max-h-[92vh]">
+            <div className="px-8 py-5 border-b flex justify-between items-center bg-slate-50/50">
+               <div>
+                 <h3 className="text-xl font-black text-slate-800 uppercase tracking-tight">{editingProduct ? 'Editar' : 'Nuevo'} Producto</h3>
+                 <p className="text-[8px] text-slate-400 font-black uppercase tracking-widest mt-0.5">Ficha Técnica de Inventario</p>
+               </div>
+               <button type="button" onClick={() => setIsModalOpen(false)} className="p-2 hover:bg-slate-200 rounded-full transition-all"><X className="w-6 h-6 text-slate-400" /></button>
             </div>
-            <div className="overflow-y-auto p-5 space-y-4 no-scrollbar">
-               <div className="grid grid-cols-1 sm:grid-cols-12 gap-4">
-                  <div className="sm:col-span-4 aspect-square bg-slate-50 rounded-2xl border-2 border-dashed border-slate-200 flex flex-col items-center justify-center relative overflow-hidden group">
-                    {formData.imageUrl ? <img src={formData.imageUrl} className="w-full h-full object-cover" /> : <ImageIcon className="text-slate-200 w-8 h-8" />}
-                    <button type="button" onClick={() => fileInputRef.current?.click()} className="absolute inset-0 bg-indigo-600/60 text-white opacity-0 group-hover:opacity-100 flex flex-col items-center justify-center text-[7px] font-black uppercase transition-all"><Camera className="w-6 h-6 mb-1" /> Cargar</button>
-                    <input type="file" className="hidden" ref={fileInputRef} onChange={handleFileChange} />
+
+            <div className="overflow-y-auto p-8 space-y-8 no-scrollbar">
+               <div className="grid grid-cols-1 md:grid-cols-12 gap-10">
+                  <div className="md:col-span-4 space-y-4">
+                    <div className="aspect-square bg-slate-50 rounded-[2.5rem] border-2 border-dashed border-slate-200 flex flex-col items-center justify-center relative overflow-hidden group shadow-inner transition-all hover:border-indigo-300">
+                      {formData.imageUrl ? (
+                        <img src={formData.imageUrl} className="w-full h-full object-cover" />
+                      ) : (
+                        <div className="text-center">
+                          <ImageIcon className="text-slate-200 w-16 h-16 mx-auto mb-2" />
+                          <p className="text-[8px] font-black text-slate-300 uppercase">Sin Imagen</p>
+                        </div>
+                      )}
+                      <button type="button" onClick={() => fileInputRef.current?.click()} className="absolute inset-0 bg-indigo-600/80 text-white opacity-0 group-hover:opacity-100 flex flex-col items-center justify-center text-[9px] font-black uppercase transition-all backdrop-blur-sm">
+                        <Camera className="w-8 h-8 mb-2" /> Actualizar Foto
+                      </button>
+                      <input type="file" accept="image/*" className="hidden" ref={fileInputRef} onChange={handleFileChange} />
+                    </div>
+                    {imageInfo && (
+                      <div className="bg-indigo-50 p-3 rounded-2xl border border-indigo-100 flex items-center gap-3">
+                        <Info className="w-4 h-4 text-indigo-500" />
+                        <div>
+                          <p className="text-[8px] font-black text-indigo-500 uppercase">Estado: {imageInfo.status}</p>
+                          <p className="text-[10px] font-bold text-indigo-700">Peso: {imageInfo.size}</p>
+                        </div>
+                      </div>
+                    )}
                   </div>
-                  <div className="sm:col-span-8 grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <div className="space-y-0.5"><label className="text-[7px] font-black text-slate-400 uppercase ml-2">Nombre *</label><input type="text" required className="w-full p-2 bg-slate-50 rounded-lg outline-none font-bold text-[10px] uppercase shadow-inner" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} /></div>
-                    <div className="space-y-0.5"><label className="text-[7px] font-black text-slate-400 uppercase ml-2">SKU</label><input type="text" className="w-full p-2 bg-slate-50 rounded-lg outline-none font-bold text-[10px] uppercase shadow-inner" value={formData.code} onChange={e => setFormData({...formData, code: e.target.value.toUpperCase()})} /></div>
-                    <div className="space-y-0.5"><label className="text-[7px] font-black text-slate-400 uppercase ml-2">Marca</label><input type="text" className="w-full p-2 bg-slate-50 rounded-lg outline-none font-bold text-[10px] uppercase shadow-inner" value={formData.brand} onChange={e => setFormData({...formData, brand: e.target.value})} /></div>
-                    <div className="space-y-0.5"><label className="text-[7px] font-black text-slate-400 uppercase ml-2">Ubicación</label><select className="w-full p-2 bg-slate-50 rounded-lg font-bold text-[10px] uppercase shadow-inner" value={formData.location} onChange={e => setFormData({...formData, location: e.target.value})}>{locations.map(l => <option key={l.id} value={l.name}>{l.name}</option>)}</select></div>
+
+                  <div className="md:col-span-8 grid grid-cols-1 sm:grid-cols-2 gap-5">
+                    <div className="sm:col-span-2 space-y-1.5">
+                      <label className="text-[9px] font-black text-slate-400 uppercase ml-2 tracking-widest">Nombre Completo del Producto *</label>
+                      <input type="text" required placeholder="Ej: Zapatillas Urbanas Pro" className="w-full p-3.5 bg-slate-100 rounded-2xl outline-none font-bold text-xs uppercase border-2 border-transparent focus:border-indigo-500 focus:bg-white transition-all" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} />
+                    </div>
+                    
+                    <div className="space-y-1.5">
+                      <label className="text-[9px] font-black text-slate-400 uppercase ml-2 tracking-widest">SKU / Código Único</label>
+                      <input type="text" placeholder="Ej: ZAP-001" className="w-full p-3.5 bg-slate-100 rounded-2xl outline-none font-bold text-xs uppercase border-2 border-transparent focus:border-indigo-500 focus:bg-white transition-all" value={formData.code} onChange={e => setFormData({...formData, code: e.target.value.toUpperCase()})} />
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label className="text-[9px] font-black text-slate-400 uppercase ml-2 tracking-widest">Marca / Fabricante</label>
+                      <input type="text" placeholder="Ej: Nike, Adidas, etc." className="w-full p-3.5 bg-slate-100 rounded-2xl outline-none font-bold text-xs uppercase border-2 border-transparent focus:border-indigo-500 focus:bg-white transition-all" value={formData.brand} onChange={e => setFormData({...formData, brand: e.target.value})} />
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label className="text-[9px] font-black text-slate-400 uppercase ml-2 tracking-widest">Modelo / Línea</label>
+                      <input type="text" placeholder="Ej: Air Max 2024" className="w-full p-3.5 bg-slate-100 rounded-2xl outline-none font-bold text-xs uppercase border-2 border-transparent focus:border-indigo-500 focus:bg-white transition-all" value={formData.model} onChange={e => setFormData({...formData, model: e.target.value})} />
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label className="text-[9px] font-black text-slate-400 uppercase ml-2 tracking-widest">Categoría del Producto</label>
+                      <select required className="w-full p-3.5 bg-slate-100 rounded-2xl font-bold text-xs uppercase outline-none border-2 border-transparent focus:border-indigo-500 focus:bg-white transition-all" value={formData.category} onChange={e => setFormData({...formData, category: e.target.value})}>
+                        <option value="" disabled>Seleccione Categoría...</option>
+                        {categories.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
+                      </select>
+                    </div>
                   </div>
                </div>
-               <div className="grid grid-cols-3 gap-3 bg-indigo-50/50 p-4 rounded-2xl border border-indigo-50">
-                  <div className="text-center"><label className="text-[7px] font-black text-indigo-400 uppercase">Stock</label><input type="number" className="w-full p-2 bg-white rounded-lg text-center font-black text-[10px] outline-none" value={formData.stock || ''} onChange={e => setFormData({...formData, stock: Number(e.target.value)})} disabled={!!editingProduct} /></div>
-                  <div className="text-center"><label className="text-[7px] font-black text-rose-400 uppercase">Alerta</label><input type="number" className="w-full p-2 bg-white rounded-lg text-center font-black text-[10px] outline-none" value={formData.criticalStock || ''} onChange={e => setFormData({...formData, criticalStock: Number(e.target.value)})} /></div>
-                  <div className="text-center"><label className="text-[7px] font-black text-emerald-400 uppercase">Costo</label><input type="number" step="0.01" className="w-full p-2 bg-white rounded-lg text-center font-black text-[10px] outline-none" value={formData.purchasePrice || ''} onChange={e => setFormData({...formData, purchasePrice: Number(e.target.value)})} /></div>
+
+               <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+                  <div className="space-y-1.5">
+                    <label className="text-[9px] font-black text-slate-400 uppercase ml-2 tracking-widest">Almacén de Destino</label>
+                    <select required className="w-full p-3.5 bg-slate-100 rounded-2xl font-bold text-xs uppercase outline-none border-2 border-transparent focus:border-indigo-500 transition-all" value={formData.location} onChange={e => setFormData({...formData, location: e.target.value})}>
+                      <option value="" disabled>Seleccione Almacén...</option>
+                      {locations.map(l => <option key={l.id} value={l.name}>{l.name}</option>)}
+                    </select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-[9px] font-black text-slate-400 uppercase ml-2 tracking-widest">Talla / Medida</label>
+                    <input type="text" placeholder="Ej: 42, XL, 10m" className="w-full p-3.5 bg-slate-100 rounded-2xl outline-none font-bold text-xs uppercase border-2 border-transparent focus:border-indigo-500 transition-all" value={formData.size} onChange={e => setFormData({...formData, size: e.target.value})} />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-[9px] font-black text-slate-400 uppercase ml-2 tracking-widest">Unidad de Gestión</label>
+                    <select className="w-full p-3.5 bg-slate-100 rounded-2xl font-bold text-xs uppercase outline-none border-2 border-transparent focus:border-indigo-500 transition-all" value={formData.unit} onChange={e => setFormData({...formData, unit: e.target.value})}>
+                      <option value="UND">UNIDAD (UND)</option>
+                      <option value="KG">KILOGRAMOS (KG)</option>
+                      <option value="CJ">CAJA (CJ)</option>
+                      <option value="PQ">PAQUETE (PQ)</option>
+                    </select>
+                  </div>
+               </div>
+
+               <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 bg-slate-900 p-8 rounded-[2.5rem] shadow-2xl">
+                  <div className="text-center space-y-2">
+                    <label className="text-[9px] font-black text-indigo-400 uppercase tracking-widest">Stock Inicial</label>
+                    <input type="number" className="w-full p-4 bg-white/10 rounded-2xl text-center font-black text-xl outline-none text-white border-2 border-white/5 focus:border-indigo-500 transition-all" value={formData.stock || ''} onChange={e => setFormData({...formData, stock: Number(e.target.value)})} disabled={!!editingProduct} />
+                  </div>
+                  <div className="text-center space-y-2">
+                    <label className="text-[9px] font-black text-rose-400 uppercase tracking-widest">Mínimo Alerta</label>
+                    <input type="number" className="w-full p-4 bg-white/10 rounded-2xl text-center font-black text-xl outline-none text-rose-400 border-2 border-white/5 focus:border-rose-500 transition-all" value={formData.minStock || ''} onChange={e => setFormData({...formData, minStock: Number(e.target.value)})} />
+                  </div>
+                  <div className="text-center space-y-2">
+                    <label className="text-[9px] font-black text-emerald-400 uppercase tracking-widest">Precio Unitario</label>
+                    <input type="number" step="0.01" className="w-full p-4 bg-white/10 rounded-2xl text-center font-black text-xl outline-none text-emerald-400 border-2 border-white/5 focus:border-emerald-500 transition-all" value={formData.purchasePrice || ''} onChange={e => setFormData({...formData, purchasePrice: Number(e.target.value)})} />
+                  </div>
                </div>
             </div>
-            <div className="px-5 py-3 border-t bg-white flex gap-3 shrink-0">
-               <button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 text-[8px] font-black uppercase text-slate-400">Cancelar</button>
-               <button type="submit" disabled={saving} className="flex-[2] py-2 bg-indigo-600 text-white rounded-xl text-[8px] font-black uppercase shadow-lg flex items-center justify-center gap-2">
-                  {saving ? <Loader2 className="animate-spin w-3 h-3" /> : <><Save className="w-3 h-3" /> Guardar Producto</>}
+
+            <div className="px-10 py-6 border-t bg-white flex gap-5 shrink-0">
+               <button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 py-4 text-[10px] font-black uppercase text-slate-400 tracking-widest hover:bg-slate-50 rounded-2xl transition-all">Descartar</button>
+               <button type="submit" disabled={saving} className="flex-[3] py-4 bg-indigo-600 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-2xl shadow-indigo-200 flex items-center justify-center gap-2 hover:bg-indigo-700 transition-all active:scale-95 disabled:opacity-50">
+                  {saving ? <Loader2 className="animate-spin w-5 h-5" /> : <><Save className="w-5 h-5" /> Guardar Producto en Base de Datos</>}
                </button>
             </div>
           </form>
