@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { CategoryMaster, Role } from '../types.ts';
 import * as api from '../services/supabaseService.ts';

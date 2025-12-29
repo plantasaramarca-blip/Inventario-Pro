@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { LocationMaster, Role } from '../types.ts';
 import * as api from '../services/supabaseService.ts';
@@ -95,7 +94,7 @@ export const LocationManagement: React.FC<{ role: Role }> = ({ role }) => {
       {isModalOpen && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => setIsModalOpen(false)}></div>
-          <form onSubmit={handleSave} className="relative bg-white rounded-3xl p-6 w-full max-w-sm shadow-2xl animate-in zoom-in-95">
+          <form onSubmit={handleSave} className="relative bg-white rounded-3xl p-6 w-full max-sm shadow-2xl animate-in zoom-in-95">
              <h3 className="text-[10px] font-black text-slate-800 uppercase tracking-widest mb-4">{editingLoc ? 'Editar' : 'Nuevo'} Almacén</h3>
              <input type="text" autoFocus required className="w-full p-3 bg-slate-50 rounded-xl outline-none font-bold text-sm mb-5 uppercase" value={name} onChange={e => setName(e.target.value.toUpperCase())} />
              <div className="flex gap-3">
