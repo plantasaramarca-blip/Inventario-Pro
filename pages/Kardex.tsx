@@ -55,36 +55,38 @@ export const Kardex: React.FC<{ role: Role; userEmail?: string }> = ({ role, use
 
   return (
     <div className="space-y-4 animate-in fade-in pb-10">
-      <div className="flex justify-between items-center">
-        <div><h1 className="text-xl font-black text-slate-900 uppercase tracking-tight">Kardex Logístico</h1><p className="text-[9px] text-slate-500 font-black uppercase tracking-widest">Movimientos de Stock</p></div>
-        <div className="flex gap-2">
+      <div className="flex justify-between items-end">
+        <div><h1 className="text-2xl font-black text-slate-900 uppercase tracking-tight">Kardex Logístico</h1><p className="text-[9px] text-slate-500 font-black uppercase tracking-widest">Control de Entradas y Salidas</p></div>
+        <div className="flex gap-3">
           {role !== 'VIEWER' && (
-            <div className="bg-white p-1 rounded-xl border flex gap-1 shadow-sm">
-              <button onClick={() => handleOpenModal('INGRESO')} className="bg-indigo-600 text-white px-3 py-1.5 rounded-lg text-[8px] font-black uppercase flex items-center gap-1.5"><ArrowUpCircle className="w-3 h-3" /> Ingreso</button>
-              <button onClick={() => handleOpenModal('SALIDA')} className="bg-rose-600 text-white px-3 py-1.5 rounded-lg text-[8px] font-black uppercase flex items-center gap-1.5"><ArrowDownCircle className="w-3 h-3" /> Despacho</button>
+            <div className="flex gap-2">
+              <button onClick={() => handleOpenModal('INGRESO')} className="bg-indigo-600 text-white px-5 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2 shadow-xl shadow-indigo-100 hover:bg-indigo-700 active:scale-95 transition-all"><ArrowUpCircle className="w-4 h-4" /> Ingreso</button>
+              <button onClick={() => handleOpenModal('SALIDA')} className="bg-rose-600 text-white px-5 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2 shadow-xl shadow-rose-100 hover:bg-rose-700 active:scale-95 transition-all"><ArrowDownCircle className="w-4 h-4" /> Despacho</button>
             </div>
           )}
         </div>
       </div>
 
-      <div className="bg-white rounded-2xl border border-slate-100 overflow-hidden shadow-sm overflow-x-auto no-scrollbar">
-        <table className="w-full text-xs min-w-[700px]">
+      <div className="bg-white rounded-[2.5rem] border border-slate-100 overflow-hidden shadow-sm overflow-x-auto no-scrollbar">
+        <table className="w-full text-xs min-w-[800px]">
           <thead className="bg-slate-50/50 text-[8px] font-black uppercase text-slate-400 tracking-widest border-b">
-            <tr><th className="px-5 py-3 text-left">Fecha</th><th className="px-4 py-3 text-left">Producto / Destino</th><th className="px-4 py-3 text-center">Cantidad</th><th className="px-4 py-3 text-left">Responsable</th><th className="px-5 py-3 text-center">Saldo</th></tr>
+            <tr><th className="px-6 py-4 text-left">Fecha y Hora</th><th className="px-4 py-4 text-left">Producto / Destino</th><th className="px-4 py-4 text-center">Cantidad</th><th className="px-4 py-4 text-left">Responsable</th><th className="px-6 py-4 text-center">Saldo</th></tr>
           </thead>
           <tbody className="divide-y divide-slate-50">
-            {loading ? <tr><td colSpan={5} className="py-20 text-center"><Loader2 className="animate-spin w-6 h-6 mx-auto text-indigo-500" /></td></tr> : movements.map(m => (
+            {loading ? <tr><td colSpan={5} className="py-20 text-center"><Loader2 className="animate-spin w-8 h-8 mx-auto text-indigo-500" /></td></tr> : movements.map(m => (
               <tr key={m.id} className="hover:bg-slate-50/40">
-                <td className="px-5 py-2 text-[8px] font-bold text-slate-400 uppercase">{new Date(m.date).toLocaleDateString()} {new Date(m.date).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</td>
-                <td className="px-4 py-2">
-                  <div className="flex items-center gap-2">
-                    <div className={`p-1 rounded ${m.type === 'INGRESO' ? 'bg-indigo-50 text-indigo-600' : 'bg-rose-50 text-rose-600'}`}>{m.type === 'INGRESO' ? <ArrowUp className="w-2.5 h-2.5" /> : <ArrowDown className="w-2.5 h-2.5" />}</div>
-                    <div><p className="font-bold text-slate-800 text-[10px] uppercase truncate max-w-[120px]">{m.productName}</p><p className="text-[7px] text-slate-400 font-black uppercase">{m.destinationName || 'ALMACÉN'}</p></div>
+                <td className="px-6 py-3 text-[9px] font-bold text-slate-400 uppercase leading-tight">{new Date(m.date).toLocaleDateString()}<br/>{new Date(m.date).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</td>
+                <td className="px-4 py-3">
+                  <div className="flex items-center gap-3">
+                    <div className={`p-2 rounded-xl ${m.type === 'INGRESO' ? 'bg-indigo-50 text-indigo-600' : 'bg-rose-50 text-rose-600'}`}>{m.type === 'INGRESO' ? <ArrowUp className="w-3 h-3" /> : <ArrowDown className="w-3 h-3" />}</div>
+                    <div><p className="font-black text-slate-800 text-[11px] uppercase truncate max-w-[200px]">{m.productName}</p><p className="text-[8px] text-slate-400 font-black uppercase tracking-widest">{m.destinationName || 'STOCK CENTRAL'}</p></div>
                   </div>
                 </td>
-                <td className={`px-4 py-2 text-center font-black text-[10px] ${m.type === 'INGRESO' ? 'text-indigo-600' : 'text-rose-600'}`}>{m.type === 'INGRESO' ? '+' : '-'}{m.quantity}</td>
-                <td className="px-4 py-2 text-[9px] font-black text-indigo-500 uppercase flex items-center gap-1"><UserCheck className="w-3 h-3" /> {m.dispatcher?.split('@')[0]}</td>
-                <td className="px-5 py-2 text-center font-black text-slate-600 text-[10px]">{m.balanceAfter}</td>
+                <td className={`px-4 py-3 text-center font-black text-sm ${m.type === 'INGRESO' ? 'text-indigo-600' : 'text-rose-600'}`}>{m.type === 'INGRESO' ? '+' : '-'}{m.quantity}</td>
+                <td className="px-4 py-3">
+                  <div className="flex items-center gap-1.5 text-[9px] font-black text-indigo-500 uppercase"><UserCheck className="w-3.5 h-3.5" /> {m.dispatcher?.split('@')[0]}</div>
+                </td>
+                <td className="px-6 py-3 text-center font-black text-slate-700 text-sm">{m.balanceAfter}</td>
               </tr>
             ))}
           </tbody>
@@ -94,37 +96,40 @@ export const Kardex: React.FC<{ role: Role; userEmail?: string }> = ({ role, use
       {isModalOpen && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-2">
           <div className="absolute inset-0 bg-slate-900/80 backdrop-blur-sm" onClick={() => !saving && setIsModalOpen(false)}></div>
-          <form onSubmit={handleSubmit} className="relative bg-white w-full max-w-3xl rounded-[2rem] flex flex-col shadow-2xl overflow-hidden animate-in zoom-in-95 max-h-[90vh]">
-            <div className={`px-5 py-3 border-b flex justify-between items-center ${type === 'INGRESO' ? 'bg-indigo-50/40' : 'bg-rose-50/40'}`}>
-               <h3 className="text-xs font-black text-slate-800 uppercase tracking-tighter">{type === 'INGRESO' ? 'Nuevo Ingreso de Mercancía' : 'Nuevo Despacho / Salida'}</h3>
-               <button type="button" onClick={() => setIsModalOpen(false)} className="p-1 hover:bg-slate-200 rounded-lg"><X className="w-5 h-5 text-slate-400" /></button>
+          <form onSubmit={handleSubmit} className="relative bg-white w-full max-w-4xl rounded-[3rem] flex flex-col shadow-2xl overflow-hidden animate-in zoom-in-95 max-h-[90vh]">
+            <div className={`px-8 py-5 border-b flex justify-between items-center ${type === 'INGRESO' ? 'bg-indigo-50/40' : 'bg-rose-50/40'}`}>
+               <div>
+                 <h3 className="text-xl font-black text-slate-800 uppercase tracking-tight">{type === 'INGRESO' ? 'Nuevo Ingreso de Mercancía' : 'Orden de Despacho / Salida'}</h3>
+                 <p className="text-[8px] text-slate-400 font-black uppercase tracking-widest mt-0.5">Operación Logística</p>
+               </div>
+               <button type="button" onClick={() => setIsModalOpen(false)} className="p-2 hover:bg-slate-200 rounded-full"><X className="w-6 h-6 text-slate-400" /></button>
             </div>
-            <div className="overflow-y-auto p-4 space-y-4 no-scrollbar grid grid-cols-1 md:grid-cols-2 gap-6">
-               <div className="space-y-3">
-                  <div className="relative">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-300" />
-                    <input type="text" className="w-full pl-9 pr-4 py-2 bg-slate-50 rounded-xl outline-none font-bold text-[10px] uppercase border" placeholder="Buscar producto..." value={productSearch} onChange={e => setProductSearch(e.target.value)} />
-                    {filteredSearch.length > 0 && <div className="absolute z-[110] w-full mt-1 bg-white border rounded-xl shadow-xl overflow-hidden">{filteredSearch.map(p => (<button key={p.id} type="button" onClick={() => { if(!cartItems.find(i=>i.productId===p.id)) setCartItems([...cartItems,{...p,productId:p.id,quantity:1}]); setProductSearch(''); }} className="w-full p-2 text-left hover:bg-slate-50 border-b last:border-0 flex justify-between"><span className="text-[9px] font-black uppercase">{p.name}</span><span className="text-[8px] text-indigo-600 font-bold">STK: {p.stock}</span></button>))}</div>}
+            <div className="overflow-y-auto p-8 space-y-6 no-scrollbar grid grid-cols-1 md:grid-cols-2 gap-10">
+               <div className="space-y-4">
+                  <div className="relative group">
+                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300 group-focus-within:text-indigo-500" />
+                    <input type="text" className="w-full pl-11 pr-4 py-4 bg-slate-50 rounded-2xl outline-none font-bold text-xs uppercase border-2 border-transparent focus:border-indigo-500 transition-all" placeholder="Escriba nombre o SKU del producto..." value={productSearch} onChange={e => setProductSearch(e.target.value)} />
+                    {filteredSearch.length > 0 && <div className="absolute z-[110] w-full mt-2 bg-white border rounded-[2rem] shadow-2xl overflow-hidden animate-in fade-in zoom-in-95">{filteredSearch.map(p => (<button key={p.id} type="button" onClick={() => { if(!cartItems.find(i=>i.productId===p.id)) setCartItems([...cartItems,{...p,productId:p.id,quantity:1}]); setProductSearch(''); }} className="w-full p-4 text-left hover:bg-indigo-50 border-b last:border-0 flex justify-between items-center"><div className="flex flex-col"><span className="text-[10px] font-black uppercase text-slate-800">{p.name}</span><span className="text-[8px] text-slate-400 font-bold uppercase tracking-widest">{p.code} | MARCA: {p.brand || 'S/M'}</span></div><span className={`text-[9px] font-black uppercase px-2 py-1 rounded-lg ${p.stock > 0 ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'}`}>STK: {p.stock}</span></button>))}</div>}
                   </div>
                   {type === 'SALIDA' ? (
-                    <div className="grid grid-cols-1 gap-2">
-                      <select className="w-full p-2 bg-slate-50 rounded-lg font-black text-[9px] uppercase outline-none border" value={selectedDestinoId} onChange={e => setSelectedDestinoId(e.target.value)}><option value="">-- SELECCIONAR DESTINO --</option>{destinos.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}</select>
-                      <input type="text" className="w-full p-2 bg-slate-50 rounded-lg font-bold text-[9px] uppercase outline-none border" placeholder="QUIEN RETIRA" value={carriedBy} onChange={e => setCarriedBy(e.target.value.toUpperCase())} />
+                    <div className="space-y-3">
+                      <select required className="w-full p-4 bg-slate-50 rounded-2xl font-black text-[10px] uppercase outline-none border-2 border-transparent focus:border-indigo-500 transition-all" value={selectedDestinoId} onChange={e => setSelectedDestinoId(e.target.value)}><option value="" disabled>-- SELECCIONAR CENTRO DE COSTO --</option>{destinos.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}</select>
+                      <input type="text" required className="w-full p-4 bg-slate-50 rounded-2xl font-bold text-[10px] uppercase outline-none border-2 border-transparent focus:border-indigo-500 transition-all" placeholder="QUIEN RETIRA LA MERCANCÍA" value={carriedBy} onChange={e => setCarriedBy(e.target.value.toUpperCase())} />
                     </div>
                   ) : (
-                    <input type="text" className="w-full p-2 bg-slate-50 rounded-lg font-bold text-[9px] uppercase outline-none border" placeholder="PROVEEDOR / ORIGEN" value={supplierName} onChange={e => setSupplierName(e.target.value.toUpperCase())} />
+                    <input type="text" required className="w-full p-4 bg-slate-50 rounded-2xl font-bold text-[10px] uppercase outline-none border-2 border-transparent focus:border-indigo-500 transition-all" placeholder="NOMBRE DEL PROVEEDOR / ORIGEN" value={supplierName} onChange={e => setSupplierName(e.target.value.toUpperCase())} />
                   )}
-                  <textarea className="w-full p-2 bg-slate-50 rounded-lg font-bold text-[9px] uppercase h-16 border outline-none" placeholder="OBSERVACIONES" value={reason} onChange={e => setReason(e.target.value)} />
+                  <textarea className="w-full p-4 bg-slate-50 rounded-2xl font-bold text-[10px] uppercase h-24 border-2 border-transparent outline-none focus:border-indigo-500 transition-all no-scrollbar" placeholder="NOTAS U OBSERVACIONES ADICIONALES" value={reason} onChange={e => setReason(e.target.value)} />
                </div>
-               <div className="bg-slate-50 rounded-xl p-3 flex flex-col min-h-[150px] border">
-                  <div className="flex justify-between items-center mb-2"><h4 className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Carrito de Carga</h4><span className="bg-indigo-600 text-white px-2 py-0.5 rounded-full text-[7px] font-black uppercase">{cartItems.length} ITEMS</span></div>
-                  <div className="flex-1 overflow-y-auto space-y-1.5 no-scrollbar">{cartItems.map(item => (<div key={item.productId} className="bg-white p-2 rounded-lg border flex justify-between items-center"><div className="w-2/3"><p className="text-[8px] font-black uppercase truncate leading-tight">{item.name}</p><p className="text-[7px] text-slate-400 font-bold tracking-tighter">DISPONIBLE: {item.stock}</p></div><div className="flex items-center gap-1.5"><input type="number" className="w-10 p-1 bg-slate-50 rounded text-center text-[9px] font-black border" value={item.quantity} onChange={e => setCartItems(cartItems.map(i=>i.productId===item.productId?{...i,quantity:Math.max(1,Number(e.target.value))}:i))} /><button type="button" onClick={() => setCartItems(cartItems.filter(i=>i.productId!==item.productId))} className="text-slate-300 hover:text-red-500"><Trash className="w-3 h-3" /></button></div></div>))}</div>
+               <div className="bg-slate-50 rounded-[2.5rem] p-6 flex flex-col border shadow-inner">
+                  <div className="flex justify-between items-center mb-4"><h4 className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Lista de Carga ({cartItems.length})</h4><span className="bg-indigo-600 text-white px-3 py-1 rounded-full text-[8px] font-black uppercase shadow-lg shadow-indigo-100">CARRITO</span></div>
+                  <div className="flex-1 overflow-y-auto space-y-3 no-scrollbar pr-1">{cartItems.length === 0 ? <div className="h-full flex flex-col items-center justify-center opacity-30"><Search className="w-10 h-10 mb-2" /><p className="text-[8px] font-black uppercase">Busca productos para agregar</p></div> : cartItems.map(item => (<div key={item.productId} className="bg-white p-4 rounded-2xl border shadow-sm flex justify-between items-center animate-in slide-in-from-right-2 duration-300"><div className="w-2/3"><p className="text-[10px] font-black uppercase truncate text-slate-800 leading-tight">{item.name}</p><p className="text-[8px] text-slate-400 font-bold uppercase tracking-tighter">DISP: {item.stock} {item.unit}</p></div><div className="flex items-center gap-3"><input type="number" className="w-14 p-2 bg-slate-50 rounded-xl text-center text-xs font-black border-2 border-transparent focus:border-indigo-500 outline-none" value={item.quantity} onChange={e => setCartItems(cartItems.map(i=>i.productId===item.productId?{...i,quantity:Math.max(1,Number(e.target.value))}:i))} /><button type="button" onClick={() => setCartItems(cartItems.filter(i=>i.productId!==item.productId))} className="p-2 text-slate-300 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all"><Trash className="w-4 h-4" /></button></div></div>))}</div>
                </div>
             </div>
-            <div className="px-5 py-3 border-t flex gap-3 bg-white shrink-0">
-               <button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 text-[8px] font-black uppercase text-slate-400">Cancelar</button>
-               <button type="submit" disabled={saving || cartItems.length === 0} className={`flex-[2] py-2 text-white rounded-xl text-[8px] font-black uppercase shadow-lg flex items-center justify-center gap-2 ${type === 'INGRESO' ? 'bg-indigo-600' : 'bg-rose-600'}`}>
-                  {saving ? <Loader2 className="animate-spin w-3 h-3" /> : <Save className="w-3 h-3" />} {type === 'INGRESO' ? 'Registrar Ingreso' : 'Confirmar Salida'}
+            <div className="px-8 py-6 border-t flex gap-5 bg-white shrink-0">
+               <button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 py-4 text-[10px] font-black uppercase text-slate-400 tracking-widest">Cancelar Operación</button>
+               <button type="submit" disabled={saving || cartItems.length === 0} className={`flex-[2] py-4 text-white rounded-[1.5rem] text-[10px] font-black uppercase tracking-widest shadow-2xl flex items-center justify-center gap-2 active:scale-95 transition-all ${type === 'INGRESO' ? 'bg-indigo-600 shadow-indigo-100' : 'bg-rose-600 shadow-rose-100'}`}>
+                  {saving ? <Loader2 className="animate-spin w-5 h-5" /> : <Save className="w-5 h-5" />} {type === 'INGRESO' ? 'Confirmar Ingreso de Stock' : 'Confirmar Salida de Almacén'}
                </button>
             </div>
           </form>
