@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Product, Role, CategoryMaster, LocationMaster } from '../types.ts';
 import * as api from '../services/supabaseService.ts';
@@ -7,7 +6,7 @@ import { formatCurrency } from '../utils/currencyUtils.ts';
 import { exportToPDF } from '../services/excelService.ts';
 import { ProductQRCode } from '../components/ProductQRCode.tsx';
 import { 
-  Plus, Search, Edit2, ImageIcon, Loader2, X, Save, Camera, FileText, QrCode, Info
+  Plus, Search, Edit2, ImageIcon, Loader2, X, Save, Camera, FileText, QrCode, Info, Trash2
 } from 'lucide-react';
 
 export const Inventory: React.FC<{ role: Role }> = ({ role }) => {
@@ -55,6 +54,14 @@ export const Inventory: React.FC<{ role: Role }> = ({ role }) => {
       });
     }
     setIsModalOpen(true);
+  };
+
+  const handleDelete = async (id: string) => {
+    if (!confirm("¿Seguro que desea eliminar este producto de forma permanente?")) return;
+    try {
+      await api.deleteProduct(id);
+      loadData();
+    } catch (e) { alert("Error al eliminar"); }
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -105,7 +112,7 @@ export const Inventory: React.FC<{ role: Role }> = ({ role }) => {
           <p className="text-[9px] text-slate-500 font-black uppercase tracking-widest mt-0.5">Control Maestro de Inventario</p>
         </div>
         <div className="flex gap-2">
-          <button onClick={handleExportPDF} className="bg-white border border-slate-200 text-slate-600 px-3 py-2 rounded-xl text-[9px] font-black uppercase flex items-center gap-1.5 hover:bg-slate-50 transition-all"><FileText className="w-3.5 h-3.5" /> PDF</button>
+          <button onClick={handleExportPDF} className="bg-white border border-slate-200 text-slate-600 px-3 py-2 rounded-xl text-[9px] font-black uppercase flex items-center gap-1.5 hover:bg-slate-50 transition-all shadow-sm"><FileText className="w-3.5 h-3.5" /> PDF</button>
           {role !== 'VIEWER' && <button onClick={() => handleOpenModal()} className="bg-indigo-600 text-white px-5 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2 shadow-xl shadow-indigo-100 hover:bg-indigo-700 active:scale-95 transition-all"><Plus className="w-4 h-4" /> + NUEVO PRODUCTO</button>}
         </div>
       </div>
@@ -156,6 +163,7 @@ export const Inventory: React.FC<{ role: Role }> = ({ role }) => {
                   <div className="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                     <button onClick={() => setSelectedQRProduct(p)} className="p-2 text-slate-300 hover:text-emerald-600 hover:bg-emerald-50 rounded-xl transition-all" title="Ver QR"><QrCode className="w-4 h-4" /></button>
                     {role !== 'VIEWER' && <button onClick={() => handleOpenModal(p)} className="p-2 text-slate-300 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl transition-all"><Edit2 className="w-4 h-4" /></button>}
+                    {role === 'ADMIN' && <button onClick={() => handleDelete(p.id)} className="p-2 text-slate-300 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all"><Trash2 className="w-4 h-4" /></button>}
                   </div>
                 </td>
               </tr>
@@ -247,7 +255,7 @@ export const Inventory: React.FC<{ role: Role }> = ({ role }) => {
                     </select>
                   </div>
                   <div className="space-y-1.5">
-                    <label className="text-[9px] font-black text-slate-400 uppercase ml-2 tracking-widest">Categoría</label>
+                    <label className="text-[9px] font-black text-slate-400 uppercase ml-2 tracking-widest">Categoría del Producto</label>
                     <select required className="w-full p-4 bg-slate-100 rounded-2xl font-bold text-xs uppercase outline-none border-2 border-transparent focus:border-indigo-500 focus:bg-white transition-all" value={formData.category} onChange={e => setFormData({...formData, category: e.target.value})}>
                         <option value="" disabled>Seleccione Categoría...</option>
                         {categories.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}

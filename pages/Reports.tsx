@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo } from 'react';
 import { Movement, Product } from '../types.ts';
 import * as api from '../services/supabaseService.ts';
@@ -77,14 +76,19 @@ export const Reports: React.FC = () => {
 
   return (
     <div className="space-y-6 animate-in fade-in pb-10">
-      <div className="flex justify-between items-end">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-4">
         <div>
           <h1 className="text-2xl font-black text-slate-900 uppercase">Reportes Pro</h1>
           <p className="text-[9px] text-slate-500 font-black uppercase tracking-widest mt-0.5">Indicadores Críticos de Gestión</p>
         </div>
-        <div className="flex items-center gap-3">
-          <button onClick={handleExportExcel} className="bg-emerald-600 text-white px-4 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest flex items-center gap-2 shadow-lg shadow-emerald-100 hover:bg-emerald-700 transition-all active:scale-95"><FileSpreadsheet className="w-3.5 h-3.5" /> Excel</button>
-          <div className="flex items-center gap-2 bg-white px-3 py-2 rounded-xl border border-slate-200 shadow-sm">
+        <div className="flex items-center gap-2 w-full sm:w-auto">
+          <button 
+            onClick={handleExportExcel} 
+            className="flex-1 sm:flex-none bg-emerald-600 text-white px-5 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2 shadow-xl shadow-emerald-100 hover:bg-emerald-700 transition-all active:scale-95"
+          >
+            <FileSpreadsheet className="w-4 h-4" /> EXPORTAR EXCEL
+          </button>
+          <div className="flex items-center gap-2 bg-white px-3 py-3 rounded-2xl border border-slate-200 shadow-sm flex-1 sm:flex-none">
             <Filter className="w-3.5 h-3.5 text-slate-300" />
             <input type="date" className="text-[9px] font-black uppercase bg-transparent outline-none" value={dateRange.from} onChange={e => setDateRange({...dateRange, from: e.target.value})} />
             <span className="text-slate-200">/</span>
@@ -133,7 +137,6 @@ export const Reports: React.FC = () => {
           <div className="h-64 w-full">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
-                {/* Fix: Moved cornerRadius from Cell to Pie component */}
                 <Pie 
                   data={[
                     { name: 'Suficiente', value: products.filter(p=>p.stock>p.minStock).length },

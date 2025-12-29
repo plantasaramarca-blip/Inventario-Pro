@@ -80,6 +80,12 @@ export const saveProduct = async (product: Partial<Product>) => {
   if (error) throw error;
 };
 
+export const deleteProduct = async (id: string) => {
+  if (!useSupabase()) return;
+  const { error } = await supabase.from('products').delete().eq('id', id);
+  if (error) throw error;
+};
+
 export const getMovements = async (): Promise<Movement[]> => {
   if (!useSupabase()) return [];
   const { data } = await supabase.from('movements').select('*').order('date', { ascending: false });
