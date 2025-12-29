@@ -6,13 +6,13 @@ import { StockBadge } from '../components/StockBadge.tsx';
 import { ProductQRCode } from '../components/ProductQRCode.tsx';
 import { CustomDialog } from '../components/CustomDialog.tsx';
 import { formatCurrency } from '../utils/currencyUtils.ts';
-import { jsPDF } from 'jspdf';
-import html2canvas from 'html2canvas';
+import { jsPDF } from 'https://esm.sh/jspdf@2.5.1';
+import html2canvas from 'https://esm.sh/html2canvas@1.4.1';
 import { exportToExcel, exportToPDF } from '../services/excelService.ts';
 import { 
   Plus, Search, Edit2, ImageIcon, Loader2, QrCode,
   X, Trash2, Save, Camera, CheckCircle, Printer, CheckSquare, Square, FileSpreadsheet, FileText
-} from 'lucide-react';
+} from 'https://esm.sh/lucide-react@0.475.0?deps=react@19.0.0';
 
 interface InventoryProps { role: Role; }
 

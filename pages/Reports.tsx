@@ -6,12 +6,12 @@ import { formatCurrency } from '../utils/currencyUtils.ts';
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
   LineChart, Line, PieChart, Pie, Cell, AreaChart, Area
-} from 'recharts';
+} from 'https://esm.sh/recharts@2.15.0?deps=react@19.0.0,react-dom@19.0.0';
 import { 
   TrendingUp, Calendar, Filter, FileText, Download, 
   Loader2, ArrowUpRight, ArrowDownRight, Package, PieChart as PieIcon,
   BarChart3, RefreshCcw, LayoutPanelLeft
-} from 'lucide-react';
+} from 'https://esm.sh/lucide-react@0.475.0?deps=react@19.0.0';
 
 export const Reports: React.FC = () => {
   const [products, setProducts] = useState<Product[]>([]);

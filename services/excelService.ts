@@ -1,7 +1,6 @@
 
 import * as XLSX from 'https://esm.sh/xlsx@0.18.5';
 import { jsPDF } from 'https://esm.sh/jspdf@2.5.1';
-import 'https://esm.sh/jspdf-autotable@3.8.2?deps=jspdf@2.5.1';
 
 export function exportToExcel(
   data: any[],
@@ -48,17 +47,19 @@ export function exportToPDF(
   doc.setTextColor(100);
   doc.text(`Generado el: ${new Date().toLocaleString()}`, 14, 30);
 
-  (doc as any).autoTable({
-    startY: 35,
-    head: headers,
-    body: body,
-    theme: 'striped',
-    headStyles: { fillStyle: 'dark', fillColor: [79, 70, 229], fontSize: 8 },
-    bodyStyles: { fontSize: 7 },
-    margin: { top: 35 }
+  // Cargamos jspdf-autotable dinámicamente o usamos la versión de esm.sh que lo inyecta
+  import('https://esm.sh/jspdf-autotable@3.8.2?deps=jspdf@2.5.1').then(() => {
+    (doc as any).autoTable({
+      startY: 35,
+      head: headers,
+      body: body,
+      theme: 'striped',
+      headStyles: { fillStyle: 'dark', fillColor: [79, 70, 229], fontSize: 8 },
+      bodyStyles: { fontSize: 7 },
+      margin: { top: 35 }
+    });
+    doc.save(`${fileName}.pdf`);
   });
-
-  doc.save(`${fileName}.pdf`);
 }
 
 export function formatTimestamp(date: Date): string {
