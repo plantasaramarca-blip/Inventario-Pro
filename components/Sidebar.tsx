@@ -2,7 +2,8 @@
 import React, { useEffect, useState } from 'https://esm.sh/react@19.2.3';
 import { 
   LayoutDashboard, Boxes, ClipboardList, Users, 
-  ClipboardCheck, MapPin, UserPlus, Tags, Warehouse, Settings 
+  ClipboardCheck, MapPin, UserPlus, Tags, Warehouse, Settings,
+  BarChart3
 } from 'https://esm.sh/lucide-react@0.475.0?deps=react@19.2.3';
 import { Role } from '../types.ts';
 import * as api from '../services/supabaseService.ts';
@@ -38,6 +39,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentPage, onNavigate, isOpe
     { id: 'inventory', label: 'Productos', icon: Boxes, adminOnly: false, hasBadge: true },
     { id: 'kardex', label: 'Kardex / Movimientos', icon: ClipboardList, adminOnly: false },
     { id: 'destinos', label: 'Centros de Costos', icon: MapPin, adminOnly: false },
+    { id: 'reports', label: 'Reportes Pro', icon: BarChart3, adminOnly: false },
     { id: 'contacts', label: 'Agenda CRM', icon: Users, adminOnly: false },
   ];
 

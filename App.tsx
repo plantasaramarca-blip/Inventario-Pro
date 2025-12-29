@@ -8,6 +8,7 @@ import { Inventory } from './pages/Inventory.tsx';
 import { Kardex } from './pages/Kardex.tsx';
 import { Contacts } from './pages/Contacts.tsx';
 import { Destinos } from './pages/Destinos.tsx';
+import { Reports } from './pages/Reports.tsx';
 import { AuditPage } from './pages/AuditLog.tsx';
 import { UsersPage } from './pages/Users.tsx';
 import { CategoryManagement } from './pages/Categories.tsx';
@@ -61,7 +62,6 @@ export default function App() {
         if (isSupabaseConfigured) {
           const { data: { session: initialSession }, error } = await supabase.auth.getSession();
           
-          // Si hay error 400 o refresh_token fallido, limpiamos sesión
           if (error && error.status === 400) {
             console.warn("Sesión expirada o inválida detectada.");
             handleLogout();
@@ -120,6 +120,7 @@ export default function App() {
       case 'inventory': return <Inventory role={role} />;
       case 'kardex': return <Kardex role={role} userEmail={session.user?.email} initialProductId={quickProduct?.id} />;
       case 'destinos': return <Destinos />;
+      case 'reports': return <Reports />;
       case 'contacts': return <Contacts role={role} />;
       case 'categories': return <CategoryManagement role={role} />;
       case 'locations': return <LocationManagement role={role} />;
