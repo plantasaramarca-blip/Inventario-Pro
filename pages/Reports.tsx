@@ -1,17 +1,16 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { Movement, Product, Destination } from '../types.ts';
+import { Movement, Product } from '../types.ts';
 import * as api from '../services/supabaseService.ts';
 import { formatCurrency } from '../utils/currencyUtils.ts';
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
-  LineChart, Line, PieChart, Pie, Cell, AreaChart, Area
-} from 'https://esm.sh/recharts@2.15.0?deps=react@19.0.0,react-dom@19.0.0';
+  LineChart, Line, PieChart, Pie, Cell
+} from 'recharts';
 import { 
-  TrendingUp, Calendar, Filter, FileText, Download, 
-  Loader2, ArrowUpRight, ArrowDownRight, Package, PieChart as PieIcon,
-  BarChart3, RefreshCcw, LayoutPanelLeft
-} from 'https://esm.sh/lucide-react@0.475.0?deps=react@19.0.0';
+  TrendingUp, Filter, Loader2, ArrowUpRight, ArrowDownRight, Package, 
+  PieChart as PieIcon, RefreshCcw
+} from 'lucide-react';
 
 export const Reports: React.FC = () => {
   const [products, setProducts] = useState<Product[]>([]);
@@ -66,46 +65,12 @@ export const Reports: React.FC = () => {
       .sort((a, b) => b.value - a.value).slice(0, 5);
   }, [filteredMovements]);
 
-  const topProductsData = useMemo(() => {
-    const prods: Record<string, { name: string, entradas: number, salidas: number }> = {};
-    filteredMovements.forEach(m => {
-      if (!prods[m.productId]) prods[m.productId] = { name: m.productName.substring(0, 15), entradas: 0, salidas: 0 };
-      if (m.type === 'INGRESO') prods[m.productId].entradas += m.quantity;
-      else prods[m.productId].salidas += m.quantity;
-    });
-    return Object.values(prods).sort((a, b) => (b.entradas + b.salidas) - (a.entradas + a.salidas)).slice(0, 10);
-  }, [filteredMovements]);
-
-  const rotationAnalysis = useMemo(() => {
-    if (!products) return [];
-    return products.map(p => {
-      const pMovements = filteredMovements.filter(m => m.productId === p.id);
-      const totalSalidas = pMovements.filter(m => m.type === 'SALIDA').reduce((sum, m) => sum + m.quantity, 0);
-      const rotation = p.stock > 0 ? (totalSalidas / p.stock) : (totalSalidas > 0 ? 5 : 0);
-      const days = rotation > 0 ? Math.round(30 / rotation) : 365;
-      return { 
-        ...p, 
-        totalSalidas, 
-        rotation: rotation.toFixed(2), 
-        days,
-        status: rotation > 4 ? 'Alta' : rotation > 2 ? 'Media' : 'Baja'
-      };
-    }).sort((a, b) => Number(b.rotation) - Number(a.rotation)).slice(0, 8);
-  }, [products, filteredMovements]);
-
-  const valueOverTime = useMemo(() => {
-    return monthlyData.map(d => ({
-      name: d.name,
-      valor: products.reduce((sum, p) => sum + (p.stock * p.purchasePrice), 0) * (Math.random() * 0.1 + 0.95)
-    }));
-  }, [monthlyData, products]);
-
   const COLORS = ['#4f46e5', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'];
 
   if (loading) return (
     <div className="h-[60vh] flex flex-col items-center justify-center">
       <Loader2 className="animate-spin h-10 w-10 text-indigo-600" />
-      <p className="mt-4 text-[10px] font-black uppercase text-slate-400 tracking-widest">Generando Reportes Avanzados...</p>
+      <p className="mt-4 text-[10px] font-black uppercase text-slate-400 tracking-widest">Generando Reportes...</p>
     </div>
   );
 
@@ -113,8 +78,8 @@ export const Reports: React.FC = () => {
     <div className="space-y-6 animate-in fade-in duration-500 pb-24">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h1 className="text-2xl font-black text-slate-900 tracking-tight uppercase">Inteligencia de Inventario</h1>
-          <p className="text-[10px] text-slate-500 font-black uppercase tracking-widest mt-0.5">Análisis Profundo y Estadísticas</p>
+          <h1 className="text-2xl font-black text-slate-900 tracking-tight uppercase">Reportes Pro</h1>
+          <p className="text-[10px] text-slate-500 font-black uppercase tracking-widest mt-0.5">Análisis de Movimientos</p>
         </div>
         <div className="flex items-center gap-2 bg-white p-2 rounded-2xl shadow-sm border border-slate-100">
           <Filter className="w-4 h-4 text-slate-300 ml-2" />
@@ -126,10 +91,10 @@ export const Reports: React.FC = () => {
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {[
-          { label: 'Movimientos en Periodo', val: filteredMovements.length, icon: RefreshCcw, color: 'bg-indigo-600' },
-          { label: 'Unidades Despachadas', val: filteredMovements.filter(m => m.type === 'SALIDA').reduce((s,m) => s + m.quantity, 0), icon: ArrowUpRight, color: 'bg-emerald-500' },
-          { label: 'Unidades Ingresadas', val: filteredMovements.filter(m => m.type === 'INGRESO').reduce((s,m) => s + m.quantity, 0), icon: ArrowDownRight, color: 'bg-amber-500' },
-          { label: 'Valorización Total', val: formatCurrency(products.reduce((s,p) => s + (p.stock * p.purchasePrice), 0)), icon: Package, color: 'bg-slate-900' }
+          { label: 'Movimientos', val: filteredMovements.length, icon: RefreshCcw, color: 'bg-indigo-600' },
+          { label: 'Salidas', val: filteredMovements.filter(m => m.type === 'SALIDA').reduce((s,m) => s + m.quantity, 0), icon: ArrowUpRight, color: 'bg-emerald-500' },
+          { label: 'Entradas', val: filteredMovements.filter(m => m.type === 'INGRESO').reduce((s,m) => s + m.quantity, 0), icon: ArrowDownRight, color: 'bg-amber-500' },
+          { label: 'Valorización', val: formatCurrency(products.reduce((s,p) => s + (p.stock * p.purchasePrice), 0)), icon: Package, color: 'bg-slate-900' }
         ].map((c, i) => (
           <div key={i} className="bg-white p-5 rounded-[2rem] border border-slate-100 shadow-sm flex items-center gap-4">
             <div className={`p-3 rounded-2xl text-white ${c.color} shadow-lg`}><c.icon className="w-5 h-5" /></div>
@@ -143,36 +108,36 @@ export const Reports: React.FC = () => {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="bg-white p-8 rounded-[3rem] border border-slate-100 shadow-sm">
-          <div className="flex items-center justify-between mb-8">
-            <h3 className="text-[10px] font-black text-slate-800 uppercase tracking-[0.2em] flex items-center gap-2"><TrendingUp className="w-4 h-4 text-indigo-600" /> Flujo Mensual</h3>
-          </div>
+          <h3 className="text-[10px] font-black text-slate-800 uppercase tracking-[0.2em] mb-8 flex items-center gap-2">
+            <TrendingUp className="w-4 h-4 text-indigo-600" /> Histórico Mensual
+          </h3>
           <div className="h-64 w-full">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={monthlyData}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                <XAxis dataKey="name" fontSize={9} fontWeight={900} axisLine={false} tickLine={false} />
-                <YAxis fontSize={9} fontWeight={900} axisLine={false} tickLine={false} />
-                <Tooltip contentStyle={{ borderRadius: '20px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)', fontSize: '10px' }} />
-                <Legend iconType="circle" wrapperStyle={{ fontSize: '10px', fontWeight: 900, textTransform: 'uppercase' }} />
-                <Line type="monotone" dataKey="entradas" stroke="#4f46e5" strokeWidth={3} dot={{ r: 4 }} />
-                <Line type="monotone" dataKey="salidas" stroke="#ef4444" strokeWidth={3} dot={{ r: 4 }} />
+                <XAxis dataKey="name" fontSize={9} fontWeight={900} />
+                <YAxis fontSize={9} fontWeight={900} />
+                <Tooltip />
+                <Legend iconType="circle" />
+                <Line type="monotone" dataKey="entradas" stroke="#4f46e5" strokeWidth={3} />
+                <Line type="monotone" dataKey="salidas" stroke="#ef4444" strokeWidth={3} />
               </LineChart>
             </ResponsiveContainer>
           </div>
         </div>
 
         <div className="bg-white p-8 rounded-[3rem] border border-slate-100 shadow-sm">
-          <div className="flex items-center justify-between mb-8">
-            <h3 className="text-[10px] font-black text-slate-800 uppercase tracking-[0.2em] flex items-center gap-2"><PieIcon className="w-4 h-4 text-indigo-600" /> Distribución Despachos</h3>
-          </div>
+          <h3 className="text-[10px] font-black text-slate-800 uppercase tracking-[0.2em] mb-8 flex items-center gap-2">
+            <PieIcon className="w-4 h-4 text-indigo-600" /> Por Centro de Costo
+          </h3>
           <div className="h-64 w-full">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
-                <Pie data={destinationData} innerRadius={60} outerRadius={80} paddingAngle={5} dataKey="value">
+                <Pie data={destinationData} innerRadius={60} outerRadius={80} dataKey="value">
                   {destinationData.map((_, index) => <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />)}
                 </Pie>
-                <Tooltip contentStyle={{ borderRadius: '20px', fontSize: '10px' }} />
-                <Legend verticalAlign="bottom" height={36} wrapperStyle={{ fontSize: '9px', fontWeight: 900, textTransform: 'uppercase' }} />
+                <Tooltip />
+                <Legend />
               </PieChart>
             </ResponsiveContainer>
           </div>

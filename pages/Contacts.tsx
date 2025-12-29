@@ -1,8 +1,8 @@
 
-import React, { useState, useEffect } from 'https://esm.sh/react@19.2.3';
+import React, { useState, useEffect } from 'react';
 import { Contact, Role } from '../types.ts';
 import * as api from '../services/supabaseService.ts';
-import { Plus, Search, User, Briefcase, Phone, Mail, Trash2, Edit2, X } from 'https://esm.sh/lucide-react@0.475.0?deps=react@19.2.3';
+import { Plus, Search, User, Briefcase, Phone, Mail, Trash2, Edit2, X } from 'lucide-react';
 
 interface ContactsProps { role: Role; }
 
@@ -47,7 +47,6 @@ export const Contacts: React.FC<ContactsProps> = ({ role }) => {
       <div className="relative group">
         <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-300" />
         <input type="text" className="w-full pl-11 pr-11 py-3 bg-white border border-slate-100 rounded-xl text-sm outline-none shadow-sm focus:ring-2 focus:ring-indigo-500 transition-all" placeholder="Buscar contactos..." value={search} onChange={(e) => setSearch(e.target.value)} />
-        {search && <button onClick={() => setSearch('')} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-300 hover:text-slate-500"><X className="w-4 h-4" /></button>}
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
