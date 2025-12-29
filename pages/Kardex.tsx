@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useMemo } from 'https://esm.sh/react@19.2.3';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Movement, Product, TransactionType, Destination, Role } from '../types.ts';
 import * as api from '../services/supabaseService.ts';
 import { exportToExcel, exportToPDF } from '../services/excelService.ts';
@@ -9,7 +9,7 @@ import {
   Calendar, Loader2, X, MapPin, Building2, ShoppingBag, 
   Info, AlertTriangle, ArrowRight, Truck, Package, 
   Check, CheckCircle, Search, Trash2, Plus, ArrowUp, ArrowDown, FileSpreadsheet, FileText
-} from 'https://esm.sh/lucide-react@0.475.0?deps=react@19.2.3';
+} from 'lucide-react';
 
 interface KardexProps {
   role: Role;
@@ -218,86 +218,6 @@ export const Kardex: React.FC<KardexProps> = ({ role, userEmail, initialProductI
           </table>
         </div>
       </div>
-
-       {isModalOpen && (
-        <div className="fixed inset-0 z-[100] flex flex-col items-center justify-center p-0 sm:p-4">
-          <div className="absolute inset-0 bg-slate-900/80 backdrop-blur-md" onClick={() => !saving && setIsModalOpen(false)}></div>
-          <form onSubmit={handleSubmit} className="relative bg-white w-full h-full sm:h-auto sm:max-h-[90vh] sm:max-w-3xl sm:rounded-[3rem] flex flex-col shadow-2xl animate-in slide-in-from-bottom-4 overflow-hidden">
-               <div className="p-6 border-b border-slate-100 flex justify-between items-center shrink-0">
-                  <div>
-                    <h3 className="text-sm font-black text-slate-800 uppercase tracking-widest">{type === 'INGRESO' ? 'Registro de Ingreso' : 'Registro de Despacho'}</h3>
-                    <p className="text-[9px] text-slate-400 font-bold uppercase tracking-[0.2em] mt-1">Multi-ítem Procesamiento</p>
-                  </div>
-                  <button type="button" onClick={() => setIsModalOpen(false)} className="p-2 hover:bg-slate-50 rounded-2xl transition-colors"><X className="w-6 h-6 text-slate-400" /></button>
-               </div>
-               <div className="flex-1 overflow-y-auto p-6 space-y-6 no-scrollbar">
-                  {error && <div className="p-4 bg-rose-50 text-rose-700 text-[10px] font-black uppercase rounded-2xl flex items-center gap-3"><AlertTriangle className="w-4 h-4" /> {error}</div>}
-                  <div className="space-y-3">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-2">1. Buscar Productos</label>
-                    <div className="relative">
-                      <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300" />
-                      <input type="text" className="w-full pl-11 pr-4 py-4 bg-slate-50 border-2 border-transparent focus:border-indigo-500 rounded-2xl outline-none font-bold text-sm" placeholder="Código o Nombre..." value={productSearch} onFocus={() => setIsSearchOpen(true)} onChange={e => setProductSearch(e.target.value)} />
-                      {isSearchOpen && filteredProducts.length > 0 && (
-                        <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-2xl shadow-2xl border border-slate-100 z-50 overflow-hidden">
-                          {filteredProducts.map(p => (
-                            <button key={p.id} type="button" onClick={() => addToCart(p)} className="w-full p-4 flex items-center justify-between hover:bg-indigo-50 border-b border-slate-50 last:border-0">
-                               <div className="text-left"><p className="text-xs font-black text-slate-800 uppercase">{p.name}</p><p className="text-[9px] text-slate-400 font-bold uppercase">{p.code} • Stock: {p.stock} {p.unit}</p></div>
-                               <Plus className="w-4 h-4 text-indigo-600" />
-                            </button>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                  <div className="space-y-3">
-                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-2">2. Lista de Ítems ({cartItems.length})</label>
-                     <div className="bg-slate-50 rounded-3xl overflow-hidden border border-slate-100">
-                        {cartItems.length === 0 ? (
-                           <div className="p-10 text-center"><p className="text-[10px] font-black text-slate-300 uppercase">Sin productos seleccionados</p></div>
-                        ) : cartItems.map(item => (
-                          <div key={item.productId} className="p-4 flex items-center justify-between border-b border-slate-100 last:border-0">
-                             <div className="flex-1"><p className="text-xs font-black text-slate-800 uppercase">{item.name}</p><p className="text-[9px] text-indigo-500 font-black">{item.code}</p></div>
-                             <div className="flex items-center gap-4">
-                                <input type="number" className="w-16 p-2 text-center text-xs font-black rounded-xl border border-slate-200 outline-none" value={item.quantity} onChange={e => setCartItems(cartItems.map(i => i.productId === item.productId ? {...i, quantity: Math.max(1, Number(e.target.value))} : i))} />
-                                <button type="button" onClick={() => setCartItems(cartItems.filter(i => i.productId !== item.productId))} className="p-2 text-rose-300 hover:text-rose-600 transition-all"><Trash2 className="w-4 h-4" /></button>
-                             </div>
-                          </div>
-                        ))}
-                     </div>
-                  </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 pt-4 border-t border-slate-100">
-                     <div className="space-y-1"><label className="text-[10px] font-black text-indigo-500 uppercase tracking-widest ml-2">Responsable Logueado</label><div className="w-full p-4 bg-indigo-50 border-2 border-indigo-100 rounded-2xl font-black text-[10px] text-indigo-800 uppercase">{userEmail}</div></div>
-                     {type === 'SALIDA' ? (
-                       <div className="space-y-1"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-2">Quién Retira / Llevó *</label><input type="text" required className="w-full p-4 bg-slate-50 rounded-2xl outline-none font-bold text-sm" value={carriedBy} onChange={e => setCarriedBy(e.target.value)} /></div>
-                     ) : (
-                       <div className="space-y-1"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-2">Referencia / Factura</label><input type="text" className="w-full p-4 bg-slate-50 rounded-2xl outline-none font-bold text-sm" value={reason} onChange={e => setReason(e.target.value)} /></div>
-                     )}
-                  </div>
-                  {type === 'SALIDA' && (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                       <div className="space-y-1"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-2">Centro de Costo *</label><select required className="w-full p-4 bg-slate-50 rounded-2xl font-black text-xs uppercase cursor-pointer" value={selectedDestinoId} onChange={e => setSelectedDestinoId(e.target.value)}><option value="">Seleccionar...</option>{destinos.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}</select></div>
-                       <div className="space-y-1"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-2">Motivo / Observación</label><input type="text" className="w-full p-4 bg-slate-50 rounded-2xl outline-none font-bold text-sm" value={reason} onChange={e => setReason(e.target.value)} /></div>
-                    </div>
-                  )}
-               </div>
-               <div className="p-6 border-t border-slate-100 bg-slate-50/50 shrink-0">
-                  <button type="submit" disabled={saving || cartItems.length === 0} className={`w-full py-5 rounded-[2rem] text-[11px] font-black uppercase tracking-[0.25em] text-white shadow-2xl transition-all ${type === 'INGRESO' ? 'bg-indigo-600 hover:bg-indigo-700' : 'bg-rose-600 hover:bg-rose-700'} disabled:opacity-30 active:scale-95`}>
-                    {saving ? <Loader2 className="animate-spin w-5 h-5 mx-auto" /> : (type === 'INGRESO' ? 'Confirmar Ingreso' : 'Confirmar Despacho Total')}
-                  </button>
-               </div>
-          </form>
-        </div>
-       )}
-
-       {dialog && (
-        <CustomDialog 
-          isOpen={dialog.isOpen}
-          title={dialog.title}
-          message={dialog.message}
-          type={dialog.type}
-          onCancel={() => setDialog(null)}
-        />
-      )}
     </div>
   );
 };

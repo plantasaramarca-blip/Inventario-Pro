@@ -1,7 +1,7 @@
 
-import React, { useState } from 'https://esm.sh/react@19.2.3';
+import React, { useState } from 'react';
 import { supabase, isSupabaseConfigured } from '../supabaseClient.ts';
-import { LogIn, Lock, Mail, Loader2, AlertCircle, ArrowRight, ShieldCheck } from 'https://esm.sh/lucide-react@0.475.0?deps=react@19.2.3';
+import { LogIn, Lock, Mail, Loader2, AlertCircle, ArrowRight, ShieldCheck } from 'lucide-react';
 import * as api from '../services/supabaseService.ts';
 
 export const Login: React.FC = () => {
@@ -21,7 +21,7 @@ export const Login: React.FC = () => {
         const userEmail = email || 'admin@local.com';
         const fakeSession = { user: { email: userEmail, id: 'local-id' } };
         localStorage.setItem('kardex_local_session', JSON.stringify(fakeSession));
-        window.location.reload(); // Solo recarga en modo local
+        window.location.reload(); 
       }, 800);
       return;
     }
@@ -38,7 +38,6 @@ export const Login: React.FC = () => {
       } else {
         const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
         if (signInError) throw signInError;
-        // El listener de App.tsx se encargará de cargar la aplicación
       }
     } catch (err: any) {
       setError(err.message);

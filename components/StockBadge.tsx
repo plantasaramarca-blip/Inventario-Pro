@@ -1,5 +1,5 @@
 
-import React from 'https://esm.sh/react@19.2.3';
+import React from 'react';
 import { getStockInfo } from '../utils/stockUtils.ts';
 
 interface StockBadgeProps {

@@ -1,18 +1,18 @@
 
-import React, { useState, useEffect, useMemo, useRef } from 'https://esm.sh/react@19.2.3';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Product, Role, CategoryMaster, LocationMaster } from '../types.ts';
 import * as api from '../services/supabaseService.ts';
 import { StockBadge } from '../components/StockBadge.tsx';
 import { ProductQRCode } from '../components/ProductQRCode.tsx';
 import { CustomDialog } from '../components/CustomDialog.tsx';
 import { formatCurrency } from '../utils/currencyUtils.ts';
-import { jsPDF } from 'https://esm.sh/jspdf@2.5.1';
-import html2canvas from 'https://esm.sh/html2canvas@1.4.1';
+import { jsPDF } from 'jspdf';
+import html2canvas from 'html2canvas';
 import { exportToExcel, exportToPDF } from '../services/excelService.ts';
 import { 
   Plus, Search, Edit2, ImageIcon, Loader2, QrCode,
   X, Trash2, Save, Camera, CheckCircle, Printer, CheckSquare, Square, FileSpreadsheet, FileText
-} from 'https://esm.sh/lucide-react@0.475.0?deps=react@19.2.3';
+} from 'lucide-react';
 
 interface InventoryProps { role: Role; }
 
@@ -26,7 +26,6 @@ export const Inventory: React.FC<InventoryProps> = ({ role }) => {
   const [search, setSearch] = useState('');
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   
-  // Nuevo sistema de Diálogos
   const [dialog, setDialog] = useState<{isOpen: boolean, title: string, message: string, type: any} | null>(null);
   
   const [isModalOpen, setIsModalOpen] = useState(false);
