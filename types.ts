@@ -75,6 +75,8 @@ export interface Movement {
   balanceAfter: number;
   contactId?: string;
   contactName?: string;
+  supplierName?: string; // Nuevo: Nombre del proveedor en ingresos
+  carriedBy?: string;    // Nuevo: Quién llevó la mercadería en salidas
   updatedPrice?: number;
   destinationId?: string;
   destinationName?: string;
