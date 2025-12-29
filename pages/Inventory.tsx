@@ -56,9 +56,9 @@ export const Inventory: React.FC<{ role: Role }> = ({ role }) => {
       Almacen: p.location,
       Stock: p.stock,
       Unidad: p.unit,
-      Costo: p.purchasePrice
+      Costo_Compra: p.purchasePrice
     }));
-    exportToExcel(data, "Catalogo_Productos_KardexPro", "Productos");
+    exportToExcel(data, "Inventario_KardexPro", "Stock_Actual");
   };
 
   const handleOpenModal = (product?: Product) => {
@@ -76,7 +76,7 @@ export const Inventory: React.FC<{ role: Role }> = ({ role }) => {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm("¿Seguro que desea eliminar este producto de forma permanente?")) return;
+    if (!confirm("¿Seguro que desea eliminar este producto?")) return;
     try {
       await api.deleteProduct(id);
       loadData();
@@ -132,8 +132,8 @@ export const Inventory: React.FC<{ role: Role }> = ({ role }) => {
         </div>
         <div className="flex gap-2">
           <div className="bg-white border border-slate-200 rounded-xl flex overflow-hidden shadow-sm">
-            <button onClick={handleExportPDF} className="px-3 py-2 text-slate-600 text-[9px] font-black uppercase flex items-center gap-1.5 hover:bg-slate-50 transition-all border-r border-slate-100"><FileText className="w-3.5 h-3.5" /> PDF</button>
-            <button onClick={handleExportExcel} className="px-3 py-2 text-emerald-600 text-[9px] font-black uppercase flex items-center gap-1.5 hover:bg-emerald-50 transition-all"><FileSpreadsheet className="w-3.5 h-3.5" /> EXCEL</button>
+            <button onClick={handleExportPDF} title="Exportar PDF" className="px-3 py-2 text-slate-600 text-[9px] font-black uppercase flex items-center gap-1.5 hover:bg-slate-50 transition-all border-r border-slate-100"><FileText className="w-3.5 h-3.5" /> PDF</button>
+            <button onClick={handleExportExcel} title="Exportar Excel" className="px-3 py-2 text-emerald-600 text-[9px] font-black uppercase flex items-center gap-1.5 hover:bg-emerald-50 transition-all"><FileSpreadsheet className="w-3.5 h-3.5" /> EXCEL</button>
           </div>
           {role !== 'VIEWER' && <button onClick={() => handleOpenModal()} className="bg-indigo-600 text-white px-5 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2 shadow-xl shadow-indigo-100 hover:bg-indigo-700 active:scale-95 transition-all"><Plus className="w-4 h-4" /> NUEVO PRODUCTO</button>}
         </div>
@@ -185,7 +185,7 @@ export const Inventory: React.FC<{ role: Role }> = ({ role }) => {
                   <div className="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                     <button onClick={() => setSelectedQRProduct(p)} className="p-2 text-slate-300 hover:text-emerald-600 hover:bg-emerald-50 rounded-xl transition-all" title="Ver QR"><QrCode className="w-4 h-4" /></button>
                     {role !== 'VIEWER' && <button onClick={() => handleOpenModal(p)} className="p-2 text-slate-300 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl transition-all"><Edit2 className="w-4 h-4" /></button>}
-                    {role === 'ADMIN' && <button onClick={() => handleDelete(p.id)} className="p-2 text-slate-300 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all" title="Eliminar"><Trash2 className="w-4 h-4" /></button>}
+                    {role === 'ADMIN' && <button onClick={() => handleDelete(p.id)} className="p-2 text-slate-300 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all"><Trash2 className="w-4 h-4" /></button>}
                   </div>
                 </td>
               </tr>
@@ -219,9 +219,16 @@ export const Inventory: React.FC<{ role: Role }> = ({ role }) => {
                         </div>
                       )}
                       <button type="button" onClick={() => fileInputRef.current?.click()} className="absolute inset-0 bg-indigo-600/80 text-white opacity-0 group-hover:opacity-100 flex flex-col items-center justify-center text-[9px] font-black uppercase transition-all backdrop-blur-sm">
-                        <Camera className="w-8 h-8 mb-2" /> Cambiar Imagen
+                        <Camera className="w-8 h-8 mb-2" /> Tomar Foto / Subir
                       </button>
-                      <input type="file" accept="image/*" className="hidden" ref={fileInputRef} onChange={handleFileChange} />
+                      <input 
+                        type="file" 
+                        accept="image/*" 
+                        capture="environment" 
+                        className="hidden" 
+                        ref={fileInputRef} 
+                        onChange={handleFileChange} 
+                      />
                     </div>
                     {imageInfo && (
                       <div className="bg-indigo-50 p-3 rounded-2xl border border-indigo-100 flex items-center gap-3">

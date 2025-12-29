@@ -16,7 +16,8 @@ import { LocationManagement } from './pages/Locations.tsx';
 import { Login } from './pages/Login.tsx';
 import { Role, Product } from './types.ts';
 import * as api from './services/supabaseService.ts';
-import { Loader2, Zap, ArrowRight, Package } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
+import { CustomDialog } from './components/CustomDialog.tsx';
 
 export default function App() {
   const [session, setSession] = useState<any>(null);
@@ -24,12 +25,22 @@ export default function App() {
   const [currentPage, setCurrentPage] = useState('dashboard');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [role, setRole] = useState<Role>('VIEWER');
+  const [showExitConfirm, setShowExitConfirm] = useState(false);
 
   const fetchRole = async (email: string) => {
     try {
       const profile = await api.getCurrentUserProfile(email);
       if (profile) setRole(profile.role);
     } catch (e) { setRole('VIEWER'); }
+  };
+
+  const navigateTo = (page: string, pushState = true) => { 
+    if (page === currentPage) return;
+    setCurrentPage(page); 
+    if (isSidebarOpen) setIsSidebarOpen(false);
+    if (pushState) {
+      window.history.pushState({ page }, "", "");
+    }
   };
 
   useEffect(() => {
@@ -69,22 +80,35 @@ export default function App() {
     };
     initAuth();
 
-    // Bloqueo de botón Atrás del navegador
-    window.history.pushState(null, "", window.location.pathname);
-    const preventBack = () => {
-      window.history.pushState(null, "", window.location.pathname);
+    // Gestión de navegación por historial
+    window.history.replaceState({ page: 'dashboard' }, "", "");
+
+    const handlePopState = (event: PopStateEvent) => {
+      if (event.state && event.state.page) {
+        navigateTo(event.state.page, false);
+      } else {
+        // Si estamos en dashboard y presionan atrás, preguntar para salir
+        if (currentPage === 'dashboard') {
+          window.history.pushState({ page: 'dashboard' }, "", "");
+          setShowExitConfirm(true);
+        } else {
+          navigateTo('dashboard', false);
+        }
+      }
     };
-    window.addEventListener('popstate', preventBack);
-    return () => window.removeEventListener('popstate', preventBack);
-  }, []);
+
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, [currentPage]);
+
+  const handleFinalExit = async () => {
+    if (isSupabaseConfigured) await supabase.auth.signOut();
+    localStorage.removeItem('kardex_local_session');
+    window.location.reload();
+  };
 
   if (loading) return <div className="h-screen flex items-center justify-center bg-slate-50"><Loader2 className="animate-spin w-10 h-10 text-indigo-600" /></div>;
   if (!session) return <Login />;
-
-  const navigateTo = (page: string) => { 
-    setCurrentPage(page); 
-    if (isSidebarOpen) setIsSidebarOpen(false);
-  };
 
   const renderContent = () => {
     switch (currentPage) {
@@ -103,11 +127,21 @@ export default function App() {
 
   return (
     <div className="flex h-screen overflow-hidden bg-slate-50 font-inter animate-in fade-in duration-300">
-      <Sidebar currentPage={currentPage} onNavigate={navigateTo} isOpen={isSidebarOpen} setIsOpen={setIsSidebarOpen} role={role} />
+      <Sidebar currentPage={currentPage} onNavigate={(p) => navigateTo(p)} isOpen={isSidebarOpen} setIsOpen={setIsSidebarOpen} role={role} />
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden relative">
         <Navbar onMenuClick={() => setIsSidebarOpen(true)} role={role} userEmail={session.user?.email} />
         <main className="flex-1 overflow-y-auto p-3 sm:p-6 no-scrollbar"><div className="max-w-7xl mx-auto">{renderContent()}</div></main>
       </div>
+      <CustomDialog 
+        isOpen={showExitConfirm} 
+        title="Seguridad" 
+        message="¿Deseas cerrar la sesión y salir del sistema?" 
+        type="confirm"
+        onConfirm={handleFinalExit}
+        onCancel={() => setShowExitConfirm(false)}
+        confirmText="Cerrar Sesión"
+        cancelText="Permanecer"
+      />
     </div>
   );
 }
