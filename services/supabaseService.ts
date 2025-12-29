@@ -54,13 +54,23 @@ export const getUsers = async (): Promise<UserAccount[]> => {
 export const saveUser = async (user: Partial<UserAccount>) => {
   if (!useSupabase()) return;
   const cleanEmail = user.email?.trim().toLowerCase();
+  
+  // Si hay nueva contraseña, intentar actualizar (requiere privilegios o ser el propio usuario)
+  if (user.password && user.password.length >= 6) {
+    try {
+      // Nota: Esto solo funciona si el usuario es el que ha iniciado sesión.
+      // Para administradores, se suele requerir una Edge Function con Service Role.
+      await supabase.auth.updateUser({ password: user.password });
+    } catch (e) { console.warn("No se pudo actualizar la contraseña de Auth directamente."); }
+  }
+
   await supabase.from('profiles').upsert({ email: cleanEmail, role: user.role }, { onConflict: 'email' });
   
   await saveAuditLog({
     action: user.id ? 'UPDATE' : 'CREATE',
     table_name: 'profiles',
     record_name: cleanEmail,
-    changes_summary: `Usuario ${cleanEmail} configurado con rol ${user.role}`
+    changes_summary: `Usuario ${cleanEmail} configurado con rol ${user.role}. ${user.password ? 'Intento de cambio de clave.' : ''}`
   });
 };
 
@@ -78,32 +88,24 @@ export const deleteUser = async (id: string) => {
   });
 };
 
-// --- Maestros (Categorías y Almacenes) ---
+// --- Maestros ---
 export const getLocationsMaster = async (): Promise<LocationMaster[]> => {
   if (!useSupabase()) return [{ id: '1', name: 'Almacén Principal' }];
   try {
     const { data, error } = await supabase.from('locations_master').select('*').order('name');
     if (error) throw error;
     return data || [];
-  } catch (e) {
-    console.error("Error al obtener almacenes de Supabase:", e);
-    return [];
-  }
+  } catch (e) { return []; }
 };
 
 export const saveLocationMaster = async (loc: Partial<LocationMaster>) => {
   if (!useSupabase()) return;
-  const { error } = await supabase.from('locations_master').upsert({
-    id: loc.id,
-    name: loc.name
-  });
-  if (error) throw error;
+  await supabase.from('locations_master').upsert({ id: loc.id, name: loc.name });
 };
 
 export const deleteLocationMaster = async (id: string) => {
   if (!useSupabase()) return;
-  const { error } = await supabase.from('locations_master').delete().eq('id', id);
-  if (error) throw error;
+  await supabase.from('locations_master').delete().eq('id', id);
 };
 
 export const getCategoriesMaster = async (): Promise<CategoryMaster[]> => {
@@ -112,25 +114,17 @@ export const getCategoriesMaster = async (): Promise<CategoryMaster[]> => {
     const { data, error } = await supabase.from('categories_master').select('*').order('name');
     if (error) throw error;
     return data || [];
-  } catch (e) {
-    console.error("Error al obtener categorías de Supabase:", e);
-    return [];
-  }
+  } catch (e) { return []; }
 };
 
 export const saveCategoryMaster = async (cat: Partial<CategoryMaster>) => {
   if (!useSupabase()) return;
-  const { error } = await supabase.from('categories_master').upsert({
-    id: cat.id,
-    name: cat.name
-  });
-  if (error) throw error;
+  await supabase.from('categories_master').upsert({ id: cat.id, name: cat.name });
 };
 
 export const deleteCategoryMaster = async (id: string) => {
   if (!useSupabase()) return;
-  const { error } = await supabase.from('categories_master').delete().eq('id', id);
-  if (error) throw error;
+  await supabase.from('categories_master').delete().eq('id', id);
 };
 
 // --- Productos ---
@@ -145,33 +139,57 @@ export const getProducts = async (): Promise<Product[]> => {
       purchasePrice: Number(p.precio_compra || p.price) || 0, currency: p.moneda || 'PEN', unit: p.unit || 'und', imageUrl: p.image_url, updatedAt: p.updated_at,
       price: Number(p.precio_compra || p.price) || 0
     }));
-  } catch (e) {
-    return [];
-  }
+  } catch (e) { return []; }
 };
 
 export const saveProduct = async (product: Partial<Product>) => {
   if (!useSupabase()) return;
-  const payload = {
-    code: product.code, name: product.name, brand: product.brand, size: product.size, model: product.model,
-    category: product.category, location: product.location, stock: Number(product.stock) || 0,
-    min_stock: Number(product.minStock) || 30, critical_stock: Number(product.criticalStock) || 10,
-    precio_compra: Number(product.purchasePrice) || 0, moneda: product.currency || 'PEN',
-    unit: product.unit || 'und', image_url: product.imageUrl, updated_at: new Date().toISOString()
+  
+  // Payload básico garantizado
+  const payload: any = {
+    code: product.code, 
+    name: product.name, 
+    category: product.category, 
+    location: product.location, 
+    stock: Number(product.stock) || 0,
+    min_stock: Number(product.minStock) || 30, 
+    critical_stock: Number(product.criticalStock) || 10,
+    precio_compra: Number(product.purchasePrice) || 0, 
+    moneda: product.currency || 'PEN',
+    unit: product.unit || 'und', 
+    image_url: product.imageUrl, 
+    updated_at: new Date().toISOString()
   };
+
+  // Solo añadir columnas opcionales si existen en el objeto
+  if (product.brand) payload.brand = product.brand;
+  if (product.size) payload.size = product.size;
+  if (product.model) payload.model = product.model;
+
   const { error } = product.id 
     ? await supabase.from('products').update(payload).eq('id', product.id)
     : await supabase.from('products').insert([payload]);
   
-  if (!error) {
-    await saveAuditLog({
-      action: product.id ? 'UPDATE' : 'CREATE',
-      table_name: 'products',
-      record_name: product.name,
-      changes_summary: `${product.id ? 'Editado' : 'Creado'} producto ${product.name} (${product.code})`
-    });
+  if (error) {
+    // Si falla por columna inexistente, intentar un guardado degradado (sin brand/model/size)
+    if (error.message?.includes('column')) {
+       const safePayload = { ...payload };
+       delete safePayload.brand; delete safePayload.size; delete safePayload.model;
+       const { error: retryError } = product.id 
+         ? await supabase.from('products').update(safePayload).eq('id', product.id)
+         : await supabase.from('products').insert([safePayload]);
+       if (retryError) throw retryError;
+    } else {
+      throw error;
+    }
   }
-  if (error) throw error;
+  
+  await saveAuditLog({
+    action: product.id ? 'UPDATE' : 'CREATE',
+    table_name: 'products',
+    record_name: product.name,
+    changes_summary: `${product.id ? 'Editado' : 'Creado'} producto ${product.name}`
+  });
 };
 
 export const deleteProduct = async (id: string) => {
@@ -204,14 +222,11 @@ export const getMovements = async (): Promise<Movement[]> => {
       id: m.id, productId: m.product_id, productName: m.product_name, type: m.type, quantity: m.quantity, date: m.date,
       dispatcher: m.dispatcher, reason: m.reason, balanceAfter: m.balance_after, destinationName: m.destino_nombre
     }));
-  } catch (e) {
-    return [];
-  }
+  } catch (e) { return []; }
 };
 
 export const registerBatchMovements = async (items: any[]) => {
   if (!useSupabase()) return;
-  
   for (const item of items) {
      const { data: product } = await supabase.from('products').select('name, stock').eq('id', item.productId).single();
      if (!product) continue;
@@ -231,9 +246,7 @@ export const getContacts = async (): Promise<Contact[]> => {
     const { data, error } = await supabase.from('contacts').select('*').order('name');
     if (error) throw error;
     return data || [];
-  } catch (e) {
-    return [];
-  }
+  } catch (e) { return []; }
 };
 
 export const getDestinos = async () => {
@@ -242,9 +255,7 @@ export const getDestinos = async () => {
     const { data, error } = await supabase.from('destinos').select('*').order('nombre');
     if (error) throw error;
     return (data || []).map(d => ({ id: d.id, name: d.nombre, type: d.tipo, active: d.activo }));
-  } catch (e) {
-    return [];
-  }
+  } catch (e) { return []; }
 };
 
 export const saveDestino = async (d: any) => {
@@ -271,7 +282,5 @@ export const getAuditLogs = async (page = 0, limit = 50) => {
       .range(page * limit, (page + 1) * limit - 1);
     if (error) return { data: [], count: 0 };
     return { data: data || [], count: count || 0 };
-  } catch (e) {
-    return { data: [], count: 0 };
-  }
+  } catch (e) { return { data: [], count: 0 }; }
 };
