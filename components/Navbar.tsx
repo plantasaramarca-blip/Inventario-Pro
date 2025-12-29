@@ -1,6 +1,6 @@
 
-import React, { useState } from 'https://esm.sh/react@19.2.3';
-import { Menu, Package, LogOut, ShieldCheck, ShieldAlert, UserCheck, Loader2 } from 'https://esm.sh/lucide-react@0.475.0?deps=react@19.2.3';
+import React, { useState } from 'react';
+import { Menu, Package, LogOut, ShieldCheck, ShieldAlert, UserCheck, Loader2 } from 'lucide-react';
 import { Role } from '../types.ts';
 import { supabase, isSupabaseConfigured } from '../supabaseClient.ts';
 import { CustomDialog } from './CustomDialog.tsx';
@@ -24,9 +24,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onMenuClick, role, userEmail }) 
         await supabase.auth.signOut();
       }
       localStorage.removeItem('kardex_local_session');
-      setTimeout(() => {
-        window.location.href = window.location.origin;
-      }, 800);
+      // No hacemos redirect manual para dejar que App.tsx maneje el estado de Auth
     } catch (e) {
       console.error("Error al salir:", e);
       setIsLoggingOut(false);

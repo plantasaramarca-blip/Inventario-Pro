@@ -24,7 +24,6 @@ export default function App() {
   const [currentPage, setCurrentPage] = useState('dashboard');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [role, setRole] = useState<Role>('VIEWER');
-  const [quickProduct, setQuickProduct] = useState<Product | null>(null);
 
   const fetchRole = async (email: string) => {
     try {
@@ -42,14 +41,18 @@ export default function App() {
             setSession(initialSession);
             await fetchRole(initialSession.user.email!);
           }
-          supabase.auth.onAuthStateChange(async (event, newSession) => {
+          
+          const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, newSession) => {
             if (newSession) {
               setSession(newSession);
               if (newSession.user.email) await fetchRole(newSession.user.email);
             } else {
               setSession(null);
+              setRole('VIEWER');
             }
           });
+          
+          return () => subscription.unsubscribe();
         } else {
           const localSession = localStorage.getItem('kardex_local_session');
           if (localSession) {
@@ -91,7 +94,7 @@ export default function App() {
   };
 
   return (
-    <div className="flex h-screen overflow-hidden bg-slate-50 font-inter">
+    <div className="flex h-screen overflow-hidden bg-slate-50 font-inter animate-in fade-in duration-300">
       <Sidebar currentPage={currentPage} onNavigate={navigateTo} isOpen={isSidebarOpen} setIsOpen={setIsSidebarOpen} role={role} />
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden relative">
         <Navbar onMenuClick={() => setIsSidebarOpen(true)} role={role} setRole={setRole} userEmail={session.user?.email} />
