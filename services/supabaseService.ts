@@ -1,4 +1,3 @@
-
 import { supabase, isSupabaseConfigured } from '../supabaseClient.ts';
 import { Product, Movement, InventoryStats, CategoryMaster, LocationMaster, UserAccount, Role, Contact, Destination } from '../types.ts';
 
