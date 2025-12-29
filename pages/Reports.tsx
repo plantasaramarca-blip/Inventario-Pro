@@ -111,16 +111,16 @@ export const Reports: React.FC = () => {
           <h3 className="text-[10px] font-black text-slate-800 uppercase tracking-[0.2em] mb-8 flex items-center gap-2">
             <TrendingUp className="w-4 h-4 text-indigo-600" /> Histórico Mensual
           </h3>
-          <div className="h-64 w-full">
-            <ResponsiveContainer width="100%" height="100%">
+          <div className="h-64 w-full min-h-[250px]">
+            <ResponsiveContainer width="100%" height="100%" debounce={1}>
               <LineChart data={monthlyData}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
                 <XAxis dataKey="name" fontSize={9} fontWeight={900} />
                 <YAxis fontSize={9} fontWeight={900} />
-                <Tooltip />
-                <Legend iconType="circle" />
-                <Line type="monotone" dataKey="entradas" stroke="#4f46e5" strokeWidth={3} />
-                <Line type="monotone" dataKey="salidas" stroke="#ef4444" strokeWidth={3} />
+                <Tooltip contentStyle={{ borderRadius: '15px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }} />
+                <Legend iconType="circle" wrapperStyle={{ paddingTop: '20px', fontSize: '10px', fontWeight: 900 }} />
+                <Line type="monotone" dataKey="entradas" stroke="#4f46e5" strokeWidth={3} dot={{ r: 4 }} activeDot={{ r: 6 }} />
+                <Line type="monotone" dataKey="salidas" stroke="#ef4444" strokeWidth={3} dot={{ r: 4 }} activeDot={{ r: 6 }} />
               </LineChart>
             </ResponsiveContainer>
           </div>
@@ -130,14 +130,22 @@ export const Reports: React.FC = () => {
           <h3 className="text-[10px] font-black text-slate-800 uppercase tracking-[0.2em] mb-8 flex items-center gap-2">
             <PieIcon className="w-4 h-4 text-indigo-600" /> Por Centro de Costo
           </h3>
-          <div className="h-64 w-full">
-            <ResponsiveContainer width="100%" height="100%">
+          <div className="h-64 w-full min-h-[250px]">
+            <ResponsiveContainer width="100%" height="100%" debounce={1}>
               <PieChart>
-                <Pie data={destinationData} innerRadius={60} outerRadius={80} dataKey="value">
-                  {destinationData.map((_, index) => <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />)}
+                <Pie 
+                  data={destinationData} 
+                  innerRadius={60} 
+                  outerRadius={80} 
+                  paddingAngle={5}
+                  dataKey="value"
+                >
+                  {destinationData.map((_, index) => (
+                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                  ))}
                 </Pie>
-                <Tooltip />
-                <Legend />
+                <Tooltip contentStyle={{ borderRadius: '15px', border: 'none' }} />
+                <Legend verticalAlign="bottom" height={36} wrapperStyle={{ fontSize: '9px', fontWeight: 900 }} />
               </PieChart>
             </ResponsiveContainer>
           </div>
