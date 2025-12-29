@@ -1,6 +1,7 @@
 
 import * as XLSX from 'https://esm.sh/xlsx@0.18.5';
 import { jsPDF } from 'https://esm.sh/jspdf@2.5.1';
+import autoTable from 'https://esm.sh/jspdf-autotable@3.8.2';
 
 export function exportToExcel(
   data: any[],
@@ -10,17 +11,6 @@ export function exportToExcel(
   if (data.length === 0) throw new Error("Sin datos para exportar");
   const wb = XLSX.utils.book_new();
   const ws = XLSX.utils.json_to_sheet(data);
-  
-  // Autoajustar ancho de columnas
-  const objectMaxLength: number[] = [];
-  data.forEach((row) => {
-    Object.values(row).forEach((val, i) => {
-      const columnValue = val ? val.toString() : "";
-      objectMaxLength[i] = Math.max(objectMaxLength[i] || 10, columnValue.length + 2);
-    });
-  });
-  ws['!cols'] = objectMaxLength.map(w => ({ width: w }));
-
   XLSX.utils.book_append_sheet(wb, ws, sheetName);
   XLSX.writeFile(wb, `${fileName}.xlsx`);
 }
@@ -32,27 +22,23 @@ export function exportToPDF(
   fileName: string
 ) {
   const doc = new jsPDF();
+  doc.setFontSize(14);
+  doc.setTextColor(79, 70, 229);
+  doc.text(title, 14, 15);
   
-  // Header del PDF
-  doc.setFontSize(18);
-  doc.setTextColor(79, 70, 229); // Indigo 600
-  doc.text(title, 14, 22);
-  
-  doc.setFontSize(10);
-  doc.setTextColor(100);
-  doc.text(`Generado el: ${new Date().toLocaleString()}`, 14, 30);
+  doc.setFontSize(7);
+  doc.setTextColor(150);
+  doc.text(`Generado: ${new Date().toLocaleString()}`, 14, 20);
 
-  // Cargamos jspdf-autotable dinámicamente o usamos la versión de esm.sh que lo inyecta
-  import('https://esm.sh/jspdf-autotable@3.8.2?deps=jspdf@2.5.1').then(() => {
-    (doc as any).autoTable({
-      startY: 35,
-      head: headers,
-      body: body,
-      theme: 'striped',
-      headStyles: { fillStyle: 'dark', fillColor: [79, 70, 229], fontSize: 8 },
-      bodyStyles: { fontSize: 7 },
-      margin: { top: 35 }
-    });
-    doc.save(`${fileName}.pdf`);
+  autoTable(doc, {
+    startY: 25,
+    head: headers,
+    body: body,
+    theme: 'striped',
+    headStyles: { fillColor: [79, 70, 229], fontSize: 8 },
+    bodyStyles: { fontSize: 7 },
+    margin: { top: 25 }
   });
+
+  doc.save(`${fileName}.pdf`);
 }
