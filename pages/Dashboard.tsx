@@ -5,7 +5,7 @@ import {
   TrendingUp, AlertTriangle, Package, 
   AlertCircle, DollarSign, Loader2, MapPin, 
   Layers, Users, ShoppingCart
-} from 'lucide-react';
+} from 'https://esm.sh/lucide-react@0.475.0?external=react,react-dom';
 import { StockBadge } from '../components/StockBadge.tsx';
 import { formatCurrency } from '../utils/currencyUtils.ts';
 
