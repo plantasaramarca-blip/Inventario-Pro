@@ -68,6 +68,14 @@ export default function App() {
       }
     };
     initAuth();
+
+    // Bloqueo de botón Atrás del navegador
+    window.history.pushState(null, "", window.location.pathname);
+    const preventBack = () => {
+      window.history.pushState(null, "", window.location.pathname);
+    };
+    window.addEventListener('popstate', preventBack);
+    return () => window.removeEventListener('popstate', preventBack);
   }, []);
 
   if (loading) return <div className="h-screen flex items-center justify-center bg-slate-50"><Loader2 className="animate-spin w-10 h-10 text-indigo-600" /></div>;
@@ -97,7 +105,7 @@ export default function App() {
     <div className="flex h-screen overflow-hidden bg-slate-50 font-inter animate-in fade-in duration-300">
       <Sidebar currentPage={currentPage} onNavigate={navigateTo} isOpen={isSidebarOpen} setIsOpen={setIsSidebarOpen} role={role} />
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden relative">
-        <Navbar onMenuClick={() => setIsSidebarOpen(true)} role={role} setRole={setRole} userEmail={session.user?.email} />
+        <Navbar onMenuClick={() => setIsSidebarOpen(true)} role={role} userEmail={session.user?.email} />
         <main className="flex-1 overflow-y-auto p-3 sm:p-6 no-scrollbar"><div className="max-w-7xl mx-auto">{renderContent()}</div></main>
       </div>
     </div>

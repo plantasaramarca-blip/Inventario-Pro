@@ -3,12 +3,13 @@ import React, { useState, useEffect } from 'react';
 import { Destination } from '../types.ts';
 import * as api from '../services/supabaseService.ts';
 import { 
-  Plus, MapPin, Edit2, X, Search, Loader2
+  Plus, MapPin, Edit2, X, Search, Loader2, AlertCircle
 } from 'lucide-react';
 
 export const Destinos: React.FC = () => {
   const [destinos, setDestinos] = useState<Destination[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [search, setSearch] = useState('');
   
@@ -18,11 +19,13 @@ export const Destinos: React.FC = () => {
 
   const loadData = async () => {
     setLoading(true);
+    setError(false);
     try {
       const data = await api.getDestinos();
       setDestinos(data || []);
     } catch (e) {
       console.error("Error al cargar centros de costos:", e);
+      setError(true);
     } finally {
       setLoading(false);
     }
@@ -48,7 +51,7 @@ export const Destinos: React.FC = () => {
           <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Centros de Costos</h1>
           <p className="text-[10px] text-slate-500 font-black uppercase tracking-widest mt-1">Destinos de Mercancía</p>
         </div>
-        <button onClick={() => { setFormData({name: '', type: 'sucursal', description: '', active: true}); setIsModalOpen(true); }} className="bg-indigo-600 text-white px-5 py-3 rounded-xl text-[10px] font-black uppercase shadow-lg shadow-indigo-100 hover:bg-indigo-700 transition-all">+ Nuevo</button>
+        <button onClick={() => { setFormData({name: '', type: 'sucursal', description: '', active: true}); setIsModalOpen(true); }} className="bg-indigo-600 text-white px-5 py-3 rounded-xl text-[10px] font-black uppercase shadow-lg shadow-indigo-100 hover:bg-indigo-700 transition-all">+ NUEVO</button>
       </div>
 
       <div className="relative">
@@ -56,7 +59,7 @@ export const Destinos: React.FC = () => {
         <input 
           type="text" 
           placeholder="Buscar..." 
-          className="w-full pl-11 pr-4 py-3 bg-white border border-slate-100 rounded-xl text-sm outline-none shadow-sm focus:ring-2 focus:ring-indigo-500"
+          className="w-full pl-11 pr-4 py-3 bg-white border border-slate-100 rounded-xl text-sm outline-none shadow-sm focus:ring-2 focus:ring-indigo-500 font-bold"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
@@ -65,10 +68,16 @@ export const Destinos: React.FC = () => {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {loading ? (
           <div className="col-span-full py-20 text-center"><Loader2 className="animate-spin mx-auto w-10 h-10 text-indigo-500" /></div>
+        ) : error ? (
+           <div className="col-span-full py-20 text-center bg-white rounded-[2.5rem] border border-rose-100 p-8 shadow-sm">
+            <AlertCircle className="mx-auto w-10 h-10 text-rose-500 mb-3" />
+            <p className="text-[10px] font-black text-slate-600 uppercase mb-4">Error al conectar con la base de datos</p>
+            <button onClick={loadData} className="bg-slate-900 text-white px-5 py-2 rounded-xl text-[9px] font-black uppercase">Reintentar</button>
+          </div>
         ) : filteredDestinos.length === 0 ? (
           <div className="col-span-full py-20 text-center bg-white rounded-[2.5rem] border border-dashed border-slate-200">
             <MapPin className="mx-auto w-10 h-10 text-slate-200 mb-3" />
-            <p className="text-[10px] font-black text-slate-400 uppercase">No hay centros de costos</p>
+            <p className="text-[10px] font-black text-slate-400 uppercase">No hay centros de costos registrados</p>
           </div>
         ) : filteredDestinos.map(d => (
           <div key={d.id} className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm flex flex-col justify-between hover:shadow-md transition-shadow">

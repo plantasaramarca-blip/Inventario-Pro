@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { Movement, Product, TransactionType, Destination, Role, LocationMaster } from '../types.ts';
 import * as api from '../services/supabaseService.ts';
