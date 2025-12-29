@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useMemo } from 'https://esm.sh/react@19.2.3';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Movement, Product, Destination } from '../types.ts';
 import * as api from '../services/supabaseService.ts';
 import { formatCurrency } from '../utils/currencyUtils.ts';
@@ -11,14 +11,13 @@ import {
   TrendingUp, Calendar, Filter, FileText, Download, 
   Loader2, ArrowUpRight, ArrowDownRight, Package, PieChart as PieIcon,
   BarChart3, RefreshCcw, LayoutPanelLeft
-} from 'https://esm.sh/lucide-react@0.475.0?deps=react@19.2.3';
+} from 'lucide-react';
 
 export const Reports: React.FC = () => {
   const [products, setProducts] = useState<Product[]>([]);
   const [movements, setMovements] = useState<Movement[]>([]);
   const [loading, setLoading] = useState(true);
   
-  // Filtros
   const today = new Date().toISOString().split('T')[0];
   const lastMonth = new Date(new Date().setMonth(new Date().getMonth() - 1)).toISOString().split('T')[0];
   const [dateRange, setDateRange] = useState({ from: lastMonth, to: today });
@@ -27,23 +26,25 @@ export const Reports: React.FC = () => {
     setLoading(true);
     try {
       const [p, m] = await Promise.all([api.getProducts(), api.getMovements()]);
-      setProducts(p);
-      setMovements(m);
-    } catch (e) {} finally { setLoading(false); }
+      setProducts(p || []);
+      setMovements(m || []);
+    } catch (e) {
+      console.error("Error cargando datos de reporte:", e);
+    } finally { setLoading(false); }
   };
 
   useEffect(() => { loadData(); }, []);
 
-  // Filtrar movimientos por rango
   const filteredMovements = useMemo(() => {
+    if (!movements) return [];
     return movements.filter(m => {
       const mDate = m.date.split('T')[0];
       return mDate >= dateRange.from && mDate <= dateRange.to;
     });
   }, [movements, dateRange]);
 
-  // 1. Datos para Movimientos Mensuales (Línea)
   const monthlyData = useMemo(() => {
+    if (!movements) return [];
     const months: Record<string, any> = {};
     movements.slice().reverse().forEach(m => {
       const date = new Date(m.date);
@@ -52,10 +53,9 @@ export const Reports: React.FC = () => {
       if (m.type === 'INGRESO') months[key].entradas += m.quantity;
       else months[key].salidas += m.quantity;
     });
-    return Object.values(months).slice(-6); // Últimos 6 meses
+    return Object.values(months).slice(-6);
   }, [movements]);
 
-  // 2. Distribución por Destino (Dona)
   const destinationData = useMemo(() => {
     const dests: Record<string, number> = {};
     filteredMovements.filter(m => m.type === 'SALIDA').forEach(m => {
@@ -66,7 +66,6 @@ export const Reports: React.FC = () => {
       .sort((a, b) => b.value - a.value).slice(0, 5);
   }, [filteredMovements]);
 
-  // 3. Top 10 Productos más movidos (Barras)
   const topProductsData = useMemo(() => {
     const prods: Record<string, { name: string, entradas: number, salidas: number }> = {};
     filteredMovements.forEach(m => {
@@ -77,16 +76,13 @@ export const Reports: React.FC = () => {
     return Object.values(prods).sort((a, b) => (b.entradas + b.salidas) - (a.entradas + a.salidas)).slice(0, 10);
   }, [filteredMovements]);
 
-  // 4. Rotación de Inventario (Tabla)
   const rotationAnalysis = useMemo(() => {
+    if (!products) return [];
     return products.map(p => {
       const pMovements = filteredMovements.filter(m => m.productId === p.id);
       const totalSalidas = pMovements.filter(m => m.type === 'SALIDA').reduce((sum, m) => sum + m.quantity, 0);
-      
-      // Rotación = Salidas / Stock Promedio (usaremos stock actual como simplificación de periodo corto)
       const rotation = p.stock > 0 ? (totalSalidas / p.stock) : (totalSalidas > 0 ? 5 : 0);
       const days = rotation > 0 ? Math.round(30 / rotation) : 365;
-      
       return { 
         ...p, 
         totalSalidas, 
@@ -97,11 +93,10 @@ export const Reports: React.FC = () => {
     }).sort((a, b) => Number(b.rotation) - Number(a.rotation)).slice(0, 8);
   }, [products, filteredMovements]);
 
-  // 5. Valor en el Tiempo (Área) - Simplificado
   const valueOverTime = useMemo(() => {
     return monthlyData.map(d => ({
       name: d.name,
-      valor: products.reduce((sum, p) => sum + (p.stock * p.purchasePrice), 0) * (Math.random() * 0.2 + 0.9) // Simulación histórica
+      valor: products.reduce((sum, p) => sum + (p.stock * p.purchasePrice), 0) * (Math.random() * 0.1 + 0.95)
     }));
   }, [monthlyData, products]);
 
@@ -129,7 +124,6 @@ export const Reports: React.FC = () => {
         </div>
       </div>
 
-      {/* Tarjetas Resumen */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {[
           { label: 'Movimientos en Periodo', val: filteredMovements.length, icon: RefreshCcw, color: 'bg-indigo-600' },
@@ -148,7 +142,6 @@ export const Reports: React.FC = () => {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Gráfica 1: Movimientos Mensuales */}
         <div className="bg-white p-8 rounded-[3rem] border border-slate-100 shadow-sm">
           <div className="flex items-center justify-between mb-8">
             <h3 className="text-[10px] font-black text-slate-800 uppercase tracking-[0.2em] flex items-center gap-2"><TrendingUp className="w-4 h-4 text-indigo-600" /> Flujo Mensual</h3>
@@ -168,7 +161,6 @@ export const Reports: React.FC = () => {
           </div>
         </div>
 
-        {/* Gráfica 2: Distribución por Destino */}
         <div className="bg-white p-8 rounded-[3rem] border border-slate-100 shadow-sm">
           <div className="flex items-center justify-between mb-8">
             <h3 className="text-[10px] font-black text-slate-800 uppercase tracking-[0.2em] flex items-center gap-2"><PieIcon className="w-4 h-4 text-indigo-600" /> Distribución Despachos</h3>
@@ -184,89 +176,6 @@ export const Reports: React.FC = () => {
               </PieChart>
             </ResponsiveContainer>
           </div>
-        </div>
-
-        {/* Gráfica 3: Top 10 Productos */}
-        <div className="bg-white p-8 rounded-[3rem] border border-slate-100 shadow-sm">
-          <div className="flex items-center justify-between mb-8">
-            <h3 className="text-[10px] font-black text-slate-800 uppercase tracking-[0.2em] flex items-center gap-2"><BarChart3 className="w-4 h-4 text-indigo-600" /> Top 10 Movimientos</h3>
-          </div>
-          <div className="h-80 w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={topProductsData} layout="vertical" margin={{ left: 40 }}>
-                <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke="#f1f5f9" />
-                <XAxis type="number" hide />
-                <YAxis dataKey="name" type="category" fontSize={8} fontWeight={900} width={80} axisLine={false} tickLine={false} />
-                <Tooltip cursor={{ fill: '#f8fafc' }} contentStyle={{ borderRadius: '20px', fontSize: '10px' }} />
-                <Bar dataKey="salidas" fill="#ef4444" radius={[0, 10, 10, 0]} barSize={12} />
-                <Bar dataKey="entradas" fill="#4f46e5" radius={[0, 10, 10, 0]} barSize={12} />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-
-        {/* Gráfica 4: Evolución del Valor */}
-        <div className="bg-white p-8 rounded-[3rem] border border-slate-100 shadow-sm">
-          <div className="flex items-center justify-between mb-8">
-            <h3 className="text-[10px] font-black text-slate-800 uppercase tracking-[0.2em] flex items-center gap-2"><LayoutPanelLeft className="w-4 h-4 text-indigo-600" /> Valorización Mensual</h3>
-          </div>
-          <div className="h-80 w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={valueOverTime}>
-                <defs>
-                  <linearGradient id="colorVal" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#4f46e5" stopOpacity={0.3}/>
-                    <stop offset="95%" stopColor="#4f46e5" stopOpacity={0}/>
-                  </linearGradient>
-                </defs>
-                <XAxis dataKey="name" fontSize={9} fontWeight={900} axisLine={false} tickLine={false} />
-                <YAxis fontSize={9} fontWeight={900} axisLine={false} tickLine={false} />
-                <Tooltip formatter={(val: number) => formatCurrency(val)} contentStyle={{ borderRadius: '20px', fontSize: '10px' }} />
-                <Area type="monotone" dataKey="valor" stroke="#4f46e5" fillOpacity={1} fill="url(#colorVal)" strokeWidth={3} />
-              </AreaChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-      </div>
-
-      {/* Tabla de Rotación */}
-      <div className="bg-white p-8 rounded-[3rem] border border-slate-100 shadow-sm overflow-hidden">
-        <div className="flex items-center justify-between mb-8">
-          <h3 className="text-[10px] font-black text-slate-800 uppercase tracking-[0.2em] flex items-center gap-2"><RefreshCcw className="w-4 h-4 text-indigo-600" /> Análisis de Rotación de Inventario</h3>
-        </div>
-        <div className="overflow-x-auto no-scrollbar">
-          <table className="w-full text-left">
-            <thead className="text-[9px] font-black uppercase text-slate-400 tracking-widest border-b border-slate-50">
-              <tr>
-                <th className="pb-4 px-2">Producto</th>
-                <th className="pb-4 text-center">Salidas (Und)</th>
-                <th className="pb-4 text-center">Índice Rotación</th>
-                <th className="pb-4 text-center">Permanencia (Días)</th>
-                <th className="pb-4 text-right">Velocidad</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-50">
-              {rotationAnalysis.map((p, i) => (
-                <tr key={i} className="hover:bg-slate-50/50 transition-colors">
-                  <td className="py-5 px-2">
-                    <p className="text-xs font-bold text-slate-800 uppercase">{p.name}</p>
-                    <p className="text-[9px] text-slate-400 font-black uppercase tracking-widest">{p.code}</p>
-                  </td>
-                  <td className="py-5 text-center font-black text-slate-600 text-xs">{p.totalSalidas}</td>
-                  <td className="py-5 text-center font-black text-indigo-600 text-xs">{p.rotation}</td>
-                  <td className="py-5 text-center font-black text-slate-600 text-xs">{p.days} d</td>
-                  <td className="py-5 text-right">
-                    <span className={`px-3 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest ${
-                      p.status === 'Alta' ? 'bg-emerald-50 text-emerald-600' :
-                      p.status === 'Media' ? 'bg-amber-50 text-amber-600' : 'bg-slate-50 text-slate-400'
-                    }`}>
-                      {p.status}
-                    </span>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
         </div>
       </div>
     </div>
