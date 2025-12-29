@@ -12,7 +12,7 @@ import { exportToExcel, exportToPDF } from '../services/excelService.ts';
 import { 
   Plus, Search, Edit2, ImageIcon, Loader2, QrCode,
   X, Trash2, Save, Camera, CheckCircle, Printer, CheckSquare, Square, FileSpreadsheet, FileText
-} from 'https://esm.sh/lucide-react@0.475.0?deps=react@19.0.0';
+} from 'lucide-react';
 
 interface InventoryProps { role: Role; }
 
@@ -72,17 +72,10 @@ export const Inventory: React.FC<InventoryProps> = ({ role }) => {
 
   useEffect(() => { loadData(); }, []);
 
-  const toggleSelect = (id: string) => {
-    const newSelected = new Set(selectedIds);
-    if (newSelected.has(id)) {
-      newSelected.delete(id);
-    } else {
-      newSelected.add(id);
-    }
-    setSelectedIds(newSelected);
-  };
-
   const handleExportExcel = () => {
+    if (products.length === 0) {
+      return showDialog("Sin Datos", "No hay productos en la lista para exportar", "alert");
+    }
     const data = products.map(p => ({
       SKU: p.code,
       Producto: p.name,
@@ -93,67 +86,11 @@ export const Inventory: React.FC<InventoryProps> = ({ role }) => {
       'Costo Unit.': p.purchasePrice,
       'Valor Total': p.stock * p.purchasePrice
     }));
-    exportToExcel(data, `Inventario_${new Date().toLocaleDateString()}`, 'Productos');
-  };
-
-  const handleExportPDF = () => {
-    const headers = [['SKU', 'Producto', 'Categoría', 'Ubicación', 'Stock', 'Costo']];
-    const body = products.map(p => [
-      p.code, p.name, p.category, p.location, `${p.stock} ${p.unit}`, formatCurrency(p.purchasePrice, p.currency)
-    ]);
-    exportToPDF('Reporte de Inventario General', headers, body, `Inventario_${new Date().getTime()}`);
-  };
-
-  const handleBulkPrint = async () => {
-    if (selectedIds.size === 0) return;
-    setIsPrintingBulk(true);
-    
     try {
-      const pdf = new jsPDF({ orientation: 'l', unit: 'mm', format: [50, 30], compress: false });
-      const selectedProducts = products.filter(p => selectedIds.has(p.id));
-
-      for (let i = 0; i < selectedProducts.length; i++) {
-        const p = selectedProducts[i];
-        const tempDiv = document.createElement('div');
-        tempDiv.style.width = '188px';
-        tempDiv.style.height = '113px';
-        tempDiv.style.padding = '4px';
-        tempDiv.style.display = 'flex';
-        tempDiv.style.flexDirection = 'column';
-        tempDiv.style.alignItems = 'center';
-        tempDiv.style.justifyContent = 'center';
-        tempDiv.style.backgroundColor = 'white';
-        tempDiv.style.position = 'absolute';
-        tempDiv.style.left = '-9999px';
-        tempDiv.style.border = '1px solid #000';
-        tempDiv.style.boxSizing = 'border-box';
-        
-        const qrUrl = `${window.location.origin}?action=quick_move&id=${p.id}`;
-        
-        tempDiv.innerHTML = `
-          <div style="margin-bottom:2px"><img src="https://api.qrserver.com/v1/create-qr-code/?size=130x130&data=${encodeURIComponent(qrUrl)}" style="width:65px;height:65px" /></div>
-          <div style="text-align:center;width:100%">
-            <p style="font-family:sans-serif;font-size:9px;font-weight:900;text-transform:uppercase;margin:0;padding:0;line-height:1.0;color:#000;height:18px;overflow:hidden">${p.name}</p>
-            <p style="font-family:sans-serif;font-size:13px;font-weight:900;color:#000;margin:1px 0 0 0;padding:0;letter-spacing:0.5px">${p.code}</p>
-          </div>
-        `;
-        
-        document.body.appendChild(tempDiv);
-        const canvas = await html2canvas(tempDiv, { scale: 5, backgroundColor: '#ffffff' });
-        const imgData = canvas.toDataURL('image/png', 1.0);
-        
-        if (i > 0) pdf.addPage([50, 30], 'l');
-        pdf.addImage(imgData, 'PNG', 0, 0, 50, 30, undefined, 'FAST');
-        document.body.removeChild(tempDiv);
-      }
-      
-      pdf.save(`ETIQUETAS_LOTE_${new Date().getTime()}.pdf`);
-      showDialog("Éxito", "Etiquetas generadas correctamente", "success");
-      setSelectedIds(new Set());
+      exportToExcel(data, `Inventario_${new Date().toLocaleDateString()}`, 'Productos');
+      showDialog("Éxito", "Archivo Excel generado correctamente", "success");
     } catch (e) {
-      showDialog("Error", "Error al generar etiquetas masivas", "error");
-    } finally {
-      setIsPrintingBulk(false);
+      showDialog("Error", "No se pudo generar el archivo Excel", "error");
     }
   };
 
@@ -205,7 +142,7 @@ export const Inventory: React.FC<InventoryProps> = ({ role }) => {
     setSaving(true);
     try {
       await api.saveProduct(formData);
-      showDialog("Sincronización", editingProduct ? "Producto actualizado en la nube" : "Nuevo producto registrado", "success");
+      showDialog("Sincronización", editingProduct ? "Producto actualizado correctamente" : "Nuevo producto registrado", "success");
       setIsModalOpen(false);
       loadData();
     } catch (err: any) { 
@@ -233,18 +170,9 @@ export const Inventory: React.FC<InventoryProps> = ({ role }) => {
           <button onClick={handleExportExcel} className="bg-emerald-50 text-emerald-700 p-3 rounded-xl hover:bg-emerald-100 border border-emerald-100 transition-all flex items-center gap-2 text-[9px] font-black uppercase">
             <FileSpreadsheet className="w-4 h-4" /> Excel
           </button>
-          <button onClick={handleExportPDF} className="bg-rose-50 text-rose-700 p-3 rounded-xl hover:bg-rose-100 border border-rose-100 transition-all flex items-center gap-2 text-[9px] font-black uppercase">
-            <FileText className="w-4 h-4" /> PDF
-          </button>
-          {selectedIds.size > 0 && (
-            <button onClick={handleBulkPrint} disabled={isPrintingBulk} className="bg-indigo-600 text-white px-5 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2 shadow-lg animate-in zoom-in">
-              {isPrintingBulk ? <Loader2 className="w-4 h-4 animate-spin" /> : <Printer className="w-4 h-4" />}
-              Etiquetas ({selectedIds.size})
-            </button>
-          )}
           {role !== 'VIEWER' && (
             <button onClick={() => handleOpenModal()} className="bg-indigo-600 text-white px-5 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2 shadow-lg">
-              <Plus className="w-4 h-4" /> Nuevo
+              <Plus className="w-4 h-4" /> Nuevo Producto
             </button>
           )}
         </div>
@@ -261,9 +189,7 @@ export const Inventory: React.FC<InventoryProps> = ({ role }) => {
             <thead className="bg-slate-50/50 text-[9px] font-black uppercase text-slate-400 tracking-widest">
               <tr>
                 <th className="px-6 py-5 text-left w-10">
-                   <button onClick={() => setSelectedIds(selectedIds.size === filteredProducts.length ? new Set() : new Set(filteredProducts.map(p => p.id)))}>
-                      {selectedIds.size === filteredProducts.length ? <CheckSquare className="w-4 h-4 text-indigo-600" /> : <Square className="w-4 h-4" />}
-                   </button>
+                   <CheckSquare className="w-4 h-4 text-slate-200" />
                 </th>
                 <th className="px-2 py-5 text-left">Producto</th>
                 <th className="px-4 py-5 text-center">Estado</th>
@@ -278,11 +204,9 @@ export const Inventory: React.FC<InventoryProps> = ({ role }) => {
               ) : filteredProducts.length === 0 ? (
                 <tr><td colSpan={6} className="py-20 text-center text-slate-400 font-black uppercase text-[10px]">No se encontraron productos</td></tr>
               ) : filteredProducts.map(p => (
-                <tr key={p.id} className={`hover:bg-slate-50/30 transition-colors ${selectedIds.has(p.id) ? 'bg-indigo-50/20' : ''}`}>
+                <tr key={p.id} className="hover:bg-slate-50/30 transition-colors">
                   <td className="px-6 py-4">
-                     <button onClick={() => toggleSelect(p.id)} className="p-1">
-                        {selectedIds.has(p.id) ? <CheckSquare className="w-4 h-4 text-indigo-600" /> : <Square className="w-4 h-4 text-slate-300" />}
-                     </button>
+                     <Square className="w-4 h-4 text-slate-100" />
                   </td>
                   <td className="px-2 py-4">
                     <div className="flex items-center gap-3">
@@ -324,27 +248,32 @@ export const Inventory: React.FC<InventoryProps> = ({ role }) => {
                   <div className="space-y-2">
                     <div className="aspect-square bg-slate-50 rounded-[2rem] border-2 border-dashed border-slate-200 flex flex-col items-center justify-center relative overflow-hidden group">
                       {formData.imageUrl ? <img src={formData.imageUrl} className="w-full h-full object-cover" /> : <ImageIcon className="text-slate-200 w-10 h-10" />}
-                      <button type="button" onClick={() => fileInputRef.current?.click()} className="absolute inset-0 bg-indigo-600/60 text-white opacity-0 group-hover:opacity-100 flex items-center justify-center font-black uppercase text-[10px]"><Camera className="w-6 h-6 mr-2" /> Cambiar</button>
+                      <button type="button" onClick={() => fileInputRef.current?.click()} className="absolute inset-0 bg-indigo-600/60 text-white opacity-0 group-hover:opacity-100 flex items-center justify-center font-black uppercase text-[10px]"><Camera className="w-6 h-6 mr-2" /> Cambiar Imagen</button>
                       <input type="file" accept="image/*" className="hidden" ref={fileInputRef} onChange={handleFileChange} />
                     </div>
                   </div>
                   <div className="md:col-span-2 space-y-5">
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      <div className="space-y-1"><label className="text-[9px] font-black text-slate-400 uppercase">Nombre *</label><input type="text" required className="w-full p-4 bg-slate-50 rounded-2xl outline-none font-bold text-sm" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} /></div>
-                      <div className="space-y-1"><label className="text-[9px] font-black text-slate-400 uppercase">Marca</label><input type="text" className="w-full p-4 bg-slate-50 rounded-2xl outline-none font-bold text-sm" value={formData.brand} onChange={e => setFormData({...formData, brand: e.target.value})} /></div>
+                      <div className="space-y-1"><label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Nombre del Producto *</label><input type="text" required className="w-full p-4 bg-slate-50 rounded-2xl outline-none font-bold text-sm" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} /></div>
+                      <div className="space-y-1"><label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Categoría</label>
+                        <select className="w-full p-4 bg-slate-50 rounded-2xl font-bold text-xs" value={formData.category} onChange={e => setFormData({...formData, category: e.target.value})}>
+                          {categories.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
+                        </select>
+                      </div>
                     </div>
                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-                      <div className="space-y-1"><label className="text-[9px] font-black text-indigo-500 uppercase">Talla</label><input type="text" className="w-full p-4 bg-indigo-50 text-indigo-700 rounded-2xl outline-none font-black text-sm" value={formData.size} onChange={e => setFormData({...formData, size: e.target.value})} /></div>
-                      <div className="space-y-1"><label className="text-[9px] font-black text-slate-400 uppercase">SKU / Código</label><input type="text" className="w-full p-4 bg-slate-50 rounded-2xl outline-none font-black text-xs" value={formData.code} onChange={e => setFormData({...formData, code: e.target.value.toUpperCase()})} /></div>
-                      <div className="space-y-1"><label className="text-[9px] font-black text-slate-400 uppercase">Ubicación</label><select className="w-full p-4 bg-slate-50 rounded-2xl font-bold text-xs" value={formData.location} onChange={e => setFormData({...formData, location: e.target.value})}>
-                        {locations.length > 0 ? locations.map(l => <option key={l.id} value={l.name}>{l.name}</option>) : <option>General</option>}
-                      </select></div>
+                      <div className="space-y-1"><label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Ubicación / Almacén</label>
+                        <select className="w-full p-4 bg-slate-50 rounded-2xl font-bold text-xs" value={formData.location} onChange={e => setFormData({...formData, location: e.target.value})}>
+                          {locations.map(l => <option key={l.id} value={l.name}>{l.name}</option>)}
+                        </select>
+                      </div>
+                      <div className="space-y-1"><label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">SKU / Código</label><input type="text" className="w-full p-4 bg-slate-50 rounded-2xl outline-none font-black text-xs" value={formData.code} onChange={e => setFormData({...formData, code: e.target.value.toUpperCase()})} /></div>
+                      <div className="space-y-1"><label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Unidad Medida</label><input type="text" className="w-full p-4 bg-slate-50 rounded-2xl outline-none font-bold text-sm" value={formData.unit} onChange={e => setFormData({...formData, unit: e.target.value})} /></div>
                     </div>
                   </div>
                </div>
-               <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 bg-slate-50 p-6 rounded-[2.5rem]">
-                  <div className="space-y-1"><label className="text-[8px] font-black text-slate-400 uppercase">Stock Ini.</label><input type="number" className="w-full p-3 bg-white rounded-xl text-center font-black text-sm" value={formData.stock} onChange={e => setFormData({...formData, stock: Number(e.target.value)})} disabled={!!editingProduct} /></div>
-                  <div className="space-y-1"><label className="text-[8px] font-black text-slate-400 uppercase">Unidad</label><input type="text" className="w-full p-3 bg-white rounded-xl text-center font-bold text-xs" value={formData.unit} onChange={e => setFormData({...formData, unit: e.target.value})} /></div>
+               <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 bg-slate-50 p-6 rounded-[2.5rem]">
+                  <div className="space-y-1"><label className="text-[8px] font-black text-slate-400 uppercase">Stock Inicial</label><input type="number" className="w-full p-3 bg-white rounded-xl text-center font-black text-sm" value={formData.stock} onChange={e => setFormData({...formData, stock: Number(e.target.value)})} disabled={!!editingProduct} /></div>
                   <div className="space-y-1"><label className="text-[8px] font-black text-rose-400 uppercase">Pto. Crítico</label><input type="number" className="w-full p-3 bg-white text-rose-600 rounded-xl text-center font-black text-sm" value={formData.criticalStock} onChange={e => setFormData({...formData, criticalStock: Number(e.target.value)})} /></div>
                   <div className="space-y-1"><label className="text-[8px] font-black text-indigo-400 uppercase">Costo S/</label><input type="number" step="0.01" className="w-full p-3 bg-indigo-50 text-indigo-700 rounded-xl text-center font-black text-sm" value={formData.purchasePrice} onChange={e => setFormData({...formData, purchasePrice: Number(e.target.value)})} /></div>
                </div>
