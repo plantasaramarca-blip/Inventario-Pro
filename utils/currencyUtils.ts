@@ -16,3 +16,10 @@ export function formatCurrency(
     maximumFractionDigits: 2
   })}`;
 }
+
+export function calculateMargin(purchase: number, sale: number) {
+  if (!purchase || purchase === 0 || !sale) return { amount: 0, percent: 0 };
+  const amount = sale - purchase;
+  const percent = (amount / purchase) * 100;
+  return { amount, percent };
+}

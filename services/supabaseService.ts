@@ -68,7 +68,7 @@ export const getProducts = async (): Promise<Product[]> => {
     return (data || []).map(p => ({
       id: p.id, code: p.code, name: p.name, brand: p.brand || '', size: p.size || '', model: p.model || '',
       category: p.category, location: p.location, stock: p.stock || 0, minStock: p.min_stock ?? 30, criticalStock: p.critical_stock ?? 10,
-      purchasePrice: p.precio_compra || 0, currency: p.moneda || 'PEN', unit: p.unit || 'UND', imageUrl: p.image_url, updatedAt: p.updated_at
+      purchasePrice: p.precio_compra || 0, salePrice: p.precio_venta || 0, currency: p.moneda || 'PEN', unit: p.unit || 'UND', imageUrl: p.image_url, updatedAt: p.updated_at
     }));
   } catch (e) { throw e; }
 };
@@ -86,7 +86,8 @@ export const saveProduct = async (product: Partial<Product>) => {
     stock: Number(product.stock) || 0, 
     min_stock: Number(product.minStock) || 30, 
     critical_stock: Number(product.criticalStock) || 10,
-    precio_compra: Number(product.purchasePrice) || 0,
+    precio_compra: Number(product.purchasePrice) || 0, 
+    precio_venta: Number(product.salePrice) || 0,
     moneda: product.currency || 'PEN', 
     unit: product.unit || 'UND',
     image_url: product.imageUrl, 
