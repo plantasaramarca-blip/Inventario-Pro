@@ -3,23 +3,34 @@ import React, { useState, useEffect } from 'react';
 import { AuditLog } from '../types.ts';
 import * as api from '../services/supabaseService.ts';
 import { 
-  ClipboardCheck, Loader2
+  ClipboardCheck, Loader2, ChevronLeft, ChevronRight
 } from 'lucide-react';
+
+const ITEMS_PER_PAGE = 20;
 
 export const AuditPage: React.FC = () => {
   const [logs, setLogs] = useState<AuditLog[]>([]);
   const [loading, setLoading] = useState(true);
+  const [currentPage, setCurrentPage] = useState(0);
+  const [totalCount, setTotalCount] = useState(0);
   
-  const loadLogs = async () => {
+  const totalPages = Math.ceil(totalCount / ITEMS_PER_PAGE);
+
+  const loadLogs = async (page: number) => {
     setLoading(true);
     try {
-      const { data } = await api.getAuditLogs(0, 50);
+      const { data, count } = await api.getAuditLogs(page, ITEMS_PER_PAGE);
       setLogs(data || []);
-    } catch (e) {}
-    setLoading(false);
+      setTotalCount(count || 0);
+      setCurrentPage(page);
+    } catch (e) {
+      console.error("Failed to load audit logs", e);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  useEffect(() => { loadLogs(); }, []);
+  useEffect(() => { loadLogs(0); }, []);
 
   return (
     <div className="space-y-4 animate-in fade-in duration-500 pb-20">
@@ -69,6 +80,13 @@ export const AuditPage: React.FC = () => {
             </tbody>
           </table>
         </div>
+        {totalPages > 1 && (
+          <div className="p-4 flex justify-between items-center text-[10px] font-black uppercase text-slate-500 border-t">
+            <button onClick={() => loadLogs(currentPage - 1)} disabled={currentPage === 0 || loading} className="px-3 py-2 hover:bg-slate-100 rounded-lg disabled:opacity-30 flex items-center gap-1.5"><ChevronLeft className="w-3.5 h-3.5" /> Ant</button>
+            <span>Página {currentPage + 1} de {totalPages}</span>
+            <button onClick={() => loadLogs(currentPage + 1)} disabled={currentPage >= totalPages - 1 || loading} className="px-3 py-2 hover:bg-slate-100 rounded-lg disabled:opacity-30 flex items-center gap-1.5">Sig <ChevronRight className="w-3.5 h-3.5" /></button>
+          </div>
+        )}
       </div>
     </div>
   );

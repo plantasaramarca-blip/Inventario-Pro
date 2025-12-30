@@ -1,3 +1,4 @@
+
 export function formatCurrency(
   amount: number, 
   currency: string = 'PEN'
@@ -17,7 +18,7 @@ export function formatCurrency(
 }
 
 export function calculateMargin(purchase: number, sale: number) {
-  if (!purchase || !sale) return { amount: 0, percent: 0 };
+  if (!purchase || purchase === 0 || !sale) return { amount: 0, percent: 0 };
   const amount = sale - purchase;
   const percent = (amount / purchase) * 100;
   return { amount, percent };
