@@ -8,6 +8,8 @@ import { exportToPDF } from '../services/excelService.ts';
 import { exportToExcel } from '../services/excelService.ts';
 import { ProductQRCode } from '../components/ProductQRCode.tsx';
 import { MultiQRCode } from '../components/MultiQRCode.tsx';
+import { useNotification } from '../contexts/NotificationContext.tsx';
+import { CustomDialog } from '../components/CustomDialog.tsx';
 import { 
   Plus, Search, Edit2, ImageIcon, Loader2, X, Save, Camera, FileText, QrCode, Info, Trash2, FileSpreadsheet, RefreshCcw, CheckSquare, Square, Printer
 } from 'lucide-react';
@@ -21,25 +23,22 @@ export const Inventory: React.FC<{ role: Role }> = ({ role }) => {
   const [saving, setSaving] = useState(false);
   const [search, setSearch] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
-  
-  // Selección múltiple
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [isMultiQRModalOpen, setIsMultiQRModalOpen] = useState(false);
-  
   const [selectedQRProduct, setSelectedQRProduct] = useState<Product | null>(null);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [imageInfo, setImageInfo] = useState<{ size: string; status: string } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [formData, setFormData] = useState<any>({});
+  
+  const [productToDelete, setProductToDelete] = useState<Product | null>(null);
+  const { addNotification } = useNotification();
 
   const loadData = async () => {
     setLoading(true);
     setShowRetry(false);
     
-    // Timer de seguridad: si en 6 segundos no carga, mostramos botón de reintento
-    const timer = setTimeout(() => {
-      setShowRetry(true);
-    }, 6000);
+    const timer = setTimeout(() => { setShowRetry(true); }, 6000);
 
     try {
       const [p, c, l] = await Promise.all([
@@ -54,6 +53,7 @@ export const Inventory: React.FC<{ role: Role }> = ({ role }) => {
     } catch (e) { 
       console.error(e);
       setShowRetry(true);
+      addNotification('Error de conexión con la base de datos.', 'error');
     } finally { 
       setLoading(false); 
     }
@@ -124,9 +124,23 @@ export const Inventory: React.FC<{ role: Role }> = ({ role }) => {
       await api.saveProduct(formData); 
       setIsModalOpen(false); 
       loadData(); 
+      addNotification(`"${formData.name}" guardado con éxito.`, 'success');
     } catch (err) { 
-      alert("Error al guardar."); 
+      addNotification("Error al guardar producto.", 'error');
     } finally { setSaving(false); }
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!productToDelete) return;
+    try {
+      await api.deleteProduct(productToDelete.id);
+      loadData();
+      addNotification(`Producto "${productToDelete.name}" eliminado.`, 'success');
+    } catch (err) {
+      addNotification('Error al eliminar el producto.', 'error');
+    } finally {
+      setProductToDelete(null);
+    }
   };
 
   const filtered = products.filter(p => 
@@ -227,7 +241,7 @@ export const Inventory: React.FC<{ role: Role }> = ({ role }) => {
                   <div className="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                     <button onClick={() => setSelectedQRProduct(p)} className="p-2 text-slate-300 hover:text-emerald-600 hover:bg-emerald-50 rounded-xl transition-all"><QrCode className="w-4 h-4" /></button>
                     {role !== 'VIEWER' && <button onClick={() => handleOpenModal(p)} className="p-2 text-slate-300 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl transition-all"><Edit2 className="w-4 h-4" /></button>}
-                    {role === 'ADMIN' && <button onClick={async () => { if(confirm('¿Eliminar?')) { await api.deleteProduct(p.id); loadData(); } }} className="p-2 text-slate-300 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all"><Trash2 className="w-4 h-4" /></button>}
+                    {role === 'ADMIN' && <button onClick={() => setProductToDelete(p)} className="p-2 text-slate-300 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all"><Trash2 className="w-4 h-4" /></button>}
                   </div>
                 </td>
               </tr>
@@ -236,7 +250,6 @@ export const Inventory: React.FC<{ role: Role }> = ({ role }) => {
         </table>
       </div>
 
-      {/* Botón Flotante para Impresión Múltiple */}
       {selectedIds.length > 0 && (
         <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-[80] animate-in slide-in-from-bottom-10">
           <button 
@@ -382,6 +395,15 @@ export const Inventory: React.FC<{ role: Role }> = ({ role }) => {
           onClose={() => setIsMultiQRModalOpen(false)} 
         />
       )}
+      <CustomDialog
+        isOpen={!!productToDelete}
+        title="Confirmar Eliminación"
+        message={`¿Eliminar "${productToDelete?.name}"? Esta acción es irreversible.`}
+        type="error"
+        onConfirm={handleConfirmDelete}
+        onCancel={() => setProductToDelete(null)}
+        confirmText="Sí, Eliminar"
+      />
     </div>
   );
 };

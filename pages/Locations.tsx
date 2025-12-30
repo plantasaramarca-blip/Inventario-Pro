@@ -2,6 +2,8 @@
 import React, { useState, useEffect } from 'react';
 import { LocationMaster, Role } from '../types.ts';
 import * as api from '../services/supabaseService.ts';
+import { useNotification } from '../contexts/NotificationContext.tsx';
+import { CustomDialog } from '../components/CustomDialog.tsx';
 import { 
   Plus, Warehouse, Edit2, Trash2, X, Search, Loader2, MapPin
 } from 'lucide-react';
@@ -11,16 +13,20 @@ export const LocationManagement: React.FC<{ role: Role }> = ({ role }) => {
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingLoc, setEditingLoc] = useState<LocationMaster | null>(null);
+  const [locToDelete, setLocToDelete] = useState<LocationMaster | null>(null);
   const [name, setName] = useState('');
   const [search, setSearch] = useState('');
   const [saving, setSaving] = useState(false);
+  const { addNotification } = useNotification();
 
   const loadData = async () => {
     setLoading(true);
     try {
       const data = await api.getLocationsMaster();
       setLocations(data || []);
-    } catch (e) {}
+    } catch (e) {
+      addNotification("Error al cargar almacenes.", "error");
+    }
     setLoading(false);
   };
 
@@ -39,16 +45,23 @@ export const LocationManagement: React.FC<{ role: Role }> = ({ role }) => {
       await api.saveLocationMaster({ id: editingLoc?.id, name });
       setIsModalOpen(false);
       loadData();
-    } catch (e) {}
+      addNotification("Almacén guardado.", "success");
+    } catch (e) {
+      addNotification("Error al guardar.", "error");
+    }
     setSaving(false);
   };
 
-  const handleDelete = async (id: string) => {
-    if (confirm('¿Eliminar este almacén?')) {
-      try {
-        await api.deleteLocationMaster(id);
-        loadData();
-      } catch (e) {}
+  const handleConfirmDelete = async () => {
+    if (!locToDelete) return;
+    try {
+      await api.deleteLocationMaster(locToDelete.id);
+      loadData();
+      addNotification(`Almacén "${locToDelete.name}" eliminado.`, "success");
+    } catch (e) {
+      addNotification("Error al eliminar.", "error");
+    } finally {
+      setLocToDelete(null);
     }
   };
 
@@ -87,7 +100,7 @@ export const LocationManagement: React.FC<{ role: Role }> = ({ role }) => {
             </div>
             <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
               <button onClick={() => handleOpenModal(l)} className="p-2 text-slate-300 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl"><Edit2 className="w-4 h-4" /></button>
-              <button onClick={() => handleDelete(l.id)} className="p-2 text-slate-300 hover:text-rose-600 hover:bg-rose-50 rounded-xl"><Trash2 className="w-4 h-4" /></button>
+              <button onClick={() => setLocToDelete(l)} className="p-2 text-slate-300 hover:text-rose-600 hover:bg-rose-50 rounded-xl"><Trash2 className="w-4 h-4" /></button>
             </div>
           </div>
         ))}
@@ -108,6 +121,16 @@ export const LocationManagement: React.FC<{ role: Role }> = ({ role }) => {
           </form>
         </div>
       )}
+
+      <CustomDialog
+        isOpen={!!locToDelete}
+        title="Confirmar Eliminación"
+        message={`¿Eliminar el almacén "${locToDelete?.name}"?`}
+        type="error"
+        onConfirm={handleConfirmDelete}
+        onCancel={() => setLocToDelete(null)}
+        confirmText="Sí, Eliminar"
+      />
     </div>
   );
 };

@@ -18,6 +18,20 @@ import { Role } from './types.ts';
 import * as api from './services/supabaseService.ts';
 import { Loader2 } from 'lucide-react';
 import { CustomDialog } from './components/CustomDialog.tsx';
+import { useNotification } from './contexts/NotificationContext.tsx';
+import { Toast } from './components/Toast.tsx';
+
+const NotificationContainer = () => {
+  const { notifications, removeNotification } = useNotification();
+  return (
+    <div className="fixed top-6 right-6 z-[2000] w-full max-w-sm space-y-3">
+      {notifications.map((n) => (
+        <Toast key={n.id} notification={n} onClose={removeNotification} />
+      ))}
+    </div>
+  );
+};
+
 
 export default function App() {
   const [session, setSession] = useState<any>(null);
@@ -128,11 +142,12 @@ export default function App() {
         <Navbar onMenuClick={() => setIsSidebarOpen(true)} role={role} userEmail={session.user?.email} />
         <main className="flex-1 overflow-y-auto p-3 sm:p-6 no-scrollbar"><div className="max-w-7xl mx-auto">{renderContent()}</div></main>
       </div>
+      <NotificationContainer />
       <CustomDialog 
         isOpen={showExitConfirm} 
         title="Seguridad" 
         message="¿Deseas cerrar la sesión y salir del sistema?" 
-        type="confirm"
+        type="error"
         onConfirm={handleFinalExit}
         onCancel={() => setShowExitConfirm(false)}
         confirmText="Cerrar Sesión"

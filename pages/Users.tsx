@@ -2,6 +2,8 @@
 import React, { useState, useEffect } from 'react';
 import { UserAccount, Role } from '../types.ts';
 import * as api from '../services/supabaseService.ts';
+import { useNotification } from '../contexts/NotificationContext.tsx';
+import { CustomDialog } from '../components/CustomDialog.tsx';
 import { UserPlus, Key, Trash2, X, Search, Loader2, Mail, ShieldCheck, UserCheck, ShieldAlert } from 'https://esm.sh/lucide-react@0.475.0?external=react,react-dom';
 
 export const UsersPage: React.FC = () => {
@@ -11,10 +13,20 @@ export const UsersPage: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [search, setSearch] = useState('');
   const [editingUser, setEditingUser] = useState<UserAccount | null>(null);
+  const [userToDelete, setUserToDelete] = useState<UserAccount | null>(null);
   const [formData, setFormData] = useState<any>({});
+  const { addNotification } = useNotification();
 
   const loadData = async () => {
-    setLoading(true); try { const data = await api.getUsers(); setUsers(data || []); } catch (e) {} finally { setLoading(false); }
+    setLoading(true);
+    try {
+      const data = await api.getUsers();
+      setUsers(data || []);
+    } catch (e) {
+      addNotification("Error al cargar usuarios.", "error");
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => { loadData(); }, []);
@@ -26,8 +38,31 @@ export const UsersPage: React.FC = () => {
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault(); setSaving(true);
-    try { await api.saveUser({ ...formData, id: editingUser?.id }); setIsModalOpen(false); loadData(); } catch (err) {} finally { setSaving(false); }
+    e.preventDefault();
+    setSaving(true);
+    try {
+      await api.saveUser({ ...formData, id: editingUser?.id });
+      setIsModalOpen(false);
+      loadData();
+      addNotification("Usuario guardado correctamente.", "success");
+    } catch (err) {
+      addNotification("Error al guardar el usuario.", "error");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!userToDelete) return;
+    try {
+      await api.deleteUser(userToDelete.id);
+      loadData();
+      addNotification(`Usuario "${userToDelete.email}" eliminado.`, "success");
+    } catch (e) {
+      addNotification("Error al eliminar el usuario.", "error");
+    } finally {
+      setUserToDelete(null);
+    }
   };
 
   return (
@@ -60,7 +95,7 @@ export const UsersPage: React.FC = () => {
              </div>
              <div className="flex items-center justify-between mt-4 pt-4 border-t border-slate-50">
                 <button onClick={() => handleOpenModal(u)} className="text-[9px] font-black text-slate-400 uppercase tracking-widest hover:text-indigo-600 flex items-center gap-1.5"><Key className="w-3 h-3" /> Editar</button>
-                <button onClick={async () => { if(confirm('¿Eliminar?')) { await api.deleteUser(u.id); loadData(); } }} className="p-1 text-slate-300 hover:text-red-500"><Trash2 className="w-4 h-4" /></button>
+                <button onClick={() => setUserToDelete(u)} className="p-1 text-slate-300 hover:text-red-500"><Trash2 className="w-4 h-4" /></button>
              </div>
           </div>
         ))}
@@ -83,6 +118,15 @@ export const UsersPage: React.FC = () => {
           </form>
         </div>
       )}
+      <CustomDialog
+        isOpen={!!userToDelete}
+        title="Confirmar Eliminación"
+        message={`¿Eliminar al usuario "${userToDelete?.email}"?`}
+        type="error"
+        onConfirm={handleConfirmDelete}
+        onCancel={() => setUserToDelete(null)}
+        confirmText="Sí, Eliminar"
+      />
     </div>
   );
 };

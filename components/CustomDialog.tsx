@@ -42,11 +42,13 @@ export const CustomDialog: React.FC<CustomDialogProps> = ({
           </div>
           
           <div className="flex flex-col gap-2 pt-3">
-            {type === 'confirm' && (
+            {type !== 'alert' && type !== 'success' && (
               <button 
                 onClick={onConfirm}
                 disabled={loading}
-                className="w-full py-3.5 bg-indigo-600 text-white rounded-2xl text-[9px] font-black uppercase tracking-widest shadow-xl hover:bg-indigo-700 transition-all active:scale-95 flex items-center justify-center gap-2"
+                className={`w-full py-3.5 text-white rounded-2xl text-[9px] font-black uppercase tracking-widest shadow-xl transition-all active:scale-95 flex items-center justify-center gap-2 ${
+                  type === 'error' ? 'bg-rose-600 hover:bg-rose-700' : 'bg-indigo-600 hover:bg-indigo-700'
+                }`}
               >
                 {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : confirmText}
               </button>
@@ -54,10 +56,10 @@ export const CustomDialog: React.FC<CustomDialogProps> = ({
             <button 
               onClick={onCancel}
               className={`w-full py-3.5 rounded-2xl text-[9px] font-black uppercase tracking-widest transition-all active:scale-95 ${
-                type === 'confirm' ? 'text-slate-400 hover:bg-slate-50' : 'bg-slate-900 text-white shadow-xl'
+                type === 'confirm' || type === 'error' ? 'text-slate-400 hover:bg-slate-50' : 'bg-slate-900 text-white shadow-xl'
               }`}
             >
-              {type === 'confirm' ? cancelText : 'Cerrar'}
+              {type === 'confirm' || type === 'error' ? cancelText : 'Cerrar'}
             </button>
           </div>
         </div>

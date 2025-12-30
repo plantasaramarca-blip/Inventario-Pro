@@ -120,11 +120,26 @@ export const getMovements = async (): Promise<Movement[]> => {
 
 export const registerBatchMovements = async (items: any[]) => {
   if (!useSupabase()) return;
+
+  // Pre-flight check for SALIDA transactions to prevent stock negatives
+  for (const item of items) {
+    if (item.type === 'SALIDA') {
+      const { data: prod } = await withTimeout(supabase.from('products').select('name, stock').eq('id', item.productId).single());
+      if (!prod) {
+        throw new Error(`Producto con ID ${item.productId} no encontrado.`);
+      }
+      if (prod.stock < item.quantity) {
+        throw new Error(`Stock insuficiente para "${prod.name}". Disponible: ${prod.stock}, Solicitado: ${item.quantity}.`);
+      }
+    }
+  }
+
+  // If all checks pass, execute transactions
   for (const item of items) {
      const { data: prod } = await withTimeout(supabase.from('products').select('name, stock').eq('id', item.productId).single());
      if (!prod) continue;
      const newStock = prod.stock + (item.type === 'INGRESO' ? item.quantity : -item.quantity);
-     await withTimeout(supabase.from('products').update({ stock: newStock }).eq('id', item.productId));
+     await withTimeout(supabase.from('products').update({ stock: newStock, updated_at: new Date().toISOString() }).eq('id', item.productId));
      await withTimeout(supabase.from('movements').insert([{ 
        product_id: item.productId, product_name: prod.name, type: item.type, 
        quantity: item.quantity, dispatcher: item.dispatcher, reason: item.reason, 

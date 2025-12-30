@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Menu, Package, LogOut, ShieldCheck, UserCheck, Loader2 } from 'https://esm.sh/lucide-react@0.475.0?external=react,react-dom';
 import { Role } from '../types.ts';
@@ -36,7 +37,16 @@ export const Navbar: React.FC<{ onMenuClick: () => void; role: Role; userEmail?:
           <button onClick={() => setShowConfirm(true)} className="p-1.5 text-slate-400 hover:text-red-600 transition-colors"><LogOut className="h-4 w-4" /></button>
         </div>
       </div>
-      <CustomDialog isOpen={showConfirm} title="Seguridad" message="¿Cerrar sesión?" onConfirm={handleLogout} onCancel={() => setShowConfirm(false)} loading={isLoggingOut} />
+      <CustomDialog 
+        isOpen={showConfirm} 
+        title="Seguridad" 
+        message="¿Cerrar sesión?" 
+        onConfirm={handleLogout} 
+        onCancel={() => setShowConfirm(false)} 
+        loading={isLoggingOut} 
+        type="error"
+        confirmText="Cerrar Sesión"
+      />
     </header>
   );
 };

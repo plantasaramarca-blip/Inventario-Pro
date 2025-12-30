@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Movement, Product, TransactionType, Destination, Role, LocationMaster } from '../types.ts';
 import * as api from '../services/supabaseService.ts';
+import { useNotification } from '../contexts/NotificationContext.tsx';
 import { 
   ArrowDownCircle, ArrowUpCircle, Loader2, X, Search, Save, UserCheck, ArrowUp, ArrowDown, Trash, RefreshCcw
 } from 'https://esm.sh/lucide-react@0.475.0?external=react,react-dom';
@@ -23,15 +24,13 @@ export const Kardex: React.FC<{ role: Role; userEmail?: string }> = ({ role, use
   const [carriedBy, setCarriedBy] = useState('');
   const [supplierName, setSupplierName] = useState('');
   const [reason, setReason] = useState('');
+  const { addNotification } = useNotification();
 
   const loadData = async () => {
     setLoading(true);
     setShowRetry(false);
     
-    // Timer para mostrar botón de reintento si tarda más de 5s
-    const timer = setTimeout(() => {
-      setShowRetry(true);
-    }, 5000);
+    const timer = setTimeout(() => { setShowRetry(true); }, 5000);
 
     try {
       const [m, p, d, l] = await Promise.all([
@@ -48,6 +47,7 @@ export const Kardex: React.FC<{ role: Role; userEmail?: string }> = ({ role, use
     } catch (e) {
       console.error(e);
       setShowRetry(true);
+      addNotification("Error al cargar datos del Kardex.", "error");
     } finally { 
       setLoading(false); 
     }
@@ -73,8 +73,15 @@ export const Kardex: React.FC<{ role: Role; userEmail?: string }> = ({ role, use
         reason: type === 'SALIDA' ? `${reason} (Transp: ${carriedBy})` : `${reason} (Prov: ${supplierName})`,
         destinationName: type === 'SALIDA' ? destinoObj?.name : locationObj?.name
       }));
-      await api.registerBatchMovements(batchPayload); setIsModalOpen(false); loadData();
-    } catch (err: any) { alert(err.message); } finally { setSaving(false); }
+      await api.registerBatchMovements(batchPayload); 
+      setIsModalOpen(false); 
+      loadData();
+      addNotification('Movimiento registrado con éxito.', 'success');
+    } catch (err: any) { 
+      addNotification(err.message, 'error'); 
+    } finally { 
+      setSaving(false); 
+    }
   };
 
   const filteredSearch = useMemo(() => productSearch ? products.filter(p => p.name.toLowerCase().includes(productSearch.toLowerCase()) || p.code.toLowerCase().includes(productSearch.toLowerCase())).slice(0, 5) : [], [products, productSearch]);

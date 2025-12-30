@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { Destination } from '../types.ts';
 import * as api from '../services/supabaseService.ts';
+import { useNotification } from '../contexts/NotificationContext.tsx';
 import { 
   Plus, MapPin, Edit2, X, Search, Loader2, AlertCircle, Trash2
 } from 'lucide-react';
@@ -12,6 +13,7 @@ export const Destinos: React.FC = () => {
   const [error, setError] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [search, setSearch] = useState('');
+  const { addNotification } = useNotification();
   
   const [formData, setFormData] = useState<Partial<Destination>>({
     name: '', type: 'sucursal', description: '', active: true
@@ -26,6 +28,7 @@ export const Destinos: React.FC = () => {
     } catch (e) {
       console.error("Error al cargar centros de costos:", e);
       setError(true);
+      addNotification("Error al cargar centros de costos.", "error");
     } finally {
       setLoading(false);
     }
@@ -35,9 +38,14 @@ export const Destinos: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    await api.saveDestino(formData);
-    setIsModalOpen(false);
-    loadData();
+    try {
+      await api.saveDestino(formData);
+      setIsModalOpen(false);
+      loadData();
+      addNotification("Centro de costo guardado.", "success");
+    } catch (e) {
+      addNotification("Error al guardar.", "error");
+    }
   };
 
   const filteredDestinos = destinos.filter(d => 

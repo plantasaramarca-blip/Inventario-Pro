@@ -2,6 +2,8 @@
 import React, { useState, useEffect } from 'react';
 import { CategoryMaster, Role } from '../types.ts';
 import * as api from '../services/supabaseService.ts';
+import { useNotification } from '../contexts/NotificationContext.tsx';
+import { CustomDialog } from '../components/CustomDialog.tsx';
 import { 
   Plus, Tags, Edit2, Trash2, X, Search, Loader2
 } from 'lucide-react';
@@ -11,16 +13,20 @@ export const CategoryManagement: React.FC<{ role: Role }> = ({ role }) => {
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingCat, setEditingCat] = useState<CategoryMaster | null>(null);
+  const [catToDelete, setCatToDelete] = useState<CategoryMaster | null>(null);
   const [name, setName] = useState('');
   const [search, setSearch] = useState('');
   const [saving, setSaving] = useState(false);
+  const { addNotification } = useNotification();
 
   const loadData = async () => {
     setLoading(true);
     try {
       const data = await api.getCategoriesMaster();
       setCategories(data || []);
-    } catch (e) {}
+    } catch (e) {
+      addNotification("Error al cargar categorías.", "error");
+    }
     setLoading(false);
   };
 
@@ -39,16 +45,23 @@ export const CategoryManagement: React.FC<{ role: Role }> = ({ role }) => {
       await api.saveCategoryMaster({ id: editingCat?.id, name });
       setIsModalOpen(false);
       loadData();
-    } catch (e) {}
+      addNotification("Categoría guardada.", "success");
+    } catch (e) {
+      addNotification("Error al guardar.", "error");
+    }
     setSaving(false);
   };
 
-  const handleDelete = async (id: string) => {
-    if (confirm('¿Eliminar esta categoría?')) {
-      try {
-        await api.deleteCategoryMaster(id);
-        loadData();
-      } catch (e) {}
+  const handleConfirmDelete = async () => {
+    if (!catToDelete) return;
+    try {
+      await api.deleteCategoryMaster(catToDelete.id);
+      loadData();
+      addNotification(`Categoría "${catToDelete.name}" eliminada.`, 'success');
+    } catch (e) {
+      addNotification("Error al eliminar.", "error");
+    } finally {
+      setCatToDelete(null);
     }
   };
 
@@ -85,7 +98,7 @@ export const CategoryManagement: React.FC<{ role: Role }> = ({ role }) => {
             </div>
             <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
               <button onClick={() => handleOpenModal(c)} className="p-2 text-slate-300 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl"><Edit2 className="w-4 h-4" /></button>
-              <button onClick={() => handleDelete(c.id)} className="p-2 text-slate-300 hover:text-rose-600 hover:bg-rose-50 rounded-xl"><Trash2 className="w-4 h-4" /></button>
+              <button onClick={() => setCatToDelete(c)} className="p-2 text-slate-300 hover:text-rose-600 hover:bg-rose-50 rounded-xl"><Trash2 className="w-4 h-4" /></button>
             </div>
           </div>
         ))}
@@ -106,6 +119,16 @@ export const CategoryManagement: React.FC<{ role: Role }> = ({ role }) => {
           </form>
         </div>
       )}
+
+      <CustomDialog
+        isOpen={!!catToDelete}
+        title="Confirmar Eliminación"
+        message={`¿Eliminar la categoría "${catToDelete?.name}"?`}
+        type="error"
+        onConfirm={handleConfirmDelete}
+        onCancel={() => setCatToDelete(null)}
+        confirmText="Sí, Eliminar"
+      />
     </div>
   );
 };

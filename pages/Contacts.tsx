@@ -2,6 +2,8 @@
 import React, { useState, useEffect } from 'react';
 import { Contact, Role } from '../types.ts';
 import * as api from '../services/supabaseService.ts';
+import { useNotification } from '../contexts/NotificationContext.tsx';
+import { CustomDialog } from '../components/CustomDialog.tsx';
 import { Plus, Search, User, Briefcase, Phone, Mail, Trash2, Edit2, X, Loader2 } from 'lucide-react';
 
 interface ContactsProps { role: Role; }
@@ -12,15 +14,18 @@ export const Contacts: React.FC<ContactsProps> = ({ role }) => {
   const [search, setSearch] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingContact, setEditingContact] = useState<Contact | null>(null);
-
+  const [contactToDelete, setContactToDelete] = useState<Contact | null>(null);
   const [formData, setFormData] = useState<Partial<Contact>>({ name: '', type: 'CLIENTE', taxId: '', phone: '', email: '' });
+  const { addNotification } = useNotification();
 
   const loadData = async () => { 
     setLoading(true);
     try {
       const data = await api.getContacts();
       setContacts(data || []);
-    } catch (e) {}
+    } catch (e) {
+      addNotification("Error al cargar contactos.", "error");
+    }
     setLoading(false);
   };
   useEffect(() => { loadData(); }, []);
@@ -31,15 +36,29 @@ export const Contacts: React.FC<ContactsProps> = ({ role }) => {
     setIsModalOpen(true);
   };
 
-  const handleDelete = async (id: string) => {
-    if (confirm('¿Eliminar contacto?')) { await api.deleteContact(id); loadData(); }
+  const handleConfirmDelete = async () => {
+    if (!contactToDelete) return;
+    try {
+      await api.deleteContact(contactToDelete.id);
+      loadData();
+      addNotification(`Contacto "${contactToDelete.name}" eliminado.`, 'success');
+    } catch (e) {
+      addNotification("Error al eliminar el contacto.", 'error');
+    } finally {
+      setContactToDelete(null);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    await api.saveContact(formData);
-    setIsModalOpen(false);
-    loadData();
+    try {
+      await api.saveContact(formData);
+      setIsModalOpen(false);
+      loadData();
+      addNotification("Contacto guardado con éxito.", "success");
+    } catch (e) {
+      addNotification("Error al guardar el contacto.", "error");
+    }
   };
 
   return (
@@ -79,13 +98,22 @@ export const Contacts: React.FC<ContactsProps> = ({ role }) => {
               {role === 'ADMIN' && (
                 <div className="flex flex-col gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                   <button onClick={() => handleOpenModal(contact)} className="p-2 text-slate-300 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl"><Edit2 className="w-4 h-4" /></button>
-                  <button onClick={() => handleDelete(contact.id)} className="p-2 text-slate-300 hover:text-rose-600 hover:bg-rose-50 rounded-xl"><Trash2 className="w-4 h-4" /></button>
+                  <button onClick={() => setContactToDelete(contact)} className="p-2 text-slate-300 hover:text-rose-600 hover:bg-rose-50 rounded-xl"><Trash2 className="w-4 h-4" /></button>
                 </div>
               )}
             </div>
           ))}
         </div>
       )}
+      <CustomDialog
+        isOpen={!!contactToDelete}
+        title="Confirmar Eliminación"
+        message={`¿Eliminar a "${contactToDelete?.name}"?`}
+        type="error"
+        onConfirm={handleConfirmDelete}
+        onCancel={() => setContactToDelete(null)}
+        confirmText="Sí, Eliminar"
+      />
     </div>
   );
 };
