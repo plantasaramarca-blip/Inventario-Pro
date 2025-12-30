@@ -14,7 +14,7 @@ import { UsersPage } from './pages/Users.tsx';
 import { CategoryManagement } from './pages/Categories.tsx';
 import { LocationManagement } from './pages/Locations.tsx';
 import { Login } from './pages/Login.tsx';
-import { Role, Product } from './types.ts';
+import { Role } from './types.ts';
 import * as api from './services/supabaseService.ts';
 import { Loader2 } from 'lucide-react';
 import { CustomDialog } from './components/CustomDialog.tsx';
@@ -59,7 +59,6 @@ export default function App() {
               if (newSession.user.email) await fetchRole(newSession.user.email);
             } else {
               setSession(null);
-              setRole('VIEWER');
             }
           });
           
@@ -72,22 +71,19 @@ export default function App() {
             await fetchRole(parsed.user.email);
           }
         }
-      } catch (e) {
-        console.error("Auth init error:", e);
-      } finally {
+      } catch (e) {} finally {
         setLoading(false);
       }
     };
     initAuth();
 
-    // Gestión de navegación por historial
+    // Gestión inteligente de navegación
     window.history.replaceState({ page: 'dashboard' }, "", "");
 
     const handlePopState = (event: PopStateEvent) => {
       if (event.state && event.state.page) {
         navigateTo(event.state.page, false);
       } else {
-        // Si estamos en dashboard y presionan atrás, preguntar para salir
         if (currentPage === 'dashboard') {
           window.history.pushState({ page: 'dashboard' }, "", "");
           setShowExitConfirm(true);
