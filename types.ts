@@ -53,7 +53,6 @@ export interface Product {
   minStock: number;
   criticalStock: number;
   purchasePrice: number;
-  salePrice?: number;
   currency: 'PEN' | 'USD' | 'EUR';
   unit: string;
   imageUrl?: string;
