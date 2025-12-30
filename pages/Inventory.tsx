@@ -221,6 +221,7 @@ export const Inventory: React.FC<{ role: Role }> = ({ role }) => {
                       <button type="button" onClick={() => fileInputRef.current?.click()} className="absolute inset-0 bg-indigo-600/80 text-white opacity-0 group-hover:opacity-100 flex flex-col items-center justify-center text-[9px] font-black uppercase transition-all backdrop-blur-sm">
                         <Camera className="w-8 h-8 mb-2" /> Tomar Foto / Subir
                       </button>
+                      {/* Atributo capture="environment" fuerza el uso de la cámara trasera en móviles */}
                       <input 
                         type="file" 
                         accept="image/*" 

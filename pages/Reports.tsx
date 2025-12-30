@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { Movement, Product } from '../types.ts';
 import * as api from '../services/supabaseService.ts';
@@ -117,8 +118,8 @@ export const Reports: React.FC = () => {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="bg-white p-8 rounded-[3rem] border border-slate-100 shadow-sm">
           <h3 className="text-[10px] font-black text-slate-800 uppercase tracking-widest mb-8 flex items-center gap-3"><TrendingUp className="w-5 h-5 text-indigo-600" /> Histórico de Flujo</h3>
-          <div className="h-64">
-            <ResponsiveContainer width="100%" height="100%">
+          <div className="h-64 min-h-[300px]">
+            <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
               <LineChart data={chartData}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
                 <XAxis dataKey="date" fontSize={8} tick={{fontWeight: 800}} stroke="#cbd5e1" />
@@ -134,8 +135,8 @@ export const Reports: React.FC = () => {
 
         <div className="bg-white p-8 rounded-[3rem] border border-slate-100 shadow-sm flex flex-col items-center">
           <h3 className="text-[10px] font-black text-slate-800 uppercase tracking-widest mb-8 w-full flex items-center gap-3"><PieIcon className="w-5 h-5 text-indigo-600" /> Distribución Logística</h3>
-          <div className="h-64 w-full">
-            <ResponsiveContainer width="100%" height="100%">
+          <div className="h-64 w-full min-h-[300px]">
+            <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
               <PieChart>
                 <Pie 
                   data={[
