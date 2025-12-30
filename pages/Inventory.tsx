@@ -8,7 +8,7 @@ import { exportToPDF } from '../services/excelService.ts';
 import { exportToExcel } from '../services/excelService.ts';
 import { ProductQRCode } from '../components/ProductQRCode.tsx';
 import { 
-  Plus, Search, Edit2, ImageIcon, Loader2, X, Save, Camera, FileText, QrCode, Info, Trash2, FileSpreadsheet
+  Plus, Search, Edit2, ImageIcon, Loader2, X, Save, Camera, FileText, QrCode, Info, Trash2, FileSpreadsheet, RefreshCcw
 } from 'lucide-react';
 
 export const Inventory: React.FC<{ role: Role }> = ({ role }) => {
@@ -16,6 +16,7 @@ export const Inventory: React.FC<{ role: Role }> = ({ role }) => {
   const [categories, setCategories] = useState<CategoryMaster[]>([]);
   const [locations, setLocations] = useState<LocationMaster[]>([]);
   const [loading, setLoading] = useState(true);
+  const [showRetry, setShowRetry] = useState(false);
   const [saving, setSaving] = useState(false);
   const [search, setSearch] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -27,12 +28,24 @@ export const Inventory: React.FC<{ role: Role }> = ({ role }) => {
 
   const loadData = async () => {
     setLoading(true);
+    setShowRetry(false);
+    
+    const timer = setTimeout(() => {
+      setShowRetry(true);
+    }, 5000);
+
     try {
       const [p, c, l] = await Promise.all([api.getProducts(), api.getCategoriesMaster(), api.getLocationsMaster()]);
       setProducts(p || []);
       setCategories(c || []);
       setLocations(l || []);
-    } catch (e) { console.error(e); } finally { setLoading(false); }
+      clearTimeout(timer);
+    } catch (e) { 
+      console.error(e);
+      setShowRetry(true);
+    } finally { 
+      setLoading(false); 
+    }
   };
 
   useEffect(() => { loadData(); }, []);
@@ -123,12 +136,31 @@ export const Inventory: React.FC<{ role: Role }> = ({ role }) => {
 
   const filtered = products.filter(p => p.name.toLowerCase().includes(search.toLowerCase()) || p.code.toLowerCase().includes(search.toLowerCase()) || (p.brand && p.brand.toLowerCase().includes(search.toLowerCase())));
 
+  if (loading || showRetry) {
+    return (
+      <div className="h-[60vh] flex flex-col items-center justify-center space-y-4">
+        {loading ? (
+          <>
+            <Loader2 className="animate-spin h-10 w-10 text-indigo-600" />
+            <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest animate-pulse">Cargando Inventario...</p>
+          </>
+        ) : (
+          <div className="text-center animate-in zoom-in-95">
+             <RefreshCcw className="h-10 w-10 text-rose-500 mx-auto mb-3" />
+             <p className="text-[10px] font-black uppercase text-slate-600 mb-4">Error al conectar con el almacén</p>
+             <button onClick={loadData} className="bg-indigo-600 text-white px-6 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-xl shadow-indigo-100 hover:bg-indigo-700 active:scale-95 transition-all">Reintentar Ahora</button>
+          </div>
+        )}
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-4 animate-in fade-in pb-10">
       <div className="flex justify-between items-end">
         <div>
           <h1 className="text-2xl font-black text-slate-900 uppercase tracking-tight">PRODUCTOS</h1>
-          <p className="text-[9px] text-slate-500 font-black uppercase tracking-widest mt-0.5">Control Maestro de Inventario</p>
+          <p className="text-[9px] text-slate-500 font-black uppercase tracking-widest mt-0.5">Control Maestro</p>
         </div>
         <div className="flex gap-2">
           <div className="bg-white border border-slate-200 rounded-xl flex overflow-hidden shadow-sm">
@@ -141,7 +173,7 @@ export const Inventory: React.FC<{ role: Role }> = ({ role }) => {
 
       <div className="relative group">
         <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300 group-focus-within:text-indigo-500 transition-colors" />
-        <input type="text" className="w-full pl-10 pr-10 py-3 bg-white border border-slate-100 rounded-2xl text-xs outline-none shadow-sm focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all font-bold" placeholder="Buscar por nombre, SKU o marca..." value={search} onChange={e => setSearch(e.target.value)} />
+        <input type="text" className="w-full pl-10 pr-10 py-3 bg-white border border-slate-100 rounded-2xl text-xs outline-none shadow-sm focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all font-bold" placeholder="Buscar..." value={search} onChange={e => setSearch(e.target.value)} />
         {search && <button onClick={() => setSearch('')} className="absolute right-3.5 top-1/2 -translate-y-1/2 p-1 hover:bg-slate-100 rounded-full"><X className="w-3 h-3 text-slate-400" /></button>}
       </div>
 
@@ -153,12 +185,12 @@ export const Inventory: React.FC<{ role: Role }> = ({ role }) => {
               <th className="px-4 py-4 text-left">Especificaciones</th>
               <th className="px-4 py-4 text-center">Estado</th>
               <th className="px-4 py-4 text-center">Stock</th>
-              <th className="px-4 py-4 text-center">Precio Compra</th>
+              <th className="px-4 py-4 text-center">Costo Compra</th>
               <th className="px-6 py-4 text-right">Acciones</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-50">
-            {loading ? <tr><td colSpan={6} className="py-20 text-center"><Loader2 className="animate-spin w-8 h-8 mx-auto text-indigo-500" /></td></tr> : filtered.map(p => (
+            {filtered.map(p => (
               <tr key={p.id} className="hover:bg-slate-50/40 transition-colors group">
                 <td className="px-6 py-3">
                   <div className="flex items-center gap-3">
@@ -201,7 +233,7 @@ export const Inventory: React.FC<{ role: Role }> = ({ role }) => {
             <div className="px-8 py-5 border-b flex justify-between items-center bg-slate-50/50">
                <div>
                  <h3 className="text-xl font-black text-slate-800 uppercase tracking-tight">{editingProduct ? 'Editar' : 'Nuevo'} Producto</h3>
-                 <p className="text-[8px] text-slate-400 font-black uppercase tracking-widest mt-0.5">Control de Inventario Especializado</p>
+                 <p className="text-[8px] text-slate-400 font-black uppercase tracking-widest mt-0.5">Control Especializado</p>
                </div>
                <button type="button" onClick={() => setIsModalOpen(false)} className="p-2 hover:bg-slate-200 rounded-full transition-all"><X className="w-6 h-6 text-slate-400" /></button>
             </div>
@@ -221,7 +253,6 @@ export const Inventory: React.FC<{ role: Role }> = ({ role }) => {
                       <button type="button" onClick={() => fileInputRef.current?.click()} className="absolute inset-0 bg-indigo-600/80 text-white opacity-0 group-hover:opacity-100 flex flex-col items-center justify-center text-[9px] font-black uppercase transition-all backdrop-blur-sm">
                         <Camera className="w-8 h-8 mb-2" /> Tomar Foto / Subir
                       </button>
-                      {/* Atributo capture="environment" fuerza el uso de la cámara trasera en móviles */}
                       <input 
                         type="file" 
                         accept="image/*" 
@@ -245,7 +276,7 @@ export const Inventory: React.FC<{ role: Role }> = ({ role }) => {
                   <div className="md:col-span-8 grid grid-cols-1 sm:grid-cols-2 gap-5">
                     <div className="sm:col-span-2 space-y-1.5">
                       <label className="text-[9px] font-black text-slate-400 uppercase ml-2 tracking-widest">Nombre Completo del Producto *</label>
-                      <input type="text" required placeholder="EJ: ZAPATILLAS DEPORTIVAS RUNNING" className="w-full p-4 bg-slate-100 rounded-2xl outline-none font-bold text-xs uppercase border-2 border-transparent focus:border-indigo-500 focus:bg-white transition-all" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} />
+                      <input type="text" required placeholder="EJ: PRODUCTO..." className="w-full p-4 bg-slate-100 rounded-2xl outline-none font-bold text-xs uppercase border-2 border-transparent focus:border-indigo-500 focus:bg-white transition-all" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} />
                     </div>
                     
                     <div className="space-y-1.5">
@@ -255,22 +286,22 @@ export const Inventory: React.FC<{ role: Role }> = ({ role }) => {
 
                     <div className="space-y-1.5">
                       <label className="text-[9px] font-black text-slate-400 uppercase ml-2 tracking-widest">Marca</label>
-                      <input type="text" placeholder="EJ: NIKE, ADIDAS..." className="w-full p-4 bg-slate-100 rounded-2xl outline-none font-bold text-xs uppercase border-2 border-transparent focus:border-indigo-500 focus:bg-white transition-all" value={formData.brand} onChange={e => setFormData({...formData, brand: e.target.value})} />
+                      <input type="text" placeholder="MARCA..." className="w-full p-4 bg-slate-100 rounded-2xl outline-none font-bold text-xs uppercase border-2 border-transparent focus:border-indigo-500 focus:bg-white transition-all" value={formData.brand} onChange={e => setFormData({...formData, brand: e.target.value})} />
                     </div>
 
                     <div className="space-y-1.5">
                       <label className="text-[9px] font-black text-slate-400 uppercase ml-2 tracking-widest">Modelo / Referencia</label>
-                      <input type="text" placeholder="EJ: AIR MAX 90" className="w-full p-4 bg-slate-100 rounded-2xl outline-none font-bold text-xs uppercase border-2 border-transparent focus:border-indigo-500 focus:bg-white transition-all" value={formData.model} onChange={e => setFormData({...formData, model: e.target.value})} />
+                      <input type="text" placeholder="MODELO..." className="w-full p-4 bg-slate-100 rounded-2xl outline-none font-bold text-xs uppercase border-2 border-transparent focus:border-indigo-500 focus:bg-white transition-all" value={formData.model} onChange={e => setFormData({...formData, model: e.target.value})} />
                     </div>
 
                     <div className="space-y-1.5">
                       <label className="text-[9px] font-black text-slate-400 uppercase ml-2 tracking-widest">Unidad de Medida</label>
                       <select className="w-full p-4 bg-slate-100 rounded-2xl font-bold text-xs uppercase outline-none border-2 border-transparent focus:border-indigo-500 focus:bg-white transition-all" value={formData.unit} onChange={e => setFormData({...formData, unit: e.target.value})}>
-                        <option value="PAR">PAR (PARA CALZADO)</option>
-                        <option value="UND">UNIDAD (UND)</option>
-                        <option value="CJ">CAJA (CJ)</option>
-                        <option value="PQ">PAQUETE (PQ)</option>
-                        <option value="KG">KILOS (KG)</option>
+                        <option value="PAR">PAR</option>
+                        <option value="UND">UNIDAD</option>
+                        <option value="CJ">CAJA</option>
+                        <option value="PQ">PAQUETE</option>
+                        <option value="KG">KILOS</option>
                       </select>
                     </div>
                   </div>
@@ -293,7 +324,7 @@ export const Inventory: React.FC<{ role: Role }> = ({ role }) => {
                   </div>
                   <div className="space-y-1.5">
                     <label className="text-[9px] font-black text-slate-400 uppercase ml-2 tracking-widest">Talla / Medida</label>
-                    <input type="text" placeholder="EJ: 42, XL, 38..." className="w-full p-4 bg-slate-100 rounded-2xl outline-none font-bold text-xs uppercase border-2 border-transparent focus:border-indigo-500 transition-all" value={formData.size} onChange={e => setFormData({...formData, size: e.target.value})} />
+                    <input type="text" placeholder="TALLA..." className="w-full p-4 bg-slate-100 rounded-2xl outline-none font-bold text-xs uppercase border-2 border-transparent focus:border-indigo-500 transition-all" value={formData.size} onChange={e => setFormData({...formData, size: e.target.value})} />
                   </div>
                </div>
 
@@ -316,7 +347,7 @@ export const Inventory: React.FC<{ role: Role }> = ({ role }) => {
             <div className="px-10 py-6 border-t bg-white flex gap-5 shrink-0">
                <button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 py-4 text-[10px] font-black uppercase text-slate-400 tracking-widest hover:bg-slate-50 rounded-2xl transition-all">Descartar</button>
                <button type="submit" disabled={saving} className="flex-[3] py-4 bg-indigo-600 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-2xl shadow-indigo-100 flex items-center justify-center gap-2 hover:bg-indigo-700 transition-all active:scale-95 disabled:opacity-50">
-                  {saving ? <Loader2 className="animate-spin w-5 h-5" /> : <><Save className="w-5 h-5" /> Confirmar Guardado en Base de Datos</>}
+                  {saving ? <Loader2 className="animate-spin w-5 h-5" /> : <><Save className="w-5 h-5" /> Confirmar Guardado</>}
                </button>
             </div>
           </form>

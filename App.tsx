@@ -87,9 +87,8 @@ export default function App() {
       if (event.state && event.state.page) {
         navigateTo(event.state.page, false);
       } else {
-        // Si no hay estado o regresamos al inicio de todo
+        // Si estamos en dashboard y presionan atrás, preguntar para salir
         if (currentPage === 'dashboard') {
-          // Re-insertar estado para que no salga del sitio
           window.history.pushState({ page: 'dashboard' }, "", "");
           setShowExitConfirm(true);
         } else {
