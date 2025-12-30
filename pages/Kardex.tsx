@@ -67,13 +67,37 @@ export const Kardex: React.FC<{ role: Role; userEmail?: string }> = ({ role, use
 
   const filteredSearch = useMemo(() => productSearch ? products.filter(p => p.name.toLowerCase().includes(productSearch.toLowerCase()) || p.code.toLowerCase().includes(productSearch.toLowerCase())).slice(0, 5) : [], [products, productSearch]);
 
-  if (loading || showRetry) { /* ... same as before ... */ }
+  if (loading || showRetry) {
+    return (
+      <div className="h-[60vh] flex flex-col items-center justify-center space-y-4">
+        {loading ? (
+          <>
+            <Loader2 className="animate-spin h-10 w-10 text-indigo-600" />
+            <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest animate-pulse">Sincronizando Kardex...</p>
+          </>
+        ) : (
+          <div className="text-center animate-in zoom-in-95">
+             <RefreshCcw className="h-10 w-10 text-rose-500 mx-auto mb-3" />
+             <p className="text-[10px] font-black uppercase text-slate-600 mb-4">La conexión está tardando más de lo esperado</p>
+             <button onClick={loadData} className="bg-indigo-600 text-white px-6 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-xl shadow-indigo-100 hover:bg-indigo-700 active:scale-95 transition-all">Reintentar Carga Manual</button>
+          </div>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4 animate-in fade-in pb-10">
       <div className="flex justify-between items-end">
         <div><h1 className="text-2xl font-black text-slate-900 uppercase tracking-tight">Kardex Logístico</h1><p className="text-[9px] text-slate-500 font-black uppercase tracking-widest mt-0.5">Movimientos de Stock</p></div>
-        {role !== 'VIEWER' && <div className="flex gap-2"><button onClick={() => handleOpenModal('INGRESO')} className="bg-indigo-600 text-white px-6 py-3.5 rounded-2xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2 shadow-xl hover:bg-indigo-700"><ArrowUpCircle className="w-4 h-4" /> Ingreso</button><button onClick={() => handleOpenModal('SALIDA')} className="bg-rose-600 text-white px-6 py-3.5 rounded-2xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2 shadow-xl hover:bg-rose-700"><ArrowDownCircle className="w-4 h-4" /> Despacho</button></div>}
+        <div className="flex gap-3">
+          {role !== 'VIEWER' && (
+            <div className="flex gap-2">
+              <button onClick={() => handleOpenModal('INGRESO')} className="bg-indigo-600 text-white px-6 py-3.5 rounded-2xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2 shadow-xl shadow-indigo-100 hover:bg-indigo-700 active:scale-95 transition-all"><ArrowUpCircle className="w-4 h-4" /> Ingreso</button>
+              <button onClick={() => handleOpenModal('SALIDA')} className="bg-rose-600 text-white px-6 py-3.5 rounded-2xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2 shadow-xl shadow-rose-100 hover:bg-rose-700 active:scale-95 transition-all"><ArrowDownCircle className="w-4 h-4" /> Despacho</button>
+            </div>
+          )}
+        </div>
       </div>
 
       <div className="bg-white rounded-[2.5rem] border border-slate-100 overflow-hidden shadow-sm">
@@ -104,7 +128,52 @@ export const Kardex: React.FC<{ role: Role; userEmail?: string }> = ({ role, use
         )}
       </div>
 
-      {isModalOpen && ( /* ... same as before ... */ )}
+      {isModalOpen && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-2">
+          <div className="absolute inset-0 bg-slate-900/80 backdrop-blur-sm" onClick={() => !saving && setIsModalOpen(false)}></div>
+          <form onSubmit={handleSubmit} className="relative bg-white w-full max-w-4xl rounded-[3rem] flex flex-col shadow-2xl overflow-hidden animate-in zoom-in-95 max-h-[90vh]">
+            <div className={`px-8 py-5 border-b flex justify-between items-center ${type === 'INGRESO' ? 'bg-indigo-50/40' : 'bg-rose-50/40'}`}>
+               <div>
+                 <h3 className="text-xl font-black text-slate-800 uppercase tracking-tight">{type === 'INGRESO' ? 'Ingreso de Mercancía' : 'Orden de Despacho'}</h3>
+                 <p className="text-[8px] text-slate-400 font-black uppercase tracking-widest mt-0.5">Operación Logística</p>
+               </div>
+               <button type="button" onClick={() => setIsModalOpen(false)} className="p-2 hover:bg-slate-200 rounded-full"><X className="w-6 h-6 text-slate-400" /></button>
+            </div>
+            <div className="overflow-y-auto p-8 space-y-6 no-scrollbar grid grid-cols-1 md:grid-cols-2 gap-10">
+               <div className="space-y-4">
+                  <div className="relative group">
+                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300 group-focus-within:text-indigo-500" />
+                    <input type="text" className="w-full pl-11 pr-4 py-4 bg-slate-50 rounded-2xl outline-none font-bold text-xs uppercase border-2 border-transparent focus:border-indigo-500 transition-all" placeholder="BUSCAR PRODUCTO..." value={productSearch} onChange={e => setProductSearch(e.target.value)} />
+                    {filteredSearch.length > 0 && <div className="absolute z-[110] w-full mt-2 bg-white border rounded-[2rem] shadow-2xl overflow-hidden animate-in fade-in zoom-in-95">{filteredSearch.map(p => (<button key={p.id} type="button" onClick={() => { if(!cartItems.find(i=>i.productId===p.id)) setCartItems([...cartItems,{...p,productId:p.id,quantity:1}]); setProductSearch(''); }} className="w-full p-4 text-left hover:bg-indigo-50 border-b last:border-0 flex justify-between items-center"><div className="flex flex-col"><span className="text-[10px] font-black uppercase text-slate-800">{p.name}</span><span className="text-[8px] text-slate-400 font-bold uppercase tracking-widest">{p.code} | MARCA: {p.brand || 'S/M'}</span></div><span className={`text-[9px] font-black uppercase px-2 py-1 rounded-lg ${p.stock > 0 ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'}`}>STK: {p.stock}</span></button>))}</div>}
+                  </div>
+                  
+                  {type === 'SALIDA' ? (
+                    <div className="space-y-3">
+                      <select required className="w-full p-4 bg-slate-50 rounded-2xl font-black text-[10px] uppercase outline-none border-2 border-transparent focus:border-indigo-500 transition-all" value={selectedDestinoId} onChange={e => setSelectedDestinoId(e.target.value)}><option value="" disabled>-- SELECCIONAR CENTRO DE COSTO --</option>{destinos.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}</select>
+                      <input type="text" required className="w-full p-4 bg-slate-50 rounded-2xl font-bold text-[10px] uppercase outline-none border-2 border-transparent focus:border-indigo-500 transition-all" placeholder="NOMBRE DEL TRANSPORTISTA" value={carriedBy} onChange={e => setCarriedBy(e.target.value.toUpperCase())} />
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      <select required className="w-full p-4 bg-slate-50 rounded-2xl font-black text-[10px] uppercase outline-none border-2 border-transparent focus:border-indigo-500 transition-all" value={selectedLocationId} onChange={e => setSelectedLocationId(e.target.value)}><option value="" disabled>-- SELECCIONAR ALMACÉN DE DESTINO --</option>{locations.map(l => <option key={l.id} value={l.name}>{l.name}</option>)}</select>
+                      <input type="text" required className="w-full p-4 bg-slate-50 rounded-2xl font-bold text-[10px] uppercase outline-none border-2 border-transparent focus:border-indigo-500 transition-all" placeholder="NOMBRE DEL PROVEEDOR" value={supplierName} onChange={e => setSupplierName(e.target.value.toUpperCase())} />
+                    </div>
+                  )}
+                  <textarea className="w-full p-4 bg-slate-50 rounded-2xl font-bold text-[10px] uppercase h-24 border-2 border-transparent outline-none focus:border-indigo-500 transition-all no-scrollbar" placeholder="OBSERVACIONES" value={reason} onChange={e => setReason(e.target.value)} />
+               </div>
+               <div className="bg-slate-50 rounded-[2.5rem] p-6 flex flex-col border shadow-inner">
+                  <div className="flex justify-between items-center mb-4"><h4 className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Lista de Carga ({cartItems.length})</h4></div>
+                  <div className="flex-1 overflow-y-auto space-y-3 no-scrollbar pr-1">{cartItems.length === 0 ? <div className="h-full flex flex-col items-center justify-center opacity-30"><Search className="w-10 h-10 mb-2" /><p className="text-[8px] font-black uppercase">Busca productos para agregar</p></div> : cartItems.map(item => (<div key={item.productId} className="bg-white p-4 rounded-2xl border shadow-sm flex justify-between items-center animate-in slide-in-from-right-2 duration-300"><div className="w-2/3"><p className="text-[10px] font-black uppercase truncate text-slate-800 leading-tight">{item.name}</p><p className="text-[8px] text-slate-400 font-bold uppercase tracking-tighter">DISP: {item.stock} {item.unit}</p></div><div className="flex items-center gap-3"><input type="number" className="w-14 p-2 bg-slate-50 rounded-xl text-center text-xs font-black border-2 border-transparent focus:border-indigo-500 outline-none" value={item.quantity} onChange={e => setCartItems(cartItems.map(i=>i.productId===item.productId?{...i,quantity:Math.max(1,Number(e.target.value))}:i))} /><button type="button" onClick={() => setCartItems(cartItems.filter(i=>i.productId!==item.productId))} className="p-2 text-slate-300 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all"><Trash className="w-4 h-4" /></button></div></div>))}</div>
+               </div>
+            </div>
+            <div className="px-8 py-6 border-t flex gap-5 bg-white shrink-0">
+               <button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 py-4 text-[10px] font-black uppercase text-slate-400 tracking-widest">Cancelar</button>
+               <button type="submit" disabled={saving || cartItems.length === 0} className={`flex-[2] py-4 text-white rounded-[1.5rem] text-[10px] font-black uppercase tracking-widest shadow-2xl flex items-center justify-center gap-2 active:scale-95 transition-all ${type === 'INGRESO' ? 'bg-indigo-600 shadow-indigo-100' : 'bg-rose-600 shadow-rose-100'}`}>
+                  {saving ? <Loader2 className="animate-spin w-5 h-5" /> : <Save className="w-5 h-5" />} {type === 'INGRESO' ? 'Confirmar Ingreso' : 'Confirmar Despacho'}
+               </button>
+            </div>
+          </form>
+        </div>
+      )}
     </div>
   );
 };
