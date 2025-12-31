@@ -20,7 +20,11 @@ const EmptyState = ({ message }: { message: string }) => (
   </div>
 );
 
-export const Reports: React.FC = () => {
+interface ReportsProps {
+  onNavigate: (page: string, options?: { push?: boolean; state?: any }) => void;
+}
+
+export const Reports: React.FC<ReportsProps> = ({ onNavigate }) => {
   const [products, setProducts] = useState<Product[]>([]);
   const [movements, setMovements] = useState<Movement[]>([]);
   const [loading, setLoading] = useState(true);
@@ -52,7 +56,7 @@ export const Reports: React.FC = () => {
     const counts = filteredMovements
       .filter(m => m.type === 'SALIDA')
       .reduce<Record<string, number>>((acc, m) => {
-        acc[m.productId] = (acc[m.productId] || 0) + m.quantity;
+        acc[m.productId] = (acc[m.productId] || 0) + Number(m.quantity);
         return acc;
       }, {});
       
@@ -75,7 +79,7 @@ export const Reports: React.FC = () => {
     const counts = filteredMovements
       .filter(m => m.type === 'SALIDA' && m.destinationName)
       .reduce<Record<string, number>>((acc, m) => {
-        acc[m.destinationName!] = (acc[m.destinationName!] || 0) + m.quantity;
+        acc[m.destinationName!] = (acc[m.destinationName!] || 0) + Number(m.quantity);
         return acc;
       }, {});
 
@@ -109,13 +113,13 @@ export const Reports: React.FC = () => {
     recentMovements.forEach(m => {
       const date = m.date.split('T')[0];
       if (!daily[date]) daily[date] = { date, entradas: 0, salidas: 0 };
-      if (m.type === 'INGRESO') daily[date].entradas += m.quantity;
-      else daily[date].salidas += m.quantity;
+      if (m.type === 'INGRESO') daily[date].entradas += Number(m.quantity);
+      else daily[date].salidas += Number(m.quantity);
     });
     return Object.values(daily).slice(-10);
   }, [filteredMovements]);
 
-  const COLORS = ['#4f46e5', '#ef4444', '#10b981', '#f59e0b', '#8b5cf6'];
+  const COLORS = ['#4f46e5', '#f59e0b', '#ef4444', '#64748b'];
 
   if (loading) return (
     <div className="h-[60vh] flex flex-col items-center justify-center">
@@ -150,8 +154,8 @@ export const Reports: React.FC = () => {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {[
           { label: 'Movimientos', val: filteredMovements.length, icon: RefreshCcw, color: 'bg-indigo-600' },
-          { label: 'Total Salidas', val: filteredMovements.filter(m=>m.type==='SALIDA').reduce((s,m)=>s+m.quantity,0), icon: ArrowUpRight, color: 'bg-rose-500' },
-          { label: 'Total Entradas', val: filteredMovements.filter(m=>m.type==='INGRESO').reduce((s,m)=>s+m.quantity,0), icon: ArrowDownRight, color: 'bg-emerald-500' },
+          { label: 'Total Salidas', val: filteredMovements.filter(m=>m.type==='SALIDA').reduce((s,m)=>s+Number(m.quantity),0), icon: ArrowUpRight, color: 'bg-rose-500' },
+          { label: 'Total Entradas', val: filteredMovements.filter(m=>m.type==='INGRESO').reduce((s,m)=>s+Number(m.quantity),0), icon: ArrowDownRight, color: 'bg-emerald-500' },
           { label: 'Valorización', val: formatCurrency(products.reduce((s,p)=>s+(p.stock*p.purchasePrice),0)), icon: Package, color: 'bg-slate-900' }
         ].map((c, i) => (
           <div key={i} className="bg-white p-5 rounded-[2rem] border border-slate-100 shadow-sm flex items-center gap-4">
@@ -220,9 +224,11 @@ export const Reports: React.FC = () => {
               {topMovingProducts.length > 0 ? (
                 <ul className="space-y-2">
                   {topMovingProducts.map(({ product, quantity }) => (
-                    <li key={product!.id} className="bg-emerald-50/50 p-2.5 rounded-xl text-[10px] flex justify-between items-center">
-                      <span className="font-bold uppercase truncate pr-2 w-2/3">{product!.name}</span>
-                      <span className="font-black text-emerald-700">{quantity}</span>
+                    <li key={product!.id}>
+                      <button onClick={() => onNavigate('productDetail', { push: true, state: { productId: product!.id } })} className="w-full bg-emerald-50/50 p-2.5 rounded-xl text-[10px] flex justify-between items-center text-left hover:bg-emerald-100 transition-colors">
+                        <span className="font-bold uppercase truncate pr-2 w-2/3">{product!.name}</span>
+                        <span className="font-black text-emerald-700">{quantity}</span>
+                      </button>
                     </li>
                   ))}
                 </ul>
@@ -233,9 +239,11 @@ export const Reports: React.FC = () => {
               {stagnantProducts.length > 0 ? (
                 <ul className="space-y-2">
                   {stagnantProducts.map(product => (
-                    <li key={product.id} className="bg-rose-50/50 p-2.5 rounded-xl text-[10px] flex justify-between items-center">
-                      <span className="font-bold uppercase truncate pr-2 w-2/3">{product.name}</span>
-                      <span className="font-black text-rose-700">Stock: {product.stock}</span>
+                    <li key={product.id}>
+                      <button onClick={() => onNavigate('productDetail', { push: true, state: { productId: product.id } })} className="w-full bg-rose-50/50 p-2.5 rounded-xl text-[10px] flex justify-between items-center text-left hover:bg-rose-100 transition-colors">
+                        <span className="font-bold uppercase truncate pr-2 w-2/3">{product.name}</span>
+                        <span className="font-black text-rose-700">Stock: {product.stock}</span>
+                      </button>
                     </li>
                   ))}
                 </ul>
@@ -247,7 +255,7 @@ export const Reports: React.FC = () => {
           <h3 className="text-[10px] font-black text-slate-800 uppercase tracking-widest mb-6">Despacho por Centro de Costo</h3>
           <div className="h-64 min-h-[250px]">
             {destinationData.length > 0 ? (
-              <ResponsiveContainer width="100%" height="100%">
+              <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
                 <BarChart data={destinationData} layout="vertical" margin={{ top: 5, right: 20, left: 20, bottom: 5 }}>
                   <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f1f5f9" />
                   <XAxis type="number" fontSize={8} tick={{fontWeight: 800}} stroke="#cbd5e1" />

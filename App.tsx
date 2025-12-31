@@ -182,7 +182,7 @@ export default function App() {
       case 'inventory': return <Inventory role={role} onNavigate={navigateTo} initialState={navigationState} onInitialStateConsumed={() => setNavigationState(null)} />;
       case 'kardex': return <Kardex role={role} userEmail={session.user?.email} initialState={navigationState} onInitialStateConsumed={() => setNavigationState(null)} />;
       case 'destinos': return <Destinos />;
-      case 'reports': return <Reports />;
+      case 'reports': return <Reports onNavigate={navigateTo} />;
       case 'contacts': return <Contacts role={role} initialState={navigationState} onInitialStateConsumed={() => setNavigationState(null)} />;
       case 'categories': return <CategoryManagement role={role} />;
       case 'locations': return <LocationManagement role={role} />;
