@@ -17,7 +17,7 @@ import { Login } from './pages/Login.tsx';
 import { ProductDetail } from './pages/ProductDetail.tsx'; // Importación de la nueva página
 import { Role } from './types.ts';
 import * as api from './services/supabaseService.ts';
-import { Loader2 } from 'lucide-react';
+import { Loader2 } from 'https://esm.sh/lucide-react@0.475.0?external=react,react-dom';
 import { CustomDialog } from './components/CustomDialog.tsx';
 import { useNotification } from './contexts/NotificationContext.tsx';
 import { Toast } from './components/Toast.tsx';

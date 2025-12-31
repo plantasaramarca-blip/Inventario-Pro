@@ -5,7 +5,7 @@ import * as api from '../services/supabaseService.ts';
 import { useNotification } from '../contexts/NotificationContext.tsx';
 import { 
   Plus, MapPin, Edit2, X, Search, Loader2, AlertCircle, Trash2
-} from 'lucide-react';
+} from 'https://esm.sh/lucide-react@0.475.0?external=react,react-dom';
 
 export const Destinos: React.FC = () => {
   const [destinos, setDestinos] = useState<Destination[]>([]);

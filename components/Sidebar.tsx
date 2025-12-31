@@ -4,7 +4,7 @@ import {
   LayoutDashboard, Boxes, ClipboardList, Users, 
   ClipboardCheck, MapPin, UserPlus, Tags, Warehouse, Settings,
   BarChart3
-} from 'lucide-react';
+} from 'https://esm.sh/lucide-react@0.475.0?external=react,react-dom';
 import { Role } from '../types.ts';
 import * as api from '../services/supabaseService.ts';
 

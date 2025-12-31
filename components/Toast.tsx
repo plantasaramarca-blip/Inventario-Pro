@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { Notification, NotificationType } from '../contexts/NotificationContext.tsx';
-import { CheckCircle, AlertCircle, Info, X } from 'lucide-react';
+import { CheckCircle, AlertCircle, Info, X } from 'https://esm.sh/lucide-react@0.475.0?external=react,react-dom';
 
 interface ToastProps {
   notification: Notification;

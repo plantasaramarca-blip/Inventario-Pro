@@ -7,10 +7,10 @@ import { exportToExcel } from '../services/excelService.ts';
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
   LineChart, Line, PieChart, Pie, Cell
-} from 'recharts';
+} from 'https://esm.sh/recharts@2.15.0?external=react,react-dom';
 import { 
   TrendingUp, Filter, Loader2, ArrowUpRight, ArrowDownRight, Package, RefreshCcw, PieChart as PieIcon, FileSpreadsheet
-} from 'lucide-react';
+} from 'https://esm.sh/lucide-react@0.475.0?external=react,react-dom';
 
 export const Reports: React.FC = () => {
   const [products, setProducts] = useState<Product[]>([]);

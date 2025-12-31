@@ -4,7 +4,7 @@ import { AuditLog } from '../types.ts';
 import * as api from '../services/supabaseService.ts';
 import { 
   ClipboardCheck, Loader2, ChevronLeft, ChevronRight
-} from 'lucide-react';
+} from 'https://esm.sh/lucide-react@0.475.0?external=react,react-dom';
 
 const ITEMS_PER_PAGE = 20;
 

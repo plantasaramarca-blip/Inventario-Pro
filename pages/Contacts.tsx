@@ -4,7 +4,7 @@ import { Contact, Role } from '../types.ts';
 import * as api from '../services/supabaseService.ts';
 import { useNotification } from '../contexts/NotificationContext.tsx';
 import { CustomDialog } from '../components/CustomDialog.tsx';
-import { Plus, Search, User, Briefcase, Phone, Mail, Trash2, Edit2, X, Loader2 } from 'lucide-react';
+import { Plus, Search, User, Briefcase, Phone, Mail, Trash2, Edit2, X, Loader2 } from 'https://esm.sh/lucide-react@0.475.0?external=react,react-dom';
 
 interface ContactsProps { role: Role; }
 

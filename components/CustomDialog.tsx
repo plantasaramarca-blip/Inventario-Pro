@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { X, AlertCircle, CheckCircle, HelpCircle, Loader2 } from 'lucide-react';
+import { X, AlertCircle, CheckCircle, HelpCircle, Loader2 } from 'https://esm.sh/lucide-react@0.475.0?external=react,react-dom';
 
 interface CustomDialogProps {
   isOpen: boolean;

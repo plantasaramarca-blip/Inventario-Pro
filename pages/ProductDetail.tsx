@@ -7,7 +7,7 @@ import { StockBadge } from '../components/StockBadge.tsx';
 import { 
   ArrowLeft, ImageIcon, Loader2, RefreshCcw, ArrowUpCircle, ArrowDownCircle,
   ArrowUp, ArrowDown, UserCheck
-} from 'lucide-react';
+} from 'https://esm.sh/lucide-react@0.475.0?external=react,react-dom';
 
 interface ProductDetailProps {
   productId: string | null;

@@ -1,9 +1,9 @@
 
 import React, { useRef } from 'react';
 import { QRCodeSVG } from 'https://esm.sh/qrcode.react@3.1.0?external=react,react-dom';
-import { jsPDF } from 'jspdf';
-import html2canvas from 'html2canvas';
-import { X, Printer, FileDown } from 'lucide-react';
+import { jsPDF } from 'https://esm.sh/jspdf@2.5.1';
+import html2canvas from 'https://esm.sh/html2canvas@1.4.1';
+import { X, Printer, FileDown } from 'https://esm.sh/lucide-react@0.475.0?external=react,react-dom';
 import { Product } from '../types.ts';
 
 interface ProductQRCodeProps {

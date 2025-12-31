@@ -6,7 +6,7 @@ import { useNotification } from '../contexts/NotificationContext.tsx';
 import { CustomDialog } from '../components/CustomDialog.tsx';
 import { 
   Plus, Warehouse, Edit2, Trash2, X, Search, Loader2, MapPin
-} from 'lucide-react';
+} from 'https://esm.sh/lucide-react@0.475.0?external=react,react-dom';
 
 export const LocationManagement: React.FC<{ role: Role }> = ({ role }) => {
   const [locations, setLocations] = useState<LocationMaster[]>([]);

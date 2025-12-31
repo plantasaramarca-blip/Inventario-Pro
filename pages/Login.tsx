@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { supabase, isSupabaseConfigured } from '../supabaseClient.ts';
-import { LogIn, Lock, Mail, Loader2, AlertCircle, ArrowRight, ShieldCheck } from 'lucide-react';
+import { LogIn, Lock, Mail, Loader2, AlertCircle, ArrowRight, ShieldCheck } from 'https://esm.sh/lucide-react@0.475.0?external=react,react-dom';
 import * as api from '../services/supabaseService.ts';
 
 export const Login: React.FC = () => {

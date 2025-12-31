@@ -1,7 +1,6 @@
-
 import * as XLSX from 'https://esm.sh/xlsx@0.18.5';
 import { jsPDF } from 'https://esm.sh/jspdf@2.5.1';
-import autoTable from 'https://esm.sh/jspdf-autotable@3.8.2';
+import autoTable from 'https://esm.sh/jspdf-autotable@3.8.2?external=jspdf';
 
 export function exportToExcel(
   data: any[],
