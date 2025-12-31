@@ -19,9 +19,11 @@ const ITEMS_PER_PAGE = 15;
 interface InventoryProps {
   role: Role;
   onNavigate: (page: string, options: { push?: boolean, state?: any }) => void;
+  initialState?: any;
+  onInitialStateConsumed: () => void;
 }
 
-export const Inventory: React.FC<InventoryProps> = ({ role, onNavigate }) => {
+export const Inventory: React.FC<InventoryProps> = ({ role, onNavigate, initialState, onInitialStateConsumed }) => {
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<CategoryMaster[]>([]);
   const [locations, setLocations] = useState<LocationMaster[]>([]);
@@ -55,6 +57,13 @@ export const Inventory: React.FC<InventoryProps> = ({ role, onNavigate }) => {
 
   useEffect(() => { loadData(); }, []);
   
+  useEffect(() => {
+    if (initialState?.openNewProductModal) {
+      handleOpenModal();
+      onInitialStateConsumed();
+    }
+  }, [initialState]);
+
   const filteredProducts = useMemo(() => {
     setCurrentPage(0);
     return products.filter(p => 

@@ -15,6 +15,7 @@ import { CategoryManagement } from './pages/Categories.tsx';
 import { LocationManagement } from './pages/Locations.tsx';
 import { Login } from './pages/Login.tsx';
 import { ProductDetail } from './pages/ProductDetail.tsx';
+import { CommandPalette } from './components/CommandPalette.tsx';
 import { Role } from './types.ts';
 import * as api from './services/supabaseService.ts';
 import { Loader2 } from 'https://esm.sh/lucide-react@0.475.0?external=react,react-dom';
@@ -38,6 +39,7 @@ export default function App() {
   const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState('dashboard');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
   const [role, setRole] = useState<Role>('VIEWER');
   const [showExitConfirm, setShowExitConfirm] = useState(false);
   const [navigationState, setNavigationState] = useState<any>(null);
@@ -63,13 +65,24 @@ export default function App() {
 
     if (push) {
       const url = new URL(window.location.href);
-      url.search = ''; // Limpiar parámetros antiguos
+      url.search = ''; 
       if (page === 'productDetail' && state?.productId) {
         url.searchParams.set('id', state.productId);
       }
       window.history.pushState({ page, state }, "", url.toString());
     }
   };
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+        e.preventDefault();
+        setIsCommandPaletteOpen(prev => !prev);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
 
   useEffect(() => {
     const handleVisibilityChange = () => { if (document.visibilityState === 'visible' && isSupabaseConfigured) { supabase.auth.getSession(); } };
@@ -125,9 +138,8 @@ export default function App() {
     };
   }, []);
   
-  // Efecto para gestionar el cierre de sesión por inactividad
   useEffect(() => {
-    const SESSION_TIMEOUT_MS = 30 * 60 * 1000; // 30 minutos
+    const SESSION_TIMEOUT_MS = 30 * 60 * 1000;
     let inactivityTimer: number;
 
     const handleInactiveLogout = () => {
@@ -154,7 +166,6 @@ export default function App() {
     }
   }, [session]);
 
-
   const handleFinalExit = async () => {
     if (isSupabaseConfigured) await supabase.auth.signOut();
     localStorage.removeItem('kardex_local_session');
@@ -168,11 +179,11 @@ export default function App() {
   const renderContent = () => {
     switch (currentPage) {
       case 'productDetail': return <ProductDetail productId={navigationState?.productId} role={role} userEmail={session.user?.email} onBack={() => window.history.back()} onNavigate={navigateTo} />;
-      case 'inventory': return <Inventory role={role} onNavigate={navigateTo} />;
+      case 'inventory': return <Inventory role={role} onNavigate={navigateTo} initialState={navigationState} onInitialStateConsumed={() => setNavigationState(null)} />;
       case 'kardex': return <Kardex role={role} userEmail={session.user?.email} initialState={navigationState} onInitialStateConsumed={() => setNavigationState(null)} />;
       case 'destinos': return <Destinos />;
       case 'reports': return <Reports />;
-      case 'contacts': return <Contacts role={role} />;
+      case 'contacts': return <Contacts role={role} initialState={navigationState} onInitialStateConsumed={() => setNavigationState(null)} />;
       case 'categories': return <CategoryManagement role={role} />;
       case 'locations': return <LocationManagement role={role} />;
       case 'users': return role === 'ADMIN' ? <UsersPage /> : <Dashboard />;
@@ -188,6 +199,7 @@ export default function App() {
         <Navbar onMenuClick={() => setIsSidebarOpen(true)} role={role} userEmail={session.user?.email} />
         <main className="flex-1 overflow-y-auto p-3 sm:p-6 no-scrollbar"><div className="max-w-7xl mx-auto">{renderContent()}</div></main>
       </div>
+      <CommandPalette isOpen={isCommandPaletteOpen} onClose={() => setIsCommandPaletteOpen(false)} onNavigate={navigateTo} />
       <NotificationContainer />
       <CustomDialog isOpen={showExitConfirm} title="Seguridad" message="¿Deseas cerrar la sesión y salir del sistema?" type="error" onConfirm={handleFinalExit} onCancel={() => setShowExitConfirm(false)} confirmText="Cerrar Sesión" cancelText="Permanecer" />
     </div>
