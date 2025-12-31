@@ -14,11 +14,24 @@ const withTimeout = async (promise: any, timeoutMs: number = 8000): Promise<any>
 };
 
 export const getCurrentUserProfile = async (email: string): Promise<{role: Role} | null> => {
-  if (!useSupabase()) return { role: 'ADMIN' };
+  if (!useSupabase()) {
+    localStorage.setItem('kardex_user_role', 'ADMIN');
+    return { role: 'ADMIN' };
+  }
   try {
     const { data } = await withTimeout(supabase.from('profiles').select('role').eq('email', email.toLowerCase()).maybeSingle());
-    return data ? { role: data.role as Role } : { role: 'VIEWER' };
-  } catch (e) { return { role: 'VIEWER' }; }
+    if (data) {
+      localStorage.setItem('kardex_user_role', data.role);
+      return { role: data.role as Role };
+    } else {
+      localStorage.removeItem('kardex_user_role');
+      return { role: 'VIEWER' };
+    }
+  } catch (e) { 
+    // En caso de error de red, no se modifica el localStorage y se lanza el error
+    // para que la UI pueda decidir usar el valor cacheado.
+    throw e;
+  }
 };
 
 export const getUsers = async (): Promise<UserAccount[]> => {

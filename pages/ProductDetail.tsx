@@ -14,9 +14,10 @@ interface ProductDetailProps {
   role: Role;
   userEmail?: string;
   onBack: () => void;
+  onNavigate: (page: string, state: any) => void;
 }
 
-export const ProductDetail: React.FC<ProductDetailProps> = ({ productId, role, userEmail, onBack }) => {
+export const ProductDetail: React.FC<ProductDetailProps> = ({ productId, role, userEmail, onBack, onNavigate }) => {
   const [product, setProduct] = useState<Product | null>(null);
   const [movements, setMovements] = useState<Movement[]>([]);
   const [loading, setLoading] = useState(true);
@@ -80,10 +81,14 @@ export const ProductDetail: React.FC<ProductDetailProps> = ({ productId, role, u
           </div>
           {role !== 'VIEWER' && (
             <div className="grid grid-cols-2 gap-3">
-              <button className="bg-indigo-50 text-indigo-600 p-4 rounded-2xl flex flex-col items-center justify-center text-[9px] font-black uppercase tracking-widest hover:bg-indigo-100 transition-all">
+              <button 
+                onClick={() => onNavigate('kardex', { prefill: { type: 'INGRESO', product } })}
+                className="bg-indigo-50 text-indigo-600 p-4 rounded-2xl flex flex-col items-center justify-center text-[9px] font-black uppercase tracking-widest hover:bg-indigo-100 transition-all">
                 <ArrowUpCircle className="w-6 h-6 mb-2" /> Ingreso
               </button>
-              <button className="bg-rose-50 text-rose-600 p-4 rounded-2xl flex flex-col items-center justify-center text-[9px] font-black uppercase tracking-widest hover:bg-rose-100 transition-all">
+              <button 
+                onClick={() => onNavigate('kardex', { prefill: { type: 'SALIDA', product } })}
+                className="bg-rose-50 text-rose-600 p-4 rounded-2xl flex flex-col items-center justify-center text-[9px] font-black uppercase tracking-widest hover:bg-rose-100 transition-all">
                 <ArrowDownCircle className="w-6 h-6 mb-2" /> Despacho
               </button>
             </div>

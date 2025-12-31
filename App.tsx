@@ -14,7 +14,7 @@ import { UsersPage } from './pages/Users.tsx';
 import { CategoryManagement } from './pages/Categories.tsx';
 import { LocationManagement } from './pages/Locations.tsx';
 import { Login } from './pages/Login.tsx';
-import { ProductDetail } from './pages/ProductDetail.tsx'; // Importación de la nueva página
+import { ProductDetail } from './pages/ProductDetail.tsx';
 import { Role } from './types.ts';
 import * as api from './services/supabaseService.ts';
 import { Loader2 } from 'https://esm.sh/lucide-react@0.475.0?external=react,react-dom';
@@ -33,7 +33,6 @@ const NotificationContainer = () => {
   );
 };
 
-
 export default function App() {
   const [session, setSession] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -42,31 +41,28 @@ export default function App() {
   const [role, setRole] = useState<Role>('VIEWER');
   const [showExitConfirm, setShowExitConfirm] = useState(false);
   const [scannedProductId, setScannedProductId] = useState<string | null>(null);
-  const { addNotification } = useNotification();
+  const [navigationState, setNavigationState] = useState<any>(null);
 
   const fetchRole = async (email: string) => {
+    const cachedRole = localStorage.getItem('kardex_user_role');
+    if (cachedRole) setRole(cachedRole as Role);
     try {
       const profile = await api.getCurrentUserProfile(email);
-      if (profile) {
-        setRole(profile.role);
-      } else {
-        setRole('VIEWER');
-        addNotification('Rol no verificado, se asignó acceso de solo lectura.', 'info');
-      }
+      if (profile) setRole(profile.role);
+      else if (!cachedRole) setRole('VIEWER');
     } catch (e) {
-      setRole('VIEWER');
-      addNotification('Error de red al verificar permisos. Acceso de solo lectura.', 'error');
+      console.warn("Error de red al sincronizar el rol. Usando la versión local.");
     }
   };
 
-  const navigateTo = (page: string, pushState = true) => {
-    if (page === currentPage) return;
+  const navigateTo = (page: string, pushState = true, state: any = null) => {
     setCurrentPage(page);
+    setNavigationState(state);
     if (isSidebarOpen) setIsSidebarOpen(false);
     if (pushState) {
       const url = new URL(window.location.href);
-      url.search = ''; // Limpia los parámetros de la URL para evitar bucles
-      window.history.pushState({ page }, "", url.pathname);
+      if (page !== 'productDetail') url.search = '';
+      window.history.pushState({ page }, "", url.pathname + url.search + url.hash);
     }
   };
 
@@ -79,62 +75,55 @@ export default function App() {
         const urlParams = new URLSearchParams(window.location.search);
         const productIdFromUrl = urlParams.get('id');
         
+        const processSession = async (currentSession: any) => {
+          if (currentSession) {
+            setSession(currentSession);
+            await fetchRole(currentSession.user.email!);
+            if (productIdFromUrl && !scannedProductId) {
+              setScannedProductId(productIdFromUrl);
+              navigateTo('productDetail', false);
+            }
+          }
+        };
+
         if (isSupabaseConfigured) {
           const { data: { session: initialSession } } = await supabase.auth.getSession();
-          if (initialSession) {
-            setSession(initialSession);
-            await fetchRole(initialSession.user.email!);
-            if (productIdFromUrl) {
-              setScannedProductId(productIdFromUrl);
-              navigateTo('productDetail', false);
-            }
-          }
+          await processSession(initialSession);
           
-          const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, newSession) => {
-            setSession(newSession);
-            if (newSession && newSession.user.email) {
-              await fetchRole(newSession.user.email);
-              // Lógica para QR después de iniciar sesión
-              const params = new URLSearchParams(window.location.search);
-              if (params.get('id') && currentPage !== 'productDetail') {
-                 setScannedProductId(params.get('id'));
-                 navigateTo('productDetail');
-              }
-            }
-          });
-          
-          return () => { subscription.unsubscribe(); document.removeEventListener('visibilitychange', handleVisibilityChange); };
+          const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, newSession) => { await processSession(newSession); });
+          return () => { subscription.unsubscribe(); };
         } else {
           const localSession = localStorage.getItem('kardex_local_session');
-          if (localSession) {
-            const parsed = JSON.parse(localSession);
-            setSession(parsed); await fetchRole(parsed.user.email);
-            if (productIdFromUrl) {
-              setScannedProductId(productIdFromUrl);
-              navigateTo('productDetail', false);
-            }
-          }
+          if (localSession) await processSession(JSON.parse(localSession));
         }
       } catch (e) {} finally { setLoading(false); }
     };
+    
     const unsubscribePromise = initAuth();
     
-    window.history.replaceState({ page: 'dashboard' }, "", "");
+    window.history.replaceState({ page: 'dashboard' }, "", window.location.pathname + window.location.search);
     const handlePopState = (event: PopStateEvent) => {
-      if (event.state && event.state.page) navigateTo(event.state.page, false);
-      else navigateTo('dashboard', false);
+      if (currentPage === 'productDetail' && (!event.state || event.state.page !== 'productDetail')) {
+        event.preventDefault(); navigateTo('inventory', false);
+      } else if (event.state && event.state.page) {
+        navigateTo(event.state.page, false);
+      } else {
+        navigateTo('dashboard', false);
+      }
     };
     window.addEventListener('popstate', handlePopState);
     
     return () => {
       window.removeEventListener('popstate', handlePopState);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
       unsubscribePromise.then(cleanup => { if (typeof cleanup === 'function') cleanup(); });
     };
-  }, []); // El array de dependencias se deja vacío para que solo se ejecute una vez
+  }, [currentPage]); // Se agrega currentPage para re-evaluar el listener si es necesario
 
   const handleFinalExit = async () => {
     if (isSupabaseConfigured) await supabase.auth.signOut();
     localStorage.removeItem('kardex_local_session');
+    localStorage.removeItem('kardex_user_role');
     window.location.reload();
   };
 
@@ -143,9 +132,9 @@ export default function App() {
 
   const renderContent = () => {
     switch (currentPage) {
-      case 'productDetail': return <ProductDetail productId={scannedProductId} role={role} userEmail={session.user?.email} onBack={() => navigateTo('inventory')} />;
+      case 'productDetail': return <ProductDetail productId={scannedProductId} role={role} userEmail={session.user?.email} onBack={() => navigateTo('inventory')} onNavigate={navigateTo} />;
       case 'inventory': return <Inventory role={role} />;
-      case 'kardex': return <Kardex role={role} userEmail={session.user?.email} />;
+      case 'kardex': return <Kardex role={role} userEmail={session.user?.email} initialState={navigationState} onInitialStateConsumed={() => setNavigationState(null)} />;
       case 'destinos': return <Destinos />;
       case 'reports': return <Reports />;
       case 'contacts': return <Contacts role={role} />;

@@ -9,7 +9,14 @@ import {
 
 const ITEMS_PER_PAGE = 20;
 
-export const Kardex: React.FC<{ role: Role; userEmail?: string }> = ({ role, userEmail }) => {
+interface KardexProps {
+  role: Role;
+  userEmail?: string;
+  initialState?: any;
+  onInitialStateConsumed: () => void;
+}
+
+export const Kardex: React.FC<KardexProps> = ({ role, userEmail, initialState, onInitialStateConsumed }) => {
   const [movements, setMovements] = useState<Movement[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [destinos, setDestinos] = useState<Destination[]>([]);
@@ -42,6 +49,15 @@ export const Kardex: React.FC<{ role: Role; userEmail?: string }> = ({ role, use
   };
 
   useEffect(() => { loadData(); }, []);
+  
+  useEffect(() => {
+    if (initialState?.prefill) {
+      const { type: prefillType, product } = initialState.prefill;
+      handleOpenModal(prefillType);
+      setCartItems([{ ...product, productId: product.id, quantity: 1 }]);
+      onInitialStateConsumed();
+    }
+  }, [initialState]);
 
   const totalPages = Math.ceil(movements.length / ITEMS_PER_PAGE);
   const paginatedMovements = movements.slice(currentPage * ITEMS_PER_PAGE, (currentPage + 1) * ITEMS_PER_PAGE);
