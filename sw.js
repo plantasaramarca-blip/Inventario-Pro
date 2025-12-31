@@ -3,9 +3,9 @@ const CACHE_NAME = 'kardex-pro-cache-v1';
 const urlsToCache = [
   '/',
   '/index.html',
-  '/index.tsx',
-  // Añade aquí otros recursos estáticos importantes si los tienes
-  // Por ejemplo: '/styles.css', '/logo.png'
+  '/manifest.json',
+  '/icon-192.svg',
+  '/icon-512.svg'
 ];
 
 self.addEventListener('install', event => {
