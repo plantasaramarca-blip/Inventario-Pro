@@ -40,7 +40,6 @@ export default function App() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [role, setRole] = useState<Role>('VIEWER');
   const [showExitConfirm, setShowExitConfirm] = useState(false);
-  const [scannedProductId, setScannedProductId] = useState<string | null>(null);
   const [navigationState, setNavigationState] = useState<any>(null);
 
   const fetchRole = async (email: string) => {
@@ -57,21 +56,17 @@ export default function App() {
 
   const navigateTo = (page: string, options: { push?: boolean; state?: any } = {}) => {
     const { push = true, state = null } = options;
-
     if (page === currentPage && JSON.stringify(state) === JSON.stringify(navigationState)) return;
-
     setCurrentPage(page);
     setNavigationState(state);
     if (isSidebarOpen) setIsSidebarOpen(false);
 
     if (push) {
-      const url = new URL(window.location.origin + window.location.pathname);
-      const productId = state?.productId || state?.prefill?.product?.id || scannedProductId;
-      
-      if (page === 'productDetail' && productId) {
-        url.searchParams.set('id', productId);
+      const url = new URL(window.location.href);
+      url.search = ''; // Limpiar parámetros antiguos
+      if (page === 'productDetail' && state?.productId) {
+        url.searchParams.set('id', state.productId);
       }
-      
       window.history.pushState({ page, state }, "", url.toString());
     }
   };
@@ -89,9 +84,9 @@ export default function App() {
           if (currentSession) {
             setSession(currentSession);
             await fetchRole(currentSession.user.email!);
-            if (productIdFromUrl && !scannedProductId) {
-              setScannedProductId(productIdFromUrl);
-              // Create synthetic history for QR code entry to allow backing out to inventory
+            if (productIdFromUrl) {
+              // Si se entra por URL, preparar la navegación al detalle del producto.
+              // Reemplazar el estado inicial para que 'back' vaya a 'inventory'.
               window.history.replaceState({ page: 'inventory' }, "", window.location.pathname);
               navigateTo('productDetail', { push: true, state: { productId: productIdFromUrl } });
             }
@@ -101,7 +96,6 @@ export default function App() {
         if (isSupabaseConfigured) {
           const { data: { session: initialSession } } = await supabase.auth.getSession();
           await processSession(initialSession);
-          
           const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, newSession) => { await processSession(newSession); });
           return () => { subscription.unsubscribe(); };
         } else {
@@ -114,14 +108,16 @@ export default function App() {
     const unsubscribePromise = initAuth();
     
     // Set initial history state only if not coming from a QR code link
-    const urlParams = new URLSearchParams(window.location.search);
-    if (!urlParams.get('id')) {
-        window.history.replaceState({ page: currentPage }, "", window.location.pathname);
+    if (!new URLSearchParams(window.location.search).get('id')) {
+        window.history.replaceState({ page: 'dashboard' }, "", window.location.pathname);
     }
     
     const handlePopState = (event: PopStateEvent) => {
       if (event.state && event.state.page) {
         navigateTo(event.state.page, { push: false, state: event.state.state });
+      } else {
+         // Si el estado es nulo (por ejemplo, al inicio), ir a dashboard.
+         navigateTo('dashboard', {push: false});
       }
     };
     window.addEventListener('popstate', handlePopState);
@@ -145,8 +141,8 @@ export default function App() {
 
   const renderContent = () => {
     switch (currentPage) {
-      case 'productDetail': return <ProductDetail productId={navigationState?.productId || scannedProductId} role={role} userEmail={session.user?.email} onBack={() => window.history.back()} onNavigate={navigateTo} />;
-      case 'inventory': return <Inventory role={role} />;
+      case 'productDetail': return <ProductDetail productId={navigationState?.productId} role={role} userEmail={session.user?.email} onBack={() => window.history.back()} onNavigate={navigateTo} />;
+      case 'inventory': return <Inventory role={role} onNavigate={navigateTo} />;
       case 'kardex': return <Kardex role={role} userEmail={session.user?.email} initialState={navigationState} onInitialStateConsumed={() => setNavigationState(null)} />;
       case 'destinos': return <Destinos />;
       case 'reports': return <Reports />;

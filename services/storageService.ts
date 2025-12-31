@@ -1,3 +1,4 @@
+
 import { Product, Movement, InventoryStats, Contact, AuditLog, Destination } from '../types';
 
 const PRODUCTS_KEY = 'kardex_products';
@@ -6,27 +7,28 @@ const CONTACTS_KEY = 'kardex_contacts';
 const CATEGORIES_KEY = 'kardex_categories';
 const AUDIT_KEY = 'kardex_audit';
 const DESTINOS_KEY = 'kardex_destinos';
+const USER_EMAIL = 'admin@local.com'; // Usuario por defecto para auditoría local
 
 const seedData = () => {
-  if (!localStorage.getItem(CATEGORIES_KEY)) {
-    localStorage.setItem(CATEGORIES_KEY, JSON.stringify(['Tecnología', 'Oficina', 'Impresión', 'Limpieza', 'Otros']));
-  }
-  if (!localStorage.getItem(PRODUCTS_KEY)) {
-    localStorage.setItem(PRODUCTS_KEY, JSON.stringify([]));
-  }
-  if (!localStorage.getItem(MOVEMENTS_KEY)) {
-    localStorage.setItem(MOVEMENTS_KEY, JSON.stringify([]));
-  }
-  if (!localStorage.getItem(CONTACTS_KEY)) {
-    localStorage.setItem(CONTACTS_KEY, JSON.stringify([]));
-  }
-  if (!localStorage.getItem(AUDIT_KEY)) {
-    localStorage.setItem(AUDIT_KEY, JSON.stringify([]));
-  }
-  if (!localStorage.getItem(DESTINOS_KEY)) {
-    // AJUSTE 1: Tabla de destinos inicia vacía por defecto
-    localStorage.setItem(DESTINOS_KEY, JSON.stringify([]));
-  }
+  if (!localStorage.getItem(CATEGORIES_KEY)) localStorage.setItem(CATEGORIES_KEY, JSON.stringify(['Tecnología', 'Oficina', 'Impresión', 'Limpieza', 'Otros']));
+  if (!localStorage.getItem(PRODUCTS_KEY)) localStorage.setItem(PRODUCTS_KEY, JSON.stringify([]));
+  if (!localStorage.getItem(MOVEMENTS_KEY)) localStorage.setItem(MOVEMENTS_KEY, JSON.stringify([]));
+  if (!localStorage.getItem(CONTACTS_KEY)) localStorage.setItem(CONTACTS_KEY, JSON.stringify([]));
+  if (!localStorage.getItem(AUDIT_KEY)) localStorage.setItem(AUDIT_KEY, JSON.stringify([]));
+  if (!localStorage.getItem(DESTINOS_KEY)) localStorage.setItem(DESTINOS_KEY, JSON.stringify([]));
+};
+
+export const saveAuditLog = (log: Partial<AuditLog>) => {
+  seedData();
+  const logs = JSON.parse(localStorage.getItem(AUDIT_KEY) || '[]');
+  const newLog: AuditLog = {
+    ...log,
+    id: crypto.randomUUID(),
+    created_at: new Date().toISOString(),
+    user_email: USER_EMAIL,
+  } as AuditLog;
+  logs.unshift(newLog);
+  localStorage.setItem(AUDIT_KEY, JSON.stringify(logs));
 };
 
 export const getDestinos = (): Destination[] => {
@@ -37,41 +39,28 @@ export const getDestinos = (): Destination[] => {
 export const saveDestino = (destino: Destination): void => {
   const destinos = getDestinos();
   const idx = destinos.findIndex(d => d.id === destino.id);
-  if (idx >= 0) destinos[idx] = destino;
+  const isUpdate = idx >= 0;
+  if (isUpdate) destinos[idx] = destino;
   else destinos.push(destino);
   localStorage.setItem(DESTINOS_KEY, JSON.stringify(destinos));
+  saveAuditLog({ action: isUpdate ? 'UPDATE' : 'CREATE', table_name: 'destinos', record_id: destino.id, record_name: destino.name, changes_summary: `${isUpdate ? 'Actualizó' : 'Creó'} el centro de costo "${destino.name}"` });
 };
 
 export const deleteDestino = (id: string): void => {
   const movements = getMovements();
-  const hasMovements = movements.some(m => m.destinationId === id);
-  if (hasMovements) {
-    throw new Error('No se puede eliminar este destino porque tiene movimientos registrados. Puede desactivarlo en su lugar.');
-  }
-  const destinos = getDestinos().filter(d => d.id !== id);
-  localStorage.setItem(DESTINOS_KEY, JSON.stringify(destinos));
+  if (movements.some(m => m.destinationId === id)) throw new Error('No se puede eliminar. Tiene movimientos registrados.');
+  const all = getDestinos();
+  const toDelete = all.find(d => d.id === id);
+  const remaining = all.filter(d => d.id !== id);
+  localStorage.setItem(DESTINOS_KEY, JSON.stringify(remaining));
+  if (toDelete) saveAuditLog({ action: 'DELETE', table_name: 'destinos', record_id: id, record_name: toDelete.name, changes_summary: `Eliminó el centro de costo "${toDelete.name}"` });
 };
 
 export const getAuditLogs = (page = 0, limit = 50) => {
   seedData();
   const data = JSON.parse(localStorage.getItem(AUDIT_KEY) || '[]');
   const sorted = data.sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-  return {
-    data: sorted.slice(page * limit, (page + 1) * limit),
-    count: sorted.length
-  };
-};
-
-export const saveAuditLog = (log: Partial<AuditLog>) => {
-  seedData();
-  const logs = JSON.parse(localStorage.getItem(AUDIT_KEY) || '[]');
-  const newLog = {
-    ...log,
-    id: crypto.randomUUID(),
-    created_at: new Date().toISOString()
-  };
-  logs.unshift(newLog);
-  localStorage.setItem(AUDIT_KEY, JSON.stringify(logs));
+  return { data: sorted.slice(page * limit, (page + 1) * limit), count: sorted.length };
 };
 
 export const getCategories = (): string[] => {
@@ -94,15 +83,20 @@ export const getProducts = (): Product[] => {
 
 export const saveProduct = (product: Product): void => {
   const products = getProducts();
-  const existingIndex = products.findIndex(p => p.id === product.id);
-  if (existingIndex >= 0) products[existingIndex] = product;
+  const idx = products.findIndex(p => p.id === product.id);
+  const isUpdate = idx >= 0;
+  if (isUpdate) products[idx] = product;
   else products.push(product);
   localStorage.setItem(PRODUCTS_KEY, JSON.stringify(products));
+  saveAuditLog({ action: isUpdate ? 'UPDATE' : 'CREATE', table_name: 'products', record_id: product.id, record_name: product.name, changes_summary: `${isUpdate ? 'Actualizó' : 'Creó'} el producto "${product.name}"` });
 };
 
 export const deleteProduct = (id: string): void => {
-  const products = getProducts().filter(p => p.id !== id);
-  localStorage.setItem(PRODUCTS_KEY, JSON.stringify(products));
+  const all = getProducts();
+  const toDelete = all.find(p => p.id === id);
+  const remaining = all.filter(p => p.id !== id);
+  localStorage.setItem(PRODUCTS_KEY, JSON.stringify(remaining));
+  if (toDelete) saveAuditLog({ action: 'DELETE', table_name: 'products', record_id: id, record_name: toDelete.name, changes_summary: `Eliminó el producto "${toDelete.name}"` });
 };
 
 export const getContacts = (): Contact[] => {
@@ -112,15 +106,20 @@ export const getContacts = (): Contact[] => {
 
 export const saveContact = (contact: Contact): void => {
   const contacts = getContacts();
-  const existingIndex = contacts.findIndex(c => c.id === contact.id);
-  if (existingIndex >= 0) contacts[existingIndex] = contact;
+  const idx = contacts.findIndex(c => c.id === contact.id);
+  const isUpdate = idx >= 0;
+  if (isUpdate) contacts[idx] = contact;
   else contacts.push(contact);
   localStorage.setItem(CONTACTS_KEY, JSON.stringify(contacts));
+  saveAuditLog({ action: isUpdate ? 'UPDATE' : 'CREATE', table_name: 'contacts', record_id: contact.id, record_name: contact.name, changes_summary: `${isUpdate ? 'Actualizó' : 'Creó'} el contacto "${contact.name}"` });
 };
 
 export const deleteContact = (id: string): void => {
-  const contacts = getContacts().filter(c => c.id !== id);
-  localStorage.setItem(CONTACTS_KEY, JSON.stringify(contacts));
+  const all = getContacts();
+  const toDelete = all.find(c => c.id === id);
+  const remaining = all.filter(c => c.id !== id);
+  localStorage.setItem(CONTACTS_KEY, JSON.stringify(remaining));
+  if (toDelete) saveAuditLog({ action: 'DELETE', table_name: 'contacts', record_id: id, record_name: toDelete.name, changes_summary: `Eliminó el contacto "${toDelete.name}"` });
 };
 
 export const getMovements = (): Movement[] => {
@@ -148,7 +147,7 @@ export const registerMovement = (movement: any): Movement => {
 
   const newMovement: Movement = {
     ...movement,
-    id: Date.now().toString(),
+    id: crypto.randomUUID(),
     productName: product.name,
     balanceAfter: newStock,
     date: new Date().toISOString()
@@ -157,6 +156,7 @@ export const registerMovement = (movement: any): Movement => {
   const movements = getMovements();
   movements.unshift(newMovement);
   localStorage.setItem(MOVEMENTS_KEY, JSON.stringify(movements));
+  saveAuditLog({ action: 'CREATE', table_name: 'movements', record_id: newMovement.id, record_name: newMovement.productName, changes_summary: `Registró ${newMovement.type} de ${newMovement.quantity} unds. para "${newMovement.productName}"` });
   return newMovement;
 };
 
@@ -164,12 +164,9 @@ export const getStats = (): InventoryStats => {
   const products = getProducts();
   const movements = getMovements();
   const contacts = getContacts();
-  
   const critical = products.filter(p => p.stock > 0 && p.stock <= (p.criticalStock || 10)).length;
   const low = products.filter(p => p.stock > (p.criticalStock || 10) && p.stock <= (p.minStock || 30)).length;
-  
-  const totalValue = products.reduce((sum, p) => sum + (p.stock * (p.purchasePrice || p.price || 0)), 0);
-
+  const totalValue = products.reduce((sum, p) => sum + (p.stock * (p.purchasePrice || 0)), 0);
   return {
     totalProducts: products.length,
     lowStockCount: low,

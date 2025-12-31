@@ -8,15 +8,21 @@ import { exportToPDF } from '../services/excelService.ts';
 import { exportToExcel } from '../services/excelService.ts';
 import { ProductQRCode } from '../components/ProductQRCode.tsx';
 import { MultiQRCode } from '../components/MultiQRCode.tsx';
+import { QRScanner } from '../components/QRScanner.tsx';
 import { useNotification } from '../contexts/NotificationContext.tsx';
 import { CustomDialog } from '../components/CustomDialog.tsx';
 import { 
-  Plus, Search, Edit2, ImageIcon, Loader2, X, Save, Camera, FileText, QrCode, Info, Trash2, FileSpreadsheet, RefreshCcw, CheckSquare, Square, Printer, Filter, ChevronLeft, ChevronRight
+  Plus, Search, Edit2, ImageIcon, Loader2, X, Save, Camera, FileText, QrCode, Info, Trash2, FileSpreadsheet, RefreshCcw, CheckSquare, Square, Printer, Filter, ChevronLeft, ChevronRight, ScanLine
 } from 'https://esm.sh/lucide-react@0.475.0?external=react,react-dom';
 
 const ITEMS_PER_PAGE = 15;
 
-export const Inventory: React.FC<{ role: Role }> = ({ role }) => {
+interface InventoryProps {
+  role: Role;
+  onNavigate: (page: string, options: { push?: boolean, state?: any }) => void;
+}
+
+export const Inventory: React.FC<InventoryProps> = ({ role, onNavigate }) => {
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<CategoryMaster[]>([]);
   const [locations, setLocations] = useState<LocationMaster[]>([]);
@@ -34,7 +40,7 @@ export const Inventory: React.FC<{ role: Role }> = ({ role }) => {
   const [imageInfo, setImageInfo] = useState<{ size: string; status: string } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [formData, setFormData] = useState<any>({});
-  
+  const [isScannerOpen, setIsScannerOpen] = useState(false);
   const [productToDelete, setProductToDelete] = useState<Product | null>(null);
   const { addNotification } = useNotification();
 
@@ -65,6 +71,21 @@ export const Inventory: React.FC<{ role: Role }> = ({ role }) => {
   const totalPages = Math.ceil(filteredProducts.length / ITEMS_PER_PAGE);
   const paginatedProducts = filteredProducts.slice(currentPage * ITEMS_PER_PAGE, (currentPage + 1) * ITEMS_PER_PAGE);
 
+  const handleScanSuccess = (decodedText: string) => {
+    try {
+      const url = new URL(decodedText);
+      const productId = url.searchParams.get('id');
+      if (productId && products.some(p => p.id === productId)) {
+        setIsScannerOpen(false);
+        onNavigate('productDetail', { push: true, state: { productId } });
+      } else {
+        addNotification('Código QR no válido o producto no encontrado.', 'error');
+      }
+    } catch (e) {
+      addNotification('Código QR mal formado.', 'error');
+    }
+  };
+
   const toggleSelectAll = () => {
     if (selectedIds.length === paginatedProducts.length) setSelectedIds([]);
     else setSelectedIds(paginatedProducts.map(p => p.id));
@@ -76,7 +97,7 @@ export const Inventory: React.FC<{ role: Role }> = ({ role }) => {
     if (product) { setEditingProduct(product); setFormData({ ...product }); }
     else {
       setEditingProduct(null);
-      setFormData({ code: `SKU-${String(products.length + 1).padStart(4, '0')}`, name: '', brand: '', size: '', model: '', category: '', location: '', stock: 0, minStock: 30, criticalStock: 10, purchasePrice: 0, salePrice: 0, currency: 'PEN', unit: 'PAR', imageUrl: '' });
+      setFormData({ id: crypto.randomUUID(), code: `SKU-${String(products.length + 1).padStart(4, '0')}`, name: '', brand: '', size: '', model: '', category: '', location: '', stock: 0, minStock: 30, criticalStock: 10, purchasePrice: 0, salePrice: 0, currency: 'PEN', unit: 'PAR', imageUrl: '' });
     }
     setIsModalOpen(true);
   };
@@ -147,11 +168,12 @@ export const Inventory: React.FC<{ role: Role }> = ({ role }) => {
 
   return (
     <div className="space-y-4 animate-in fade-in pb-24">
+      {isScannerOpen && <QRScanner onScanSuccess={handleScanSuccess} onClose={() => setIsScannerOpen(false)} />}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-4">
         <div><h1 className="text-2xl font-black text-slate-900 uppercase tracking-tight">PRODUCTOS</h1><p className="text-[9px] text-slate-500 font-black uppercase tracking-widest mt-0.5">Inventario Maestro</p></div>
         <div className="flex gap-2 w-full sm:w-auto">
           <div className="bg-white border border-slate-200 rounded-xl flex overflow-hidden shadow-sm flex-1 sm:flex-none">
-             <button onClick={() => exportToPDF("CATALOGO DE PRODUCTOS", [['SKU', 'PRODUCTO', 'MARCA', 'ALMACEN', 'STOCK', 'COSTO', 'VENTA']], filteredProducts.map(p => [p.code, p.name, p.brand, p.location, p.stock.toString(), formatCurrency(p.purchasePrice), formatCurrency(p.salePrice || 0)]), "Inventario_Filtrado")} className="flex-1 px-4 py-3 text-slate-600 text-[9px] font-black uppercase flex items-center justify-center gap-1.5 hover:bg-slate-50 transition-all border-r border-slate-100"><FileText className="w-3.5 h-3.5" /> PDF</button>
+             <button onClick={() => setIsScannerOpen(true)} className="flex-1 px-4 py-3 text-slate-600 text-[9px] font-black uppercase flex items-center justify-center gap-1.5 hover:bg-slate-50 transition-all border-r border-slate-100"><ScanLine className="w-3.5 h-3.5" /> SCAN QR</button>
              <button onClick={() => exportToExcel(filteredProducts, "Inventario", "Stock")} className="flex-1 px-4 py-3 text-emerald-600 text-[9px] font-black uppercase flex items-center justify-center gap-1.5 hover:bg-emerald-50 transition-all"><FileSpreadsheet className="w-3.5 h-3.5" /> EXCEL</button>
           </div>
           {role !== 'VIEWER' && <button onClick={() => handleOpenModal()} className="bg-indigo-600 text-white px-6 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2 shadow-xl shadow-indigo-100 hover:bg-indigo-700 active:scale-95 transition-all"><Plus className="w-4 h-4" /> NUEVO</button>}
