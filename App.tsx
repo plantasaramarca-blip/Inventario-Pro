@@ -91,6 +91,7 @@ export default function App() {
             await fetchRole(currentSession.user.email!);
             if (productIdFromUrl && !scannedProductId) {
               setScannedProductId(productIdFromUrl);
+              // Create synthetic history for QR code entry to allow backing out to inventory
               window.history.replaceState({ page: 'inventory' }, "", window.location.pathname);
               navigateTo('productDetail', { push: true, state: { productId: productIdFromUrl } });
             }
@@ -112,6 +113,7 @@ export default function App() {
     
     const unsubscribePromise = initAuth();
     
+    // Set initial history state only if not coming from a QR code link
     const urlParams = new URLSearchParams(window.location.search);
     if (!urlParams.get('id')) {
         window.history.replaceState({ page: currentPage }, "", window.location.pathname);
