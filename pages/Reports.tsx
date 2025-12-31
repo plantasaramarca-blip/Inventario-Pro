@@ -9,8 +9,15 @@ import {
   LineChart, Line, PieChart, Pie, Cell
 } from 'recharts';
 import { 
-  TrendingUp, Filter, Loader2, ArrowUpRight, ArrowDownRight, Package, RefreshCcw, PieChart as PieIcon, FileSpreadsheet
+  TrendingUp, Filter, Loader2, ArrowUpRight, ArrowDownRight, Package, RefreshCcw, PieChart as PieIcon, FileSpreadsheet, Archive, BarChart3 as BarChartIcon
 } from 'https://esm.sh/lucide-react@0.475.0?external=react,react-dom';
+
+const EmptyState = ({ message }: { message: string }) => (
+  <div className="h-full flex flex-col items-center justify-center text-center text-slate-400 p-10">
+    <BarChartIcon className="w-10 h-10 mb-3" />
+    <p className="text-[9px] font-black uppercase tracking-widest">{message}</p>
+  </div>
+);
 
 export const Reports: React.FC = () => {
   const [products, setProducts] = useState<Product[]>([]);
@@ -38,6 +45,49 @@ export const Reports: React.FC = () => {
       return mDate >= dateRange.from && mDate <= dateRange.to;
     });
   }, [movements, dateRange]);
+
+  const topMovingProducts = useMemo(() => {
+    // FIX: Explicitly specify generic type for reduce to ensure correct type inference.
+    // This resolves issues where the result of the reduce was not being correctly typed as Record<string, number>,
+    // causing subsequent sort operations to fail with type errors.
+    const counts = filteredMovements
+      .filter(m => m.type === 'SALIDA')
+      .reduce<Record<string, number>>((acc, m) => {
+        acc[m.productId] = (acc[m.productId] || 0) + m.quantity;
+        return acc;
+      }, {});
+      
+    return Object.entries(counts)
+      .sort(([, qtyA], [, qtyB]) => qtyB - qtyA)
+      .slice(0, 5)
+      .map(([productId, quantity]) => ({
+        product: products.find(p => p.id === productId),
+        quantity,
+      }))
+      .filter(item => item.product);
+  }, [filteredMovements, products]);
+
+  const stagnantProducts = useMemo(() => {
+    const movedProductIds = new Set(filteredMovements.map(m => m.productId));
+    return products.filter(p => !movedProductIds.has(p.id) && p.stock > 0).slice(0, 5);
+  }, [filteredMovements, products]);
+
+  const destinationData = useMemo(() => {
+    // FIX: Explicitly specify generic type for reduce to ensure correct type inference.
+    // This resolves issues where the result of the reduce was not being correctly typed as Record<string, number>,
+    // causing subsequent sort operations to fail with type errors.
+    const counts = filteredMovements
+      .filter(m => m.type === 'SALIDA' && m.destinationName)
+      .reduce<Record<string, number>>((acc, m) => {
+        acc[m.destinationName!] = (acc[m.destinationName!] || 0) + m.quantity;
+        return acc;
+      }, {});
+
+    return Object.entries(counts)
+      .map(([name, quantity]) => ({ name, quantity }))
+      .sort((a, b) => b.quantity - a.quantity)
+      .slice(0, 8);
+  }, [filteredMovements]);
 
   const handleExportExcel = () => {
     if (filteredMovements.length === 0) return;
@@ -119,41 +169,95 @@ export const Reports: React.FC = () => {
         <div className="bg-white p-8 rounded-[3rem] border border-slate-100 shadow-sm">
           <h3 className="text-[10px] font-black text-slate-800 uppercase tracking-widest mb-8 flex items-center gap-3"><TrendingUp className="w-5 h-5 text-indigo-600" /> Histórico de Flujo</h3>
           <div className="h-64 min-h-[300px]">
-            <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
-              <LineChart data={chartData}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                <XAxis dataKey="date" fontSize={8} tick={{fontWeight: 800}} stroke="#cbd5e1" />
-                <YAxis fontSize={8} tick={{fontWeight: 800}} stroke="#cbd5e1" />
-                <Tooltip contentStyle={{ borderRadius: '20px', border: 'none', boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.1)', fontSize: '10px', fontWeight: 800 }} />
-                <Legend wrapperStyle={{ paddingTop: '20px', fontSize: '9px', fontWeight: 800, textTransform: 'uppercase' }} />
-                <Line type="monotone" dataKey="entradas" stroke="#4f46e5" strokeWidth={4} dot={{ r: 4, fill: '#4f46e5', strokeWidth: 2, stroke: '#fff' }} activeDot={{ r: 6 }} />
-                <Line type="monotone" dataKey="salidas" stroke="#ef4444" strokeWidth={4} dot={{ r: 4, fill: '#ef4444', strokeWidth: 2, stroke: '#fff' }} activeDot={{ r: 6 }} />
-              </LineChart>
-            </ResponsiveContainer>
+            {chartData.length > 0 ? (
+              <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
+                <LineChart data={chartData}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                  <XAxis dataKey="date" fontSize={8} tick={{fontWeight: 800}} stroke="#cbd5e1" />
+                  <YAxis fontSize={8} tick={{fontWeight: 800}} stroke="#cbd5e1" />
+                  <Tooltip contentStyle={{ borderRadius: '20px', border: 'none', boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.1)', fontSize: '10px', fontWeight: 800 }} />
+                  <Legend wrapperStyle={{ paddingTop: '20px', fontSize: '9px', fontWeight: 800, textTransform: 'uppercase' }} />
+                  <Line type="monotone" dataKey="entradas" stroke="#4f46e5" strokeWidth={4} dot={{ r: 4, fill: '#4f46e5', strokeWidth: 2, stroke: '#fff' }} activeDot={{ r: 6 }} />
+                  <Line type="monotone" dataKey="salidas" stroke="#ef4444" strokeWidth={4} dot={{ r: 4, fill: '#ef4444', strokeWidth: 2, stroke: '#fff' }} activeDot={{ r: 6 }} />
+                </LineChart>
+              </ResponsiveContainer>
+            ) : <EmptyState message="Sin datos de flujo para este período" />}
           </div>
         </div>
 
         <div className="bg-white p-8 rounded-[3rem] border border-slate-100 shadow-sm flex flex-col items-center">
           <h3 className="text-[10px] font-black text-slate-800 uppercase tracking-widest mb-8 w-full flex items-center gap-3"><PieIcon className="w-5 h-5 text-indigo-600" /> Distribución Logística</h3>
           <div className="h-64 w-full min-h-[300px]">
-            <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
-              <PieChart>
-                <Pie 
-                  data={[
-                    { name: 'Suficiente', value: products.filter(p=>p.stock>p.minStock).length },
-                    { name: 'Stock Bajo', value: products.filter(p=>p.stock<=p.minStock && p.stock>p.criticalStock).length },
-                    { name: 'Crítico', value: products.filter(p=>p.stock<=p.criticalStock && p.stock>0).length },
-                    { name: 'Sin Stock', value: products.filter(p=>p.stock<=0).length }
-                  ]} 
-                  innerRadius={60} outerRadius={85} paddingAngle={8} dataKey="value" stroke="none"
-                  cornerRadius={5}
-                >
-                  {COLORS.map((col, idx) => <Cell key={`cell-${idx}`} fill={col} />)}
-                </Pie>
-                <Tooltip contentStyle={{ borderRadius: '20px', border: 'none', fontSize: '10px', fontWeight: 800 }} />
-                <Legend verticalAlign="bottom" align="center" wrapperStyle={{ fontSize: '9px', fontWeight: 800, paddingTop: '10px' }} />
-              </PieChart>
-            </ResponsiveContainer>
+            {products.length > 0 ? (
+              <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
+                <PieChart>
+                  <Pie 
+                    data={[
+                      { name: 'Suficiente', value: products.filter(p=>p.stock>p.minStock).length },
+                      { name: 'Stock Bajo', value: products.filter(p=>p.stock<=p.minStock && p.stock>p.criticalStock).length },
+                      { name: 'Crítico', value: products.filter(p=>p.stock<=p.criticalStock && p.stock>0).length },
+                      { name: 'Sin Stock', value: products.filter(p=>p.stock<=0).length }
+                    ]} 
+                    innerRadius={60} outerRadius={85} paddingAngle={8} dataKey="value" stroke="none"
+                    cornerRadius={5}
+                  >
+                    {COLORS.map((col, idx) => <Cell key={`cell-${idx}`} fill={col} />)}
+                  </Pie>
+                  <Tooltip contentStyle={{ borderRadius: '20px', border: 'none', fontSize: '10px', fontWeight: 800 }} />
+                  <Legend verticalAlign="bottom" align="center" wrapperStyle={{ fontSize: '9px', fontWeight: 800, paddingTop: '10px' }} />
+                </PieChart>
+              </ResponsiveContainer>
+            ) : <EmptyState message="No hay productos registrados" />}
+          </div>
+        </div>
+      </div>
+      
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="bg-white p-8 rounded-[3rem] border border-slate-100 shadow-sm">
+          <h3 className="text-[10px] font-black text-slate-800 uppercase tracking-widest mb-6">Análisis de Rotación</h3>
+          <div className="grid grid-cols-2 gap-6">
+            <div>
+              <h4 className="flex items-center gap-2 text-[9px] font-black uppercase text-emerald-600 tracking-widest mb-3"><TrendingUp className="w-4 h-4" /> Mayor Rotación</h4>
+              {topMovingProducts.length > 0 ? (
+                <ul className="space-y-2">
+                  {topMovingProducts.map(({ product, quantity }) => (
+                    <li key={product!.id} className="bg-emerald-50/50 p-2.5 rounded-xl text-[10px] flex justify-between items-center">
+                      <span className="font-bold uppercase truncate pr-2 w-2/3">{product!.name}</span>
+                      <span className="font-black text-emerald-700">{quantity}</span>
+                    </li>
+                  ))}
+                </ul>
+              ) : <p className="text-center text-slate-400 text-[9px] font-bold uppercase py-10">Sin salidas</p>}
+            </div>
+            <div>
+              <h4 className="flex items-center gap-2 text-[9px] font-black uppercase text-rose-600 tracking-widest mb-3"><Archive className="w-4 h-4" /> Estancados</h4>
+              {stagnantProducts.length > 0 ? (
+                <ul className="space-y-2">
+                  {stagnantProducts.map(product => (
+                    <li key={product.id} className="bg-rose-50/50 p-2.5 rounded-xl text-[10px] flex justify-between items-center">
+                      <span className="font-bold uppercase truncate pr-2 w-2/3">{product.name}</span>
+                      <span className="font-black text-rose-700">Stock: {product.stock}</span>
+                    </li>
+                  ))}
+                </ul>
+              ) : <p className="text-center text-slate-400 text-[9px] font-bold uppercase py-10">Sin estancados</p>}
+            </div>
+          </div>
+        </div>
+        <div className="bg-white p-8 rounded-[3rem] border border-slate-100 shadow-sm">
+          <h3 className="text-[10px] font-black text-slate-800 uppercase tracking-widest mb-6">Despacho por Centro de Costo</h3>
+          <div className="h-64 min-h-[250px]">
+            {destinationData.length > 0 ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={destinationData} layout="vertical" margin={{ top: 5, right: 20, left: 20, bottom: 5 }}>
+                  <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f1f5f9" />
+                  <XAxis type="number" fontSize={8} tick={{fontWeight: 800}} stroke="#cbd5e1" />
+                  <YAxis type="category" dataKey="name" width={80} tick={{fontSize: 8, width: 75}} style={{textTransform: 'uppercase', fontWeight: 800}} stroke="#94a3b8" />
+                  <Tooltip cursor={{fill: '#f8fafc'}} contentStyle={{ borderRadius: '20px', border: 'none', fontSize: '10px', fontWeight: 800 }} />
+                  <Bar dataKey="quantity" fill="#4f46e5" barSize={15} radius={[0, 10, 10, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            ) : <EmptyState message="Sin despachos a centros de costo" />}
           </div>
         </div>
       </div>
