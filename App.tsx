@@ -42,20 +42,31 @@ export default function App() {
   const [role, setRole] = useState<Role>('VIEWER');
   const [showExitConfirm, setShowExitConfirm] = useState(false);
   const [scannedProductId, setScannedProductId] = useState<string | null>(null);
+  const { addNotification } = useNotification();
 
   const fetchRole = async (email: string) => {
     try {
       const profile = await api.getCurrentUserProfile(email);
-      if (profile) setRole(profile.role);
-    } catch (e) { setRole('VIEWER'); }
+      if (profile) {
+        setRole(profile.role);
+      } else {
+        setRole('VIEWER');
+        addNotification('Rol no verificado, se asignó acceso de solo lectura.', 'info');
+      }
+    } catch (e) {
+      setRole('VIEWER');
+      addNotification('Error de red al verificar permisos. Acceso de solo lectura.', 'error');
+    }
   };
 
-  const navigateTo = (page: string, pushState = true) => { 
+  const navigateTo = (page: string, pushState = true) => {
     if (page === currentPage) return;
-    setCurrentPage(page); 
+    setCurrentPage(page);
     if (isSidebarOpen) setIsSidebarOpen(false);
     if (pushState) {
-      window.history.pushState({ page }, "", "");
+      const url = new URL(window.location.href);
+      url.search = ''; // Limpia los parámetros de la URL para evitar bucles
+      window.history.pushState({ page }, "", url.pathname);
     }
   };
 
@@ -80,15 +91,16 @@ export default function App() {
           }
           
           const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, newSession) => {
-            if (newSession) {
-              setSession(newSession);
-              if (newSession.user.email) await fetchRole(newSession.user.email);
+            setSession(newSession);
+            if (newSession && newSession.user.email) {
+              await fetchRole(newSession.user.email);
+              // Lógica para QR después de iniciar sesión
               const params = new URLSearchParams(window.location.search);
-              if (params.get('id')) {
+              if (params.get('id') && currentPage !== 'productDetail') {
                  setScannedProductId(params.get('id'));
                  navigateTo('productDetail');
               }
-            } else { setSession(null); }
+            }
           });
           
           return () => { subscription.unsubscribe(); document.removeEventListener('visibilitychange', handleVisibilityChange); };
@@ -110,10 +122,7 @@ export default function App() {
     window.history.replaceState({ page: 'dashboard' }, "", "");
     const handlePopState = (event: PopStateEvent) => {
       if (event.state && event.state.page) navigateTo(event.state.page, false);
-      else {
-        if (currentPage === 'dashboard') { window.history.pushState({ page: 'dashboard' }, "", ""); setShowExitConfirm(true); } 
-        else { navigateTo('dashboard', false); }
-      }
+      else navigateTo('dashboard', false);
     };
     window.addEventListener('popstate', handlePopState);
     
@@ -121,7 +130,7 @@ export default function App() {
       window.removeEventListener('popstate', handlePopState);
       unsubscribePromise.then(cleanup => { if (typeof cleanup === 'function') cleanup(); });
     };
-  }, [currentPage]);
+  }, []); // El array de dependencias se deja vacío para que solo se ejecute una vez
 
   const handleFinalExit = async () => {
     if (isSupabaseConfigured) await supabase.auth.signOut();
