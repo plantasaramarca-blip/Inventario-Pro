@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import { supabase, isSupabaseConfigured } from './supabaseClient.ts';
 import { Navbar } from './components/Navbar.tsx';
 import { Sidebar } from './components/Sidebar.tsx';
@@ -55,14 +55,24 @@ export default function App() {
     }
   };
 
-  const navigateTo = (page: string, pushState = true, state: any = null) => {
+  const navigateTo = (page: string, options: { push?: boolean; state?: any } = {}) => {
+    const { push = true, state = null } = options;
+
+    if (page === currentPage && JSON.stringify(state) === JSON.stringify(navigationState)) return;
+
     setCurrentPage(page);
     setNavigationState(state);
     if (isSidebarOpen) setIsSidebarOpen(false);
-    if (pushState) {
-      const url = new URL(window.location.href);
-      if (page !== 'productDetail') url.search = '';
-      window.history.pushState({ page }, "", url.pathname + url.search + url.hash);
+
+    if (push) {
+      const url = new URL(window.location.origin + window.location.pathname);
+      const productId = state?.productId || state?.prefill?.product?.id || scannedProductId;
+      
+      if (page === 'productDetail' && productId) {
+        url.searchParams.set('id', productId);
+      }
+      
+      window.history.pushState({ page, state }, "", url.toString());
     }
   };
 
@@ -81,7 +91,8 @@ export default function App() {
             await fetchRole(currentSession.user.email!);
             if (productIdFromUrl && !scannedProductId) {
               setScannedProductId(productIdFromUrl);
-              navigateTo('productDetail', false);
+              window.history.replaceState({ page: 'inventory' }, "", window.location.pathname);
+              navigateTo('productDetail', { push: true, state: { productId: productIdFromUrl } });
             }
           }
         };
@@ -101,14 +112,14 @@ export default function App() {
     
     const unsubscribePromise = initAuth();
     
-    window.history.replaceState({ page: 'dashboard' }, "", window.location.pathname + window.location.search);
+    const urlParams = new URLSearchParams(window.location.search);
+    if (!urlParams.get('id')) {
+        window.history.replaceState({ page: currentPage }, "", window.location.pathname);
+    }
+    
     const handlePopState = (event: PopStateEvent) => {
-      if (currentPage === 'productDetail' && (!event.state || event.state.page !== 'productDetail')) {
-        event.preventDefault(); navigateTo('inventory', false);
-      } else if (event.state && event.state.page) {
-        navigateTo(event.state.page, false);
-      } else {
-        navigateTo('dashboard', false);
+      if (event.state && event.state.page) {
+        navigateTo(event.state.page, { push: false, state: event.state.state });
       }
     };
     window.addEventListener('popstate', handlePopState);
@@ -118,7 +129,7 @@ export default function App() {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       unsubscribePromise.then(cleanup => { if (typeof cleanup === 'function') cleanup(); });
     };
-  }, [currentPage]); // Se agrega currentPage para re-evaluar el listener si es necesario
+  }, []);
 
   const handleFinalExit = async () => {
     if (isSupabaseConfigured) await supabase.auth.signOut();
@@ -132,7 +143,7 @@ export default function App() {
 
   const renderContent = () => {
     switch (currentPage) {
-      case 'productDetail': return <ProductDetail productId={scannedProductId} role={role} userEmail={session.user?.email} onBack={() => navigateTo('inventory')} onNavigate={navigateTo} />;
+      case 'productDetail': return <ProductDetail productId={navigationState?.productId || scannedProductId} role={role} userEmail={session.user?.email} onBack={() => window.history.back()} onNavigate={navigateTo} />;
       case 'inventory': return <Inventory role={role} />;
       case 'kardex': return <Kardex role={role} userEmail={session.user?.email} initialState={navigationState} onInitialStateConsumed={() => setNavigationState(null)} />;
       case 'destinos': return <Destinos />;
@@ -148,7 +159,7 @@ export default function App() {
 
   return (
     <div className="flex h-screen overflow-hidden bg-slate-50 font-inter animate-in fade-in duration-300">
-      <Sidebar currentPage={currentPage} onNavigate={(p) => navigateTo(p)} isOpen={isSidebarOpen} setIsOpen={setIsSidebarOpen} role={role} />
+      <Sidebar currentPage={currentPage} onNavigate={(p) => navigateTo(p, { push: true })} isOpen={isSidebarOpen} setIsOpen={setIsSidebarOpen} role={role} />
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden relative">
         <Navbar onMenuClick={() => setIsSidebarOpen(true)} role={role} userEmail={session.user?.email} />
         <main className="flex-1 overflow-y-auto p-3 sm:p-6 no-scrollbar"><div className="max-w-7xl mx-auto">{renderContent()}</div></main>

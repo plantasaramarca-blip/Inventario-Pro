@@ -14,7 +14,7 @@ interface ProductDetailProps {
   role: Role;
   userEmail?: string;
   onBack: () => void;
-  onNavigate: (page: string, state: any) => void;
+  onNavigate: (page: string, options: { push?: boolean, state?: any }) => void;
 }
 
 export const ProductDetail: React.FC<ProductDetailProps> = ({ productId, role, userEmail, onBack, onNavigate }) => {
@@ -63,7 +63,7 @@ export const ProductDetail: React.FC<ProductDetailProps> = ({ productId, role, u
   return (
     <div className="space-y-6 animate-in fade-in pb-20">
       <button onClick={onBack} className="flex items-center gap-2 text-xs font-bold text-slate-500 hover:text-indigo-600 transition-colors">
-        <ArrowLeft className="w-4 h-4" /> Volver al Inventario
+        <ArrowLeft className="w-4 h-4" /> Volver
       </button>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -82,12 +82,12 @@ export const ProductDetail: React.FC<ProductDetailProps> = ({ productId, role, u
           {role !== 'VIEWER' && (
             <div className="grid grid-cols-2 gap-3">
               <button 
-                onClick={() => onNavigate('kardex', { prefill: { type: 'INGRESO', product } })}
+                onClick={() => onNavigate('kardex', { push: true, state: { prefill: { type: 'INGRESO', product } } })}
                 className="bg-indigo-50 text-indigo-600 p-4 rounded-2xl flex flex-col items-center justify-center text-[9px] font-black uppercase tracking-widest hover:bg-indigo-100 transition-all">
                 <ArrowUpCircle className="w-6 h-6 mb-2" /> Ingreso
               </button>
               <button 
-                onClick={() => onNavigate('kardex', { prefill: { type: 'SALIDA', product } })}
+                onClick={() => onNavigate('kardex', { push: true, state: { prefill: { type: 'SALIDA', product } } })}
                 className="bg-rose-50 text-rose-600 p-4 rounded-2xl flex flex-col items-center justify-center text-[9px] font-black uppercase tracking-widest hover:bg-rose-100 transition-all">
                 <ArrowDownCircle className="w-6 h-6 mb-2" /> Despacho
               </button>
