@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { supabase, isSupabaseConfigured } from './supabaseClient.ts';
 import { Navbar } from './components/Navbar.tsx';
 import { Sidebar } from './components/Sidebar.tsx';
@@ -14,6 +14,7 @@ import { UsersPage } from './pages/Users.tsx';
 import { CategoryManagement } from './pages/Categories.tsx';
 import { LocationManagement } from './pages/Locations.tsx';
 import { Login } from './pages/Login.tsx';
+import { ProductDetail } from './pages/ProductDetail.tsx'; // Importación de la nueva página
 import { Role } from './types.ts';
 import * as api from './services/supabaseService.ts';
 import { Loader2 } from 'lucide-react';
@@ -40,6 +41,7 @@ export default function App() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [role, setRole] = useState<Role>('VIEWER');
   const [showExitConfirm, setShowExitConfirm] = useState(false);
+  const [scannedProductId, setScannedProductId] = useState<string | null>(null);
 
   const fetchRole = async (email: string) => {
     try {
@@ -58,74 +60,66 @@ export default function App() {
   };
 
   useEffect(() => {
-    // FIX: Listener para reactivar la conexión de Supabase al volver a la pestaña.
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible' && isSupabaseConfigured) {
-        supabase.auth.getSession();
-      }
-    };
+    const handleVisibilityChange = () => { if (document.visibilityState === 'visible' && isSupabaseConfigured) { supabase.auth.getSession(); } };
     document.addEventListener('visibilitychange', handleVisibilityChange);
 
     const initAuth = async () => {
       try {
+        const urlParams = new URLSearchParams(window.location.search);
+        const productIdFromUrl = urlParams.get('id');
+        
         if (isSupabaseConfigured) {
           const { data: { session: initialSession } } = await supabase.auth.getSession();
           if (initialSession) {
             setSession(initialSession);
             await fetchRole(initialSession.user.email!);
+            if (productIdFromUrl) {
+              setScannedProductId(productIdFromUrl);
+              navigateTo('productDetail', false);
+            }
           }
           
           const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, newSession) => {
             if (newSession) {
               setSession(newSession);
               if (newSession.user.email) await fetchRole(newSession.user.email);
-            } else {
-              setSession(null);
-            }
+              const params = new URLSearchParams(window.location.search);
+              if (params.get('id')) {
+                 setScannedProductId(params.get('id'));
+                 navigateTo('productDetail');
+              }
+            } else { setSession(null); }
           });
           
-          return () => {
-            subscription.unsubscribe();
-            document.removeEventListener('visibilitychange', handleVisibilityChange);
-          };
+          return () => { subscription.unsubscribe(); document.removeEventListener('visibilitychange', handleVisibilityChange); };
         } else {
           const localSession = localStorage.getItem('kardex_local_session');
           if (localSession) {
             const parsed = JSON.parse(localSession);
-            setSession(parsed);
-            await fetchRole(parsed.user.email);
+            setSession(parsed); await fetchRole(parsed.user.email);
+            if (productIdFromUrl) {
+              setScannedProductId(productIdFromUrl);
+              navigateTo('productDetail', false);
+            }
           }
         }
-      } catch (e) {} finally {
-        setLoading(false);
-      }
+      } catch (e) {} finally { setLoading(false); }
     };
     const unsubscribePromise = initAuth();
-
+    
     window.history.replaceState({ page: 'dashboard' }, "", "");
     const handlePopState = (event: PopStateEvent) => {
-      if (event.state && event.state.page) {
-        navigateTo(event.state.page, false);
-      } else {
-        if (currentPage === 'dashboard') {
-          window.history.pushState({ page: 'dashboard' }, "", "");
-          setShowExitConfirm(true);
-        } else {
-          navigateTo('dashboard', false);
-        }
+      if (event.state && event.state.page) navigateTo(event.state.page, false);
+      else {
+        if (currentPage === 'dashboard') { window.history.pushState({ page: 'dashboard' }, "", ""); setShowExitConfirm(true); } 
+        else { navigateTo('dashboard', false); }
       }
     };
     window.addEventListener('popstate', handlePopState);
     
     return () => {
       window.removeEventListener('popstate', handlePopState);
-      // FIX: `initAuth` returns a promise that resolves to the cleanup function.
-      // This correctly handles the promise and calls the cleanup function if it exists.
-      unsubscribePromise.then(cleanup => {
-        if (typeof cleanup === 'function') {
-          cleanup();
-        }
-      });
+      unsubscribePromise.then(cleanup => { if (typeof cleanup === 'function') cleanup(); });
     };
   }, [currentPage]);
 
@@ -140,6 +134,7 @@ export default function App() {
 
   const renderContent = () => {
     switch (currentPage) {
+      case 'productDetail': return <ProductDetail productId={scannedProductId} role={role} userEmail={session.user?.email} onBack={() => navigateTo('inventory')} />;
       case 'inventory': return <Inventory role={role} />;
       case 'kardex': return <Kardex role={role} userEmail={session.user?.email} />;
       case 'destinos': return <Destinos />;
@@ -161,16 +156,7 @@ export default function App() {
         <main className="flex-1 overflow-y-auto p-3 sm:p-6 no-scrollbar"><div className="max-w-7xl mx-auto">{renderContent()}</div></main>
       </div>
       <NotificationContainer />
-      <CustomDialog 
-        isOpen={showExitConfirm} 
-        title="Seguridad" 
-        message="¿Deseas cerrar la sesión y salir del sistema?" 
-        type="error"
-        onConfirm={handleFinalExit}
-        onCancel={() => setShowExitConfirm(false)}
-        confirmText="Cerrar Sesión"
-        cancelText="Permanecer"
-      />
+      <CustomDialog isOpen={showExitConfirm} title="Seguridad" message="¿Deseas cerrar la sesión y salir del sistema?" type="error" onConfirm={handleFinalExit} onCancel={() => setShowExitConfirm(false)} confirmText="Cerrar Sesión" cancelText="Permanecer" />
     </div>
   );
 }
