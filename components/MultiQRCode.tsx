@@ -1,6 +1,6 @@
 
 import React, { useRef } from 'react';
-import { QRCodeSVG } from 'qrcode.react';
+import { QRCodeSVG } from 'https://esm.sh/qrcode.react@3.1.0?external=react,react-dom';
 import { jsPDF } from 'jspdf';
 import html2canvas from 'html2canvas';
 import { X, Printer, FileDown, Loader2 } from 'lucide-react';
