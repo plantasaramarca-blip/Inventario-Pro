@@ -1,16 +1,20 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { LocationMaster, Role } from '../types.ts';
 import * as api from '../services/supabaseService.ts';
 import { useNotification } from '../contexts/NotificationContext.tsx';
 import { CustomDialog } from '../components/CustomDialog.tsx';
 import { 
-  Plus, Warehouse, Edit2, Trash2, X, Search, Loader2, MapPin
+  Plus, Warehouse, Edit2, Trash2, X, Search, Loader2
 } from 'https://esm.sh/lucide-react@0.475.0?external=react,react-dom';
 
-export const LocationManagement: React.FC<{ role: Role }> = ({ role }) => {
-  const [locations, setLocations] = useState<LocationMaster[]>([]);
-  const [loading, setLoading] = useState(true);
+interface LocationManagementProps {
+  role: Role;
+  locations: LocationMaster[];
+  onDataRefresh: () => void;
+}
+
+export const LocationManagement: React.FC<LocationManagementProps> = ({ role, locations, onDataRefresh }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingLoc, setEditingLoc] = useState<LocationMaster | null>(null);
   const [locToDelete, setLocToDelete] = useState<LocationMaster | null>(null);
@@ -18,19 +22,6 @@ export const LocationManagement: React.FC<{ role: Role }> = ({ role }) => {
   const [search, setSearch] = useState('');
   const [saving, setSaving] = useState(false);
   const { addNotification } = useNotification();
-
-  const loadData = async () => {
-    setLoading(true);
-    try {
-      const data = await api.getLocationsMaster();
-      setLocations(data || []);
-    } catch (e) {
-      addNotification("Error al cargar almacenes.", "error");
-    }
-    setLoading(false);
-  };
-
-  useEffect(() => { loadData(); }, []);
 
   const handleOpenModal = (loc?: LocationMaster) => {
     if (loc) { setEditingLoc(loc); setName(loc.name); }
@@ -44,7 +35,7 @@ export const LocationManagement: React.FC<{ role: Role }> = ({ role }) => {
     try {
       await api.saveLocationMaster({ id: editingLoc?.id, name });
       setIsModalOpen(false);
-      loadData();
+      onDataRefresh();
       addNotification("Almacén guardado.", "success");
     } catch (e) {
       addNotification("Error al guardar.", "error");
@@ -56,8 +47,8 @@ export const LocationManagement: React.FC<{ role: Role }> = ({ role }) => {
     if (!locToDelete) return;
     try {
       await api.deleteLocationMaster(locToDelete.id);
-      loadData();
-      addNotification(`Almacén "${locToDelete.name}" eliminado.`, "success");
+      onDataRefresh();
+      addNotification(`Almacén "${locToDelete.name}" eliminado.`, 'success');
     } catch (e) {
       addNotification("Error al eliminar.", "error");
     } finally {
@@ -86,9 +77,7 @@ export const LocationManagement: React.FC<{ role: Role }> = ({ role }) => {
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        {loading ? (
-          <div className="col-span-full py-10 text-center"><Loader2 className="animate-spin mx-auto w-6 h-6 text-indigo-500" /></div>
-        ) : filtered.length === 0 ? (
+        {filtered.length === 0 ? (
           <div className="col-span-full py-10 text-center text-[10px] font-black uppercase text-slate-300">No hay almacenes</div>
         ) : filtered.map(l => (
           <div key={l.id} className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm flex items-center justify-between group">

@@ -5,7 +5,7 @@ import {
   ClipboardCheck, MapPin, UserPlus, Tags, Warehouse, Settings,
   BarChart3
 } from 'https://esm.sh/lucide-react@0.475.0?external=react,react-dom';
-import { Role } from '../types.ts';
+import { Role, InventoryStats } from '../types.ts';
 import * as api from '../services/supabaseService.ts';
 
 interface SidebarProps {
@@ -14,25 +14,14 @@ interface SidebarProps {
   isOpen: boolean;
   setIsOpen: (isOpen: boolean) => void;
   role: Role;
+  stats: InventoryStats | null;
 }
 
-export const Sidebar: React.FC<SidebarProps> = ({ currentPage, onNavigate, isOpen, setIsOpen, role }) => {
-  const [counts, setCounts] = useState({ critical: 0, low: 0 });
-
-  useEffect(() => {
-    const updateCounts = async () => {
-      try {
-        const stats = await api.getStats();
-        setCounts({ 
-          critical: (stats.criticalStockCount || 0) + (stats.outOfStockCount || 0), 
-          low: stats.lowStockCount || 0 
-        });
-      } catch (e) {}
-    };
-    updateCounts();
-    const interval = setInterval(updateCounts, 30000);
-    return () => clearInterval(interval);
-  }, [currentPage]);
+export const Sidebar: React.FC<SidebarProps> = ({ currentPage, onNavigate, isOpen, setIsOpen, role, stats }) => {
+  const counts = {
+    critical: (stats?.criticalStockCount || 0) + (stats?.outOfStockCount || 0),
+    low: stats?.lowStockCount || 0,
+  };
 
   const menuItems = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, adminOnly: false },

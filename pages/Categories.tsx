@@ -8,9 +8,13 @@ import {
   Plus, Tags, Edit2, Trash2, X, Search, Loader2
 } from 'https://esm.sh/lucide-react@0.475.0?external=react,react-dom';
 
-export const CategoryManagement: React.FC<{ role: Role }> = ({ role }) => {
-  const [categories, setCategories] = useState<CategoryMaster[]>([]);
-  const [loading, setLoading] = useState(true);
+interface CategoryManagementProps {
+  role: Role;
+  categories: CategoryMaster[];
+  onDataRefresh: () => void;
+}
+
+export const CategoryManagement: React.FC<CategoryManagementProps> = ({ role, categories, onDataRefresh }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingCat, setEditingCat] = useState<CategoryMaster | null>(null);
   const [catToDelete, setCatToDelete] = useState<CategoryMaster | null>(null);
@@ -18,19 +22,6 @@ export const CategoryManagement: React.FC<{ role: Role }> = ({ role }) => {
   const [search, setSearch] = useState('');
   const [saving, setSaving] = useState(false);
   const { addNotification } = useNotification();
-
-  const loadData = async () => {
-    setLoading(true);
-    try {
-      const data = await api.getCategoriesMaster();
-      setCategories(data || []);
-    } catch (e) {
-      addNotification("Error al cargar categorías.", "error");
-    }
-    setLoading(false);
-  };
-
-  useEffect(() => { loadData(); }, []);
 
   const handleOpenModal = (cat?: CategoryMaster) => {
     if (cat) { setEditingCat(cat); setName(cat.name); }
@@ -44,7 +35,7 @@ export const CategoryManagement: React.FC<{ role: Role }> = ({ role }) => {
     try {
       await api.saveCategoryMaster({ id: editingCat?.id, name });
       setIsModalOpen(false);
-      loadData();
+      onDataRefresh();
       addNotification("Categoría guardada.", "success");
     } catch (e) {
       addNotification("Error al guardar.", "error");
@@ -56,7 +47,7 @@ export const CategoryManagement: React.FC<{ role: Role }> = ({ role }) => {
     if (!catToDelete) return;
     try {
       await api.deleteCategoryMaster(catToDelete.id);
-      loadData();
+      onDataRefresh();
       addNotification(`Categoría "${catToDelete.name}" eliminada.`, 'success');
     } catch (e) {
       addNotification("Error al eliminar.", "error");
@@ -86,9 +77,7 @@ export const CategoryManagement: React.FC<{ role: Role }> = ({ role }) => {
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        {loading ? (
-          <div className="col-span-full py-10 text-center"><Loader2 className="animate-spin mx-auto w-6 h-6 text-indigo-500" /></div>
-        ) : filtered.length === 0 ? (
+        {filtered.length === 0 ? (
           <div className="col-span-full py-10 text-center text-[10px] font-black uppercase text-slate-300">No hay categorías</div>
         ) : filtered.map(c => (
           <div key={c.id} className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm flex items-center justify-between group">

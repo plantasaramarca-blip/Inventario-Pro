@@ -4,13 +4,15 @@ import { Destination } from '../types.ts';
 import * as api from '../services/supabaseService.ts';
 import { useNotification } from '../contexts/NotificationContext.tsx';
 import { 
-  Plus, MapPin, Edit2, X, Search, Loader2, AlertCircle, Trash2
+  Plus, MapPin, Edit2, X, Search, Loader2, AlertCircle
 } from 'https://esm.sh/lucide-react@0.475.0?external=react,react-dom';
 
-export const Destinos: React.FC = () => {
-  const [destinos, setDestinos] = useState<Destination[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(false);
+interface DestinosProps {
+  destinations: Destination[];
+  onDataRefresh: () => void;
+}
+
+export const Destinos: React.FC<DestinosProps> = ({ destinations, onDataRefresh }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [search, setSearch] = useState('');
   const { addNotification } = useNotification();
@@ -19,36 +21,19 @@ export const Destinos: React.FC = () => {
     name: '', type: 'sucursal', description: '', active: true
   });
 
-  const loadData = async () => {
-    setLoading(true);
-    setError(false);
-    try {
-      const data = await api.getDestinos();
-      setDestinos(data || []);
-    } catch (e) {
-      console.error("Error al cargar centros de costos:", e);
-      setError(true);
-      addNotification("Error al cargar centros de costos.", "error");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => { loadData(); }, []);
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      await api.saveDestino(formData);
+      await api.saveDestino({ ...formData, id: formData.id });
       setIsModalOpen(false);
-      loadData();
+      onDataRefresh();
       addNotification("Centro de costo guardado.", "success");
     } catch (e) {
       addNotification("Error al guardar.", "error");
     }
   };
 
-  const filteredDestinos = destinos.filter(d => 
+  const filteredDestinos = destinations.filter(d => 
     d.name.toLowerCase().includes(search.toLowerCase())
   );
 
@@ -75,15 +60,7 @@ export const Destinos: React.FC = () => {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {loading ? (
-          <div className="col-span-full py-20 text-center"><Loader2 className="animate-spin mx-auto w-10 h-10 text-indigo-500" /></div>
-        ) : error ? (
-           <div className="col-span-full py-20 text-center bg-white rounded-[2.5rem] border border-rose-100 p-8 shadow-sm">
-            <AlertCircle className="mx-auto w-10 h-10 text-rose-500 mb-3" />
-            <p className="text-[10px] font-black text-slate-600 uppercase mb-4">Error al conectar con la base de datos</p>
-            <button onClick={loadData} className="bg-slate-900 text-white px-5 py-2 rounded-xl text-[9px] font-black uppercase">Reintentar</button>
-          </div>
-        ) : filteredDestinos.length === 0 ? (
+        {filteredDestinos.length === 0 ? (
           <div className="col-span-full py-20 text-center bg-white rounded-[2.5rem] border border-dashed border-slate-200">
             <MapPin className="mx-auto w-10 h-10 text-slate-200 mb-3" />
             <p className="text-[10px] font-black text-slate-400 uppercase">No hay centros de costos registrados</p>

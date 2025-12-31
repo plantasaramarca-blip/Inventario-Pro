@@ -11,7 +11,7 @@ import { QRScanner } from '../components/QRScanner.tsx';
 import { useNotification } from '../contexts/NotificationContext.tsx';
 import { CustomDialog } from '../components/CustomDialog.tsx';
 import { 
-  Plus, Search, Edit2, ImageIcon, Loader2, X, Save, Camera, FileText, QrCode, Info, Trash2, FileSpreadsheet, RefreshCcw, CheckSquare, Square, Printer, Filter, ChevronLeft, ChevronRight, ScanLine
+  Plus, Search, Edit2, ImageIcon, Loader2, X, Save, Camera, FileText, QrCode, Info, Trash2, FileSpreadsheet, CheckSquare, Square, Printer, ChevronLeft, ChevronRight, ScanLine
 } from 'https://esm.sh/lucide-react@0.475.0?external=react,react-dom';
 
 const ITEMS_PER_PAGE = 15;
@@ -21,14 +21,13 @@ interface InventoryProps {
   onNavigate: (page: string, options: { push?: boolean, state?: any }) => void;
   initialState?: any;
   onInitialStateConsumed: () => void;
+  products: Product[];
+  categories: CategoryMaster[];
+  locations: LocationMaster[];
+  onDataRefresh: () => void;
 }
 
-export const Inventory: React.FC<InventoryProps> = ({ role, onNavigate, initialState, onInitialStateConsumed }) => {
-  const [products, setProducts] = useState<Product[]>([]);
-  const [categories, setCategories] = useState<CategoryMaster[]>([]);
-  const [locations, setLocations] = useState<LocationMaster[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [showRetry, setShowRetry] = useState(false);
+export const Inventory: React.FC<InventoryProps> = ({ role, onNavigate, initialState, onInitialStateConsumed, products, categories, locations, onDataRefresh }) => {
   const [saving, setSaving] = useState(false);
   const [search, setSearch] = useState('');
   const [filters, setFilters] = useState({ category: 'ALL', location: 'ALL' });
@@ -44,18 +43,6 @@ export const Inventory: React.FC<InventoryProps> = ({ role, onNavigate, initialS
   const [isScannerOpen, setIsScannerOpen] = useState(false);
   const [productToDelete, setProductToDelete] = useState<Product | null>(null);
   const { addNotification } = useNotification();
-
-  const loadData = async () => {
-    setLoading(true); setShowRetry(false);
-    try {
-      const [p, c, l] = await Promise.all([api.getProducts(), api.getCategoriesMaster(), api.getLocationsMaster()]);
-      setProducts(p || []); setCategories(c || []); setLocations(l || []);
-    } catch (e) { 
-      setShowRetry(true); addNotification('Error de conexión con la base de datos.', 'error');
-    } finally { setLoading(false); }
-  };
-
-  useEffect(() => { loadData(); }, []);
   
   useEffect(() => {
     if (initialState?.openNewProductModal) {
@@ -151,7 +138,7 @@ export const Inventory: React.FC<InventoryProps> = ({ role, onNavigate, initialS
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault(); setSaving(true);
     try { 
-      await api.saveProduct(formData); setIsModalOpen(false); loadData(); 
+      await api.saveProduct(formData); setIsModalOpen(false); onDataRefresh();
       addNotification(`"${formData.name}" guardado con éxito.`, 'success');
     } catch (err) { addNotification("Error al guardar producto.", 'error');
     } finally { setSaving(false); }
@@ -160,31 +147,11 @@ export const Inventory: React.FC<InventoryProps> = ({ role, onNavigate, initialS
   const handleConfirmDelete = async () => {
     if (!productToDelete) return;
     try {
-      await api.deleteProduct(productToDelete.id); loadData();
+      await api.deleteProduct(productToDelete.id); onDataRefresh();
       addNotification(`Producto "${productToDelete.name}" eliminado.`, 'success');
     } catch (err) { addNotification('Error al eliminar el producto.', 'error');
     } finally { setProductToDelete(null); }
   };
-
-  if (loading || showRetry) {
-    return (
-      <div className="h-[70vh] flex flex-col items-center justify-center space-y-6">
-        {loading ? (
-          <div className="text-center">
-            <Loader2 className="animate-spin h-12 w-12 text-indigo-600 mx-auto" />
-            <p className="mt-4 text-[10px] font-black uppercase text-slate-400 tracking-widest animate-pulse">Consultando Base de Datos...</p>
-          </div>
-        ) : (
-          <div className="text-center animate-in zoom-in-95 bg-white p-10 rounded-[3rem] border border-slate-100 shadow-2xl">
-             <RefreshCcw className="h-12 w-12 text-rose-500 mx-auto mb-4" />
-             <h3 className="text-sm font-black text-slate-800 uppercase mb-2">Conexión interrumpida</h3>
-             <p className="text-[10px] font-bold text-slate-400 uppercase mb-6">El servidor está tardando demasiado en responder</p>
-             <button onClick={() => window.location.reload()} className="bg-indigo-600 text-white px-8 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-xl shadow-indigo-100 hover:bg-indigo-700 active:scale-95 transition-all">Forzar Recarga Completa</button>
-          </div>
-        )}
-      </div>
-    );
-  }
 
   return (
     <div className="space-y-4 animate-in fade-in pb-24">

@@ -1,56 +1,28 @@
 
-import React, { useEffect, useState } from 'react';
-import * as api from '../services/supabaseService.ts';
-import { InventoryStats, Product, Movement } from '../types.ts';
+import React from 'react';
+import { InventoryStats, Product } from '../types.ts';
 import { 
   TrendingUp, AlertTriangle, Package, 
-  AlertCircle, DollarSign, Loader2, MapPin, 
-  Layers, Users, ShoppingCart
+  AlertCircle, DollarSign, Layers, Users
 } from 'https://esm.sh/lucide-react@0.475.0?external=react,react-dom';
 import { StockBadge } from '../components/StockBadge.tsx';
 import { formatCurrency } from '../utils/currencyUtils.ts';
 
 interface DashboardProps {
   onNavigate: (page: string, options?: { push?: boolean; state?: any }) => void;
+  stats: InventoryStats | null;
+  products: Product[];
 }
 
-export const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
-  const [stats, setStats] = useState<InventoryStats | null>(null);
-  const [products, setProducts] = useState<Product[]>([]);
-  const [movements, setMovements] = useState<Movement[]>([]);
-  const [loading, setLoading] = useState(true);
-  
-  const fetchData = async () => {
-    setLoading(true);
-    try {
-      const [s, p, m] = await Promise.all([
-        api.getStats(),
-        api.getProducts(),
-        api.getMovements()
-      ]);
-      setStats(s);
-      setProducts(p);
-      setMovements(m);
-    } catch (err) {} 
-    finally { setLoading(false); }
-  };
-
-  useEffect(() => { fetchData(); }, []);
-
+export const Dashboard: React.FC<DashboardProps> = ({ onNavigate, stats, products }) => {
   const alertProducts = products
     .filter(p => p.stock <= p.minStock)
     .sort((a, b) => a.stock - b.stock)
     .slice(0, 6);
 
-  if (loading) return (
-    <div className="h-[60vh] flex items-center justify-center">
-      <Loader2 className="animate-spin h-8 w-8 text-indigo-600" />
-    </div>
-  );
-
   const cards = [
     { title: 'Valor Total', value: formatCurrency(stats?.totalValue || 0), icon: DollarSign, color: 'bg-indigo-600', sub: 'Inversión', page: 'inventory' },
-    { title: 'Crítico', value: stats?.criticalStockCount || 0, icon: AlertCircle, color: 'bg-rose-500', sub: 'Reponer ya', page: 'inventory', state: { prefilter: 'CRITICAL' } },
+    { title: 'Crítico', value: (stats?.criticalStockCount || 0) + (stats?.outOfStockCount || 0), icon: AlertCircle, color: 'bg-rose-500', sub: 'Reponer ya', page: 'inventory', state: { prefilter: 'CRITICAL' } },
     { title: 'Stock Bajo', value: stats?.lowStockCount || 0, icon: AlertTriangle, color: 'bg-amber-500', sub: 'En alerta', page: 'inventory', state: { prefilter: 'LOW' } },
     { title: 'Productos', value: stats?.totalProducts || 0, icon: Layers, color: 'bg-indigo-400', sub: 'Registrados', page: 'inventory' },
     { title: 'Contactos', value: stats?.totalContacts || 0, icon: Users, color: 'bg-emerald-500', sub: 'CRM', page: 'contacts' },

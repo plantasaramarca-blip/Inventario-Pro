@@ -5,7 +5,7 @@ import * as api from '../services/supabaseService.ts';
 import { useNotification } from '../contexts/NotificationContext.tsx';
 import { DispatchNote } from '../components/DispatchNote.tsx';
 import { 
-  ArrowDownCircle, ArrowUpCircle, Loader2, X, Search, Save, UserCheck, ArrowUp, ArrowDown, Trash, RefreshCcw, ChevronLeft, ChevronRight
+  ArrowDownCircle, ArrowUpCircle, Loader2, X, Search, Save, UserCheck, ArrowUp, ArrowDown, Trash, ChevronLeft, ChevronRight
 } from 'https://esm.sh/lucide-react@0.475.0?external=react,react-dom';
 
 const ITEMS_PER_PAGE = 20;
@@ -15,17 +15,16 @@ interface KardexProps {
   userEmail?: string;
   initialState?: any;
   onInitialStateConsumed: () => void;
+  movements: Movement[];
+  products: Product[];
+  destinos: Destination[];
+  locations: LocationMaster[];
+  onDataRefresh: () => void;
 }
 
-export const Kardex: React.FC<KardexProps> = ({ role, userEmail, initialState, onInitialStateConsumed }) => {
-  const [movements, setMovements] = useState<Movement[]>([]);
-  const [products, setProducts] = useState<Product[]>([]);
-  const [destinos, setDestinos] = useState<Destination[]>([]);
-  const [locations, setLocations] = useState<LocationMaster[]>([]);
+export const Kardex: React.FC<KardexProps> = ({ role, userEmail, initialState, onInitialStateConsumed, movements, products, destinos, locations, onDataRefresh }) => {
   const [currentPage, setCurrentPage] = useState(0);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const [showRetry, setShowRetry] = useState(false);
   const [saving, setSaving] = useState(false);
   const [type, setType] = useState<TransactionType>('SALIDA');
   const [productSearch, setProductSearch] = useState('');
@@ -37,18 +36,6 @@ export const Kardex: React.FC<KardexProps> = ({ role, userEmail, initialState, o
   const [reason, setReason] = useState('');
   const { addNotification } = useNotification();
   const [dispatchNoteData, setDispatchNoteData] = useState<any>(null);
-
-  const loadData = async () => {
-    setLoading(true); setShowRetry(false);
-    try {
-      const [m, p, d, l] = await Promise.all([api.getMovements(), api.getProducts(), api.getDestinos(), api.getLocationsMaster()]);
-      setMovements(m || []); setProducts(p || []); setDestinos((d || []).filter(dest => dest.active)); setLocations(l || []);
-    } catch (e) {
-      setShowRetry(true); addNotification("Error al cargar datos del Kardex.", "error");
-    } finally { setLoading(false); }
-  };
-
-  useEffect(() => { loadData(); }, []);
   
   useEffect(() => {
     if (initialState?.prefill) {
@@ -89,32 +76,13 @@ export const Kardex: React.FC<KardexProps> = ({ role, userEmail, initialState, o
       }
 
       setIsModalOpen(false); 
-      loadData();
+      onDataRefresh();
       addNotification('Movimiento registrado con éxito.', 'success');
     } catch (err: any) { addNotification(err.message, 'error'); 
     } finally { setSaving(false); }
   };
 
   const filteredSearch = useMemo(() => productSearch ? products.filter(p => p.name.toLowerCase().includes(productSearch.toLowerCase()) || p.code.toLowerCase().includes(productSearch.toLowerCase())).slice(0, 5) : [], [products, productSearch]);
-
-  if (loading || showRetry) {
-    return (
-      <div className="h-[60vh] flex flex-col items-center justify-center space-y-4">
-        {loading ? (
-          <>
-            <Loader2 className="animate-spin h-10 w-10 text-indigo-600" />
-            <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest animate-pulse">Sincronizando Kardex...</p>
-          </>
-        ) : (
-          <div className="text-center animate-in zoom-in-95">
-             <RefreshCcw className="h-10 w-10 text-rose-500 mx-auto mb-3" />
-             <p className="text-[10px] font-black uppercase text-slate-600 mb-4">La conexión está tardando más de lo esperado</p>
-             <button onClick={loadData} className="bg-indigo-600 text-white px-6 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-xl shadow-indigo-100 hover:bg-indigo-700 active:scale-95 transition-all">Reintentar Carga Manual</button>
-          </div>
-        )}
-      </div>
-    );
-  }
 
   return (
     <div className="space-y-4 animate-in fade-in pb-10">

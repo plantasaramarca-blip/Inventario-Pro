@@ -10,7 +10,7 @@ import {
   LineChart, Line, PieChart, Pie, Cell
 } from 'recharts';
 import { 
-  TrendingUp, Filter, Loader2, ArrowUpRight, ArrowDownRight, Package, RefreshCcw, PieChart as PieIcon, FileSpreadsheet, Archive, BarChart3 as BarChartIcon
+  TrendingUp, Filter, ArrowUpRight, ArrowDownRight, Package, RefreshCcw, PieChart as PieIcon, FileSpreadsheet, Archive, BarChart3 as BarChartIcon
 } from 'https://esm.sh/lucide-react@0.475.0?external=react,react-dom';
 
 const EmptyState = ({ message }: { message: string }) => (
@@ -22,28 +22,15 @@ const EmptyState = ({ message }: { message: string }) => (
 
 interface ReportsProps {
   onNavigate: (page: string, options?: { push?: boolean; state?: any }) => void;
+  products: Product[];
+  movements: Movement[];
 }
 
-export const Reports: React.FC<ReportsProps> = ({ onNavigate }) => {
-  const [products, setProducts] = useState<Product[]>([]);
-  const [movements, setMovements] = useState<Movement[]>([]);
-  const [loading, setLoading] = useState(true);
+export const Reports: React.FC<ReportsProps> = ({ onNavigate, products, movements }) => {
   const { addNotification } = useNotification();
-  
   const today = new Date().toISOString().split('T')[0];
   const lastMonth = new Date(new Date().setMonth(new Date().getMonth() - 1)).toISOString().split('T')[0];
   const [dateRange, setDateRange] = useState({ from: lastMonth, to: today });
-
-  const loadData = async () => {
-    setLoading(true);
-    try {
-      const [p, m] = await Promise.all([api.getProducts(), api.getMovements()]);
-      setProducts(p || []);
-      setMovements(m || []);
-    } catch (e) { console.error(e); } finally { setLoading(false); }
-  };
-
-  useEffect(() => { loadData(); }, []);
 
   const filteredMovements = useMemo(() => {
     return movements.filter(m => {
@@ -120,13 +107,6 @@ export const Reports: React.FC<ReportsProps> = ({ onNavigate }) => {
   }, [filteredMovements]);
 
   const COLORS = ['#4f46e5', '#f59e0b', '#ef4444', '#64748b'];
-
-  if (loading) return (
-    <div className="h-[60vh] flex flex-col items-center justify-center">
-      <Loader2 className="animate-spin h-10 w-10 text-indigo-600" />
-      <p className="mt-4 text-[10px] font-black uppercase text-slate-400 tracking-widest">Analizando Almacén...</p>
-    </div>
-  );
 
   return (
     <div className="space-y-6 animate-in fade-in pb-10">
