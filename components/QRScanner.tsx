@@ -1,6 +1,6 @@
 
 import React, { useEffect, useRef } from 'react';
-import { Html5Qrcode } from 'html5-qrcode';
+import { Html5Qrcode } from 'https://esm.sh/html5-qrcode@2.3.8';
 import { X } from 'https://esm.sh/lucide-react@0.475.0?external=react,react-dom';
 
 interface QRScannerProps {
