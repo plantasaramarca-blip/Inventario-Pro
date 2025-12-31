@@ -3,6 +3,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { Movement, Product, TransactionType, Destination, Role, LocationMaster } from '../types.ts';
 import * as api from '../services/supabaseService.ts';
 import { useNotification } from '../contexts/NotificationContext.tsx';
+import { DispatchNote } from '../components/DispatchNote.tsx';
 import { 
   ArrowDownCircle, ArrowUpCircle, Loader2, X, Search, Save, UserCheck, ArrowUp, ArrowDown, Trash, RefreshCcw, ChevronLeft, ChevronRight
 } from 'https://esm.sh/lucide-react@0.475.0?external=react,react-dom';
@@ -35,6 +36,7 @@ export const Kardex: React.FC<KardexProps> = ({ role, userEmail, initialState, o
   const [supplierName, setSupplierName] = useState('');
   const [reason, setReason] = useState('');
   const { addNotification } = useNotification();
+  const [dispatchNoteData, setDispatchNoteData] = useState<any>(null);
 
   const loadData = async () => {
     setLoading(true); setShowRetry(false);
@@ -75,7 +77,19 @@ export const Kardex: React.FC<KardexProps> = ({ role, userEmail, initialState, o
       const locationObj = type === 'INGRESO' ? locations.find(l => l.name === selectedLocationId) : null;
       const batchPayload = cartItems.map(item => ({ productId: item.productId, type, quantity: item.quantity, dispatcher: userEmail, reason: type === 'SALIDA' ? `${reason} (Transp: ${carriedBy})` : `${reason} (Prov: ${supplierName})`, destinationName: type === 'SALIDA' ? destinoObj?.name : locationObj?.name }));
       await api.registerBatchMovements(batchPayload); 
-      setIsModalOpen(false); loadData();
+      
+      if (type === 'SALIDA') {
+        setDispatchNoteData({
+          items: cartItems,
+          destination: destinoObj,
+          transportista: carriedBy,
+          observaciones: reason,
+          responsable: userEmail,
+        });
+      }
+
+      setIsModalOpen(false); 
+      loadData();
       addNotification('Movimiento registrado con éxito.', 'success');
     } catch (err: any) { addNotification(err.message, 'error'); 
     } finally { setSaving(false); }
@@ -190,6 +204,7 @@ export const Kardex: React.FC<KardexProps> = ({ role, userEmail, initialState, o
           </form>
         </div>
       )}
+      {dispatchNoteData && <DispatchNote data={dispatchNoteData} onClose={() => setDispatchNoteData(null)} />}
     </div>
   );
 };

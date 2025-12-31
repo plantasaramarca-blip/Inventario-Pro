@@ -186,9 +186,9 @@ export default function App() {
       case 'contacts': return <Contacts role={role} initialState={navigationState} onInitialStateConsumed={() => setNavigationState(null)} />;
       case 'categories': return <CategoryManagement role={role} />;
       case 'locations': return <LocationManagement role={role} />;
-      case 'users': return role === 'ADMIN' ? <UsersPage /> : <Dashboard />;
-      case 'audit': return role === 'ADMIN' ? <AuditPage /> : <Dashboard />;
-      default: return <Dashboard />;
+      case 'users': return role === 'ADMIN' ? <UsersPage /> : <Dashboard onNavigate={navigateTo} />;
+      case 'audit': return role === 'ADMIN' ? <AuditPage /> : <Dashboard onNavigate={navigateTo} />;
+      default: return <Dashboard onNavigate={navigateTo} />;
     }
   };
 

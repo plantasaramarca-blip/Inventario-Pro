@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from 'react';
 import * as api from '../services/supabaseService.ts';
 import { InventoryStats, Product, Movement } from '../types.ts';
@@ -9,7 +10,11 @@ import {
 import { StockBadge } from '../components/StockBadge.tsx';
 import { formatCurrency } from '../utils/currencyUtils.ts';
 
-export const Dashboard: React.FC = () => {
+interface DashboardProps {
+  onNavigate: (page: string, options?: { push?: boolean; state?: any }) => void;
+}
+
+export const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
   const [stats, setStats] = useState<InventoryStats | null>(null);
   const [products, setProducts] = useState<Product[]>([]);
   const [movements, setMovements] = useState<Movement[]>([]);
@@ -44,12 +49,12 @@ export const Dashboard: React.FC = () => {
   );
 
   const cards = [
-    { title: 'Valor Total', value: formatCurrency(stats?.totalValue || 0), icon: DollarSign, color: 'bg-indigo-600', sub: 'Inversión' },
-    { title: 'Crítico', value: stats?.criticalStockCount || 0, icon: AlertCircle, color: 'bg-rose-500', sub: 'Reponer ya' },
-    { title: 'Stock Bajo', value: stats?.lowStockCount || 0, icon: AlertTriangle, color: 'bg-amber-500', sub: 'En alerta' },
-    { title: 'Productos', value: stats?.totalProducts || 0, icon: Layers, color: 'bg-indigo-400', sub: 'Registrados' },
-    { title: 'Contactos', value: stats?.totalContacts || 0, icon: Users, color: 'bg-emerald-500', sub: 'CRM' },
-    { title: 'Movimientos', value: stats?.totalMovements || 0, icon: TrendingUp, color: 'bg-purple-600', sub: 'Operaciones' },
+    { title: 'Valor Total', value: formatCurrency(stats?.totalValue || 0), icon: DollarSign, color: 'bg-indigo-600', sub: 'Inversión', page: 'inventory' },
+    { title: 'Crítico', value: stats?.criticalStockCount || 0, icon: AlertCircle, color: 'bg-rose-500', sub: 'Reponer ya', page: 'inventory', state: { prefilter: 'CRITICAL' } },
+    { title: 'Stock Bajo', value: stats?.lowStockCount || 0, icon: AlertTriangle, color: 'bg-amber-500', sub: 'En alerta', page: 'inventory', state: { prefilter: 'LOW' } },
+    { title: 'Productos', value: stats?.totalProducts || 0, icon: Layers, color: 'bg-indigo-400', sub: 'Registrados', page: 'inventory' },
+    { title: 'Contactos', value: stats?.totalContacts || 0, icon: Users, color: 'bg-emerald-500', sub: 'CRM', page: 'contacts' },
+    { title: 'Movimientos', value: stats?.totalMovements || 0, icon: TrendingUp, color: 'bg-purple-600', sub: 'Operaciones', page: 'kardex' },
   ];
 
   return (
@@ -58,12 +63,12 @@ export const Dashboard: React.FC = () => {
         {cards.map((card, idx) => {
           const Icon = card.icon;
           return (
-            <div key={idx} className="bg-white shadow-sm rounded-xl p-3 border border-slate-100 flex flex-col items-center text-center transition-all hover:border-indigo-100">
+            <button key={idx} onClick={() => onNavigate(card.page, { push: true, state: card.state })} className="bg-white shadow-sm rounded-xl p-3 border border-slate-100 flex flex-col items-center text-center transition-all hover:border-indigo-200 hover:shadow-lg hover:-translate-y-1 active:scale-95">
               <div className={`p-1.5 rounded-lg ${card.color} text-white mb-1.5 shadow-sm`}><Icon className="h-3.5 w-3.5" /></div>
               <h3 className="text-[7px] font-black text-slate-400 uppercase tracking-widest mb-0.5">{card.title}</h3>
               <p className="text-xs font-black text-slate-800 tracking-tighter truncate w-full">{card.value}</p>
               <p className="text-[6px] text-slate-400 font-bold uppercase leading-tight">{card.sub}</p>
-            </div>
+            </button>
           );
         })}
       </div>
