@@ -58,6 +58,14 @@ export default function App() {
   };
 
   useEffect(() => {
+    // FIX: Listener para reactivar la conexión de Supabase al volver a la pestaña.
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible' && isSupabaseConfigured) {
+        supabase.auth.getSession();
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
     const initAuth = async () => {
       try {
         if (isSupabaseConfigured) {
@@ -76,7 +84,10 @@ export default function App() {
             }
           });
           
-          return () => subscription.unsubscribe();
+          return () => {
+            subscription.unsubscribe();
+            document.removeEventListener('visibilitychange', handleVisibilityChange);
+          };
         } else {
           const localSession = localStorage.getItem('kardex_local_session');
           if (localSession) {
@@ -89,11 +100,9 @@ export default function App() {
         setLoading(false);
       }
     };
-    initAuth();
+    const unsubscribePromise = initAuth();
 
-    // Gestión inteligente de navegación
     window.history.replaceState({ page: 'dashboard' }, "", "");
-
     const handlePopState = (event: PopStateEvent) => {
       if (event.state && event.state.page) {
         navigateTo(event.state.page, false);
@@ -106,9 +115,18 @@ export default function App() {
         }
       }
     };
-
     window.addEventListener('popstate', handlePopState);
-    return () => window.removeEventListener('popstate', handlePopState);
+    
+    return () => {
+      window.removeEventListener('popstate', handlePopState);
+      // FIX: `initAuth` returns a promise that resolves to the cleanup function.
+      // This correctly handles the promise and calls the cleanup function if it exists.
+      unsubscribePromise.then(cleanup => {
+        if (typeof cleanup === 'function') {
+          cleanup();
+        }
+      });
+    };
   }, [currentPage]);
 
   const handleFinalExit = async () => {
