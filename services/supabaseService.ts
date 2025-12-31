@@ -1,16 +1,33 @@
 
 import { supabase, isSupabaseConfigured } from '../supabaseClient.ts';
-import { Product, Movement, InventoryStats, CategoryMaster, LocationMaster, UserAccount, Role, Contact, Destination } from '../types.ts';
+import { Product, Movement, InventoryStats, CategoryMaster, LocationMaster, UserAccount, Role, Contact, Destination, AuditLog } from '../types.ts';
 
 const useSupabase = () => isSupabaseConfigured;
 
 // Función auxiliar para añadir tiempo límite a las peticiones
-// Se cambia el tipo a any para evitar problemas de inferencia con los objetos Thenable complejos de Supabase
 const withTimeout = async (promise: any, timeoutMs: number = 8000): Promise<any> => {
   const timeout = new Promise<never>((_, reject) =>
     setTimeout(() => reject(new Error('TIMEOUT_ERROR')), timeoutMs)
   );
   return Promise.race([promise, timeout]);
+};
+
+// MOTOR DE AUDITORÍA
+const saveAuditLog = async (logData: Omit<AuditLog, 'id' | 'created_at' | 'user_id' | 'user_email' | 'old_values' | 'new_values'>) => {
+  if (!useSupabase()) return;
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return; // No se puede auditar si no hay usuario
+    
+    const logPayload = { ...logData, user_id: user.id, user_email: user.email };
+
+    // "Dispara y olvida": no bloquea la operación principal si falla la auditoría.
+    supabase.from('audit_logs').insert([logPayload]).then(({ error }) => {
+      if (error) console.error('Fallo al guardar en auditoría:', error);
+    });
+  } catch (e) {
+    console.error('Error al obtener usuario para auditoría:', e);
+  }
 };
 
 export const getCurrentUserProfile = async (email: string): Promise<{role: Role} | null> => {
@@ -28,8 +45,6 @@ export const getCurrentUserProfile = async (email: string): Promise<{role: Role}
       return { role: 'VIEWER' };
     }
   } catch (e) { 
-    // En caso de error de red, no se modifica el localStorage y se lanza el error
-    // para que la UI pueda decidir usar el valor cacheado.
     throw e;
   }
 };
@@ -47,10 +62,19 @@ export const saveUser = async (user: Partial<UserAccount>) => {
   if (user.password && user.password.length >= 6) {
     try { await supabase.auth.updateUser({ password: user.password }); } catch (e) {}
   }
+  const isUpdate = !!user.id;
   await withTimeout(supabase.from('profiles').upsert({ email: user.email?.toLowerCase(), role: user.role }, { onConflict: 'email' }));
+  saveAuditLog({ action: isUpdate ? 'UPDATE' : 'CREATE', table_name: 'profiles', record_id: user.email!, record_name: user.email!, changes_summary: `${isUpdate ? 'Actualizó' : 'Creó'} el usuario ${user.email} con rol ${user.role}` });
 };
 
-export const deleteUser = async (id: string) => { if (useSupabase()) await withTimeout(supabase.from('profiles').delete().eq('id', id)); };
+export const deleteUser = async (id: string) => { 
+  if (!useSupabase()) return;
+  const { data: userToDelete } = await withTimeout(supabase.from('profiles').select('id, email').eq('id', id).single());
+  if (userToDelete) {
+    await withTimeout(supabase.from('profiles').delete().eq('id', id));
+    saveAuditLog({ action: 'DELETE', table_name: 'profiles', record_id: userToDelete.id, record_name: userToDelete.email, changes_summary: `Eliminó el usuario "${userToDelete.email}"` });
+  }
+};
 
 export const getLocationsMaster = async (): Promise<LocationMaster[]> => {
   if (!useSupabase()) return [{ id: '1', name: 'Almacén Principal' }];
@@ -60,8 +84,20 @@ export const getLocationsMaster = async (): Promise<LocationMaster[]> => {
   } catch (e) { return []; }
 };
 
-export const saveLocationMaster = async (loc: any) => { if (useSupabase()) await withTimeout(supabase.from('locations_master').upsert(loc)); };
-export const deleteLocationMaster = async (id: string) => { if (useSupabase()) await withTimeout(supabase.from('locations_master').delete().eq('id', id)); };
+export const saveLocationMaster = async (loc: Partial<LocationMaster>) => { 
+  if (!useSupabase()) return;
+  const isUpdate = !!loc.id;
+  const { data } = await withTimeout(supabase.from('locations_master').upsert({ id: loc.id, name: loc.name }).select().single());
+  saveAuditLog({ action: isUpdate ? 'UPDATE' : 'CREATE', table_name: 'locations_master', record_id: data.id, record_name: data.name, changes_summary: `${isUpdate ? 'Actualizó' : 'Creó'} el almacén "${data.name}"` });
+};
+export const deleteLocationMaster = async (id: string) => { 
+  if (!useSupabase()) return;
+  const { data: locToDelete } = await withTimeout(supabase.from('locations_master').select('id, name').eq('id', id).single());
+  if (locToDelete) {
+    await withTimeout(supabase.from('locations_master').delete().eq('id', id));
+    saveAuditLog({ action: 'DELETE', table_name: 'locations_master', record_id: locToDelete.id, record_name: locToDelete.name, changes_summary: `Eliminó el almacén "${locToDelete.name}"` });
+  }
+};
 
 export const getCategoriesMaster = async (): Promise<CategoryMaster[]> => {
   if (!useSupabase()) return [{ id: '1', name: 'General' }];
@@ -71,8 +107,20 @@ export const getCategoriesMaster = async (): Promise<CategoryMaster[]> => {
   } catch (e) { return []; }
 };
 
-export const saveCategoryMaster = async (cat: any) => { if (useSupabase()) await withTimeout(supabase.from('categories_master').upsert(cat)); };
-export const deleteCategoryMaster = async (id: string) => { if (useSupabase()) await withTimeout(supabase.from('categories_master').delete().eq('id', id)); };
+export const saveCategoryMaster = async (cat: Partial<CategoryMaster>) => { 
+  if (!useSupabase()) return;
+  const isUpdate = !!cat.id;
+  const { data } = await withTimeout(supabase.from('categories_master').upsert({ id: cat.id, name: cat.name }).select().single());
+  saveAuditLog({ action: isUpdate ? 'UPDATE' : 'CREATE', table_name: 'categories_master', record_id: data.id, record_name: data.name, changes_summary: `${isUpdate ? 'Actualizó' : 'Creó'} la categoría "${data.name}"` });
+};
+export const deleteCategoryMaster = async (id: string) => { 
+  if (!useSupabase()) return;
+  const { data: catToDelete } = await withTimeout(supabase.from('categories_master').select('id, name').eq('id', id).single());
+  if (catToDelete) {
+    await withTimeout(supabase.from('categories_master').delete().eq('id', id));
+    saveAuditLog({ action: 'DELETE', table_name: 'categories_master', record_id: catToDelete.id, record_name: catToDelete.name, changes_summary: `Eliminó la categoría "${catToDelete.name}"` });
+  }
+};
 
 export const getProducts = async (): Promise<Product[]> => {
   if (!useSupabase()) return [];
@@ -88,36 +136,33 @@ export const getProducts = async (): Promise<Product[]> => {
 
 export const saveProduct = async (product: Partial<Product>) => {
   if (!useSupabase()) return;
+  const isUpdate = !!product.id;
   const payload: any = {
-    code: product.code, 
-    name: product.name, 
-    brand: product.brand,
-    model: product.model,
-    size: product.size,
-    category: product.category, 
-    location: product.location,
-    stock: Number(product.stock) || 0, 
-    min_stock: Number(product.minStock) || 30, 
-    critical_stock: Number(product.criticalStock) || 10,
-    precio_compra: Number(product.purchasePrice) || 0, 
-    precio_venta: Number(product.salePrice) || 0,
-    moneda: product.currency || 'PEN', 
-    unit: product.unit || 'UND',
-    image_url: product.imageUrl, 
-    updated_at: new Date().toISOString()
+    code: product.code, name: product.name, brand: product.brand, model: product.model, size: product.size, category: product.category, 
+    location: product.location, stock: Number(product.stock) || 0, min_stock: Number(product.minStock) || 30, 
+    critical_stock: Number(product.criticalStock) || 10, precio_compra: Number(product.purchasePrice) || 0, 
+    precio_venta: Number(product.salePrice) || 0, moneda: product.currency || 'PEN', unit: product.unit || 'UND',
+    image_url: product.imageUrl, updated_at: new Date().toISOString()
   };
   
-  const { error } = product.id 
-    ? await withTimeout(supabase.from('products').update(payload).eq('id', product.id))
-    : await withTimeout(supabase.from('products').insert([payload]));
+  const query = isUpdate 
+    ? supabase.from('products').update(payload).eq('id', product.id)
+    : supabase.from('products').insert([payload]);
     
+  const { data, error } = await withTimeout(query.select().single());
   if (error) throw error;
+  
+  saveAuditLog({ action: isUpdate ? 'UPDATE' : 'CREATE', table_name: 'products', record_id: data.id, record_name: data.name, changes_summary: `${isUpdate ? 'Actualizó' : 'Creó'} el producto "${data.name}"` });
 };
 
 export const deleteProduct = async (id: string) => {
   if (!useSupabase()) return;
-  const { error } = await withTimeout(supabase.from('products').delete().eq('id', id));
-  if (error) throw error;
+  const { data: prodToDelete } = await withTimeout(supabase.from('products').select('id, name').eq('id', id).single());
+  if (prodToDelete) {
+    const { error } = await withTimeout(supabase.from('products').delete().eq('id', id));
+    if (error) throw error;
+    saveAuditLog({ action: 'DELETE', table_name: 'products', record_id: prodToDelete.id, record_name: prodToDelete.name, changes_summary: `Eliminó el producto "${prodToDelete.name}"` });
+  }
 };
 
 export const getMovements = async (): Promise<Movement[]> => {
@@ -126,8 +171,8 @@ export const getMovements = async (): Promise<Movement[]> => {
     const { data } = await withTimeout(supabase.from('movements').select('*').order('date', { ascending: false }));
     return (data || []).map(m => ({ 
       id: m.id, productId: m.product_id, productName: m.product_name, type: m.type, 
-      quantity: m.quantity, date: m.date, dispatcher: m.dispatcher, reason: m.reason, 
-      balanceAfter: m.balance_after, destino_nombre: m.destino_nombre 
+      quantity: Number(m.quantity) || 0, date: m.date, dispatcher: m.dispatcher, reason: m.reason, 
+      balanceAfter: Number(m.balance_after) || 0, destinationName: m.destino_nombre
     }));
   } catch (e) { return []; }
 };
@@ -135,30 +180,30 @@ export const getMovements = async (): Promise<Movement[]> => {
 export const registerBatchMovements = async (items: any[]) => {
   if (!useSupabase()) return;
 
-  // Pre-flight check for SALIDA transactions to prevent stock negatives
   for (const item of items) {
     if (item.type === 'SALIDA') {
       const { data: prod } = await withTimeout(supabase.from('products').select('name, stock').eq('id', item.productId).single());
-      if (!prod) {
-        throw new Error(`Producto con ID ${item.productId} no encontrado.`);
-      }
-      if (prod.stock < item.quantity) {
-        throw new Error(`Stock insuficiente para "${prod.name}". Disponible: ${prod.stock}, Solicitado: ${item.quantity}.`);
-      }
+      if (!prod) throw new Error(`Producto con ID ${item.productId} no encontrado.`);
+      if (prod.stock < item.quantity) throw new Error(`Stock insuficiente para "${prod.name}". Disponible: ${prod.stock}, Solicitado: ${item.quantity}.`);
     }
   }
 
-  // If all checks pass, execute transactions
   for (const item of items) {
      const { data: prod } = await withTimeout(supabase.from('products').select('name, stock').eq('id', item.productId).single());
      if (!prod) continue;
      const newStock = prod.stock + (item.type === 'INGRESO' ? item.quantity : -item.quantity);
      await withTimeout(supabase.from('products').update({ stock: newStock, updated_at: new Date().toISOString() }).eq('id', item.productId));
-     await withTimeout(supabase.from('movements').insert([{ 
+     
+     const movementPayload = { 
        product_id: item.productId, product_name: prod.name, type: item.type, 
        quantity: item.quantity, dispatcher: item.dispatcher, reason: item.reason, 
        balance_after: newStock, destino_nombre: item.destinationName, date: new Date().toISOString() 
-     }]));
+     };
+     const { data: newMovement } = await withTimeout(supabase.from('movements').insert([movementPayload]).select().single());
+     
+     if (newMovement) {
+       saveAuditLog({ action: 'CREATE', table_name: 'movements', record_id: newMovement.id, record_name: newMovement.product_name, changes_summary: `Registró ${newMovement.type} de ${newMovement.quantity} unds. para "${newMovement.product_name}"` });
+     }
   }
 };
 
@@ -172,12 +217,22 @@ export const getContacts = async (): Promise<Contact[]> => {
 
 export const saveContact = async (contact: Partial<Contact>) => {
   if (!useSupabase()) return;
+  const isUpdate = !!contact.id;
   const payload = { name: contact.name, type: contact.type, phone: contact.phone, email: contact.email, tax_id: contact.taxId };
-  const { error } = contact.id ? await withTimeout(supabase.from('contacts').update(payload).eq('id', contact.id)) : await withTimeout(supabase.from('contacts').insert([payload]));
+  const query = contact.id ? supabase.from('contacts').update(payload).eq('id', contact.id) : supabase.from('contacts').insert([payload]);
+  const { data, error } = await withTimeout(query.select().single());
   if (error) throw error;
+  saveAuditLog({ action: isUpdate ? 'UPDATE' : 'CREATE', table_name: 'contacts', record_id: data.id, record_name: data.name, changes_summary: `${isUpdate ? 'Actualizó' : 'Creó'} el contacto "${data.name}"` });
 };
 
-export const deleteContact = async (id: string) => { if (useSupabase()) await withTimeout(supabase.from('contacts').delete().eq('id', id)); };
+export const deleteContact = async (id: string) => { 
+  if (!useSupabase()) return;
+  const { data: contactToDelete } = await withTimeout(supabase.from('contacts').select('id, name').eq('id', id).single());
+  if (contactToDelete) {
+    await withTimeout(supabase.from('contacts').delete().eq('id', id));
+    saveAuditLog({ action: 'DELETE', table_name: 'contacts', record_id: contactToDelete.id, record_name: contactToDelete.name, changes_summary: `Eliminó el contacto "${contactToDelete.name}"` });
+  }
+};
 
 export const getStats = async (): Promise<InventoryStats> => {
   try {
@@ -204,8 +259,11 @@ export const getDestinos = async () => {
   } catch (e) { return []; }
 };
 
-export const saveDestino = async (d: any) => { 
-  if (useSupabase()) await withTimeout(supabase.from('destinos').upsert({ id: d.id, nombre: d.name, tipo: d.type, activo: d.active })); 
+export const saveDestino = async (d: Partial<Destination>) => { 
+  if (!useSupabase()) return;
+  const isUpdate = !!d.id;
+  const { data } = await withTimeout(supabase.from('destinos').upsert({ id: d.id, nombre: d.name, tipo: d.type, activo: d.active }).select().single());
+  saveAuditLog({ action: isUpdate ? 'UPDATE' : 'CREATE', table_name: 'destinos', record_id: data.id, record_name: data.nombre, changes_summary: `${isUpdate ? 'Actualizó' : 'Creó'} el centro de costo "${data.nombre}"` });
 };
 
 export const getAuditLogs = async (p=0, l=50) => { 
