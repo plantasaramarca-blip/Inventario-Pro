@@ -38,11 +38,9 @@ export const Kardex: React.FC<KardexProps> = ({ role, userEmail, initialState, o
 
   const loadData = async () => {
     setLoading(true); setShowRetry(false);
-    const timer = setTimeout(() => { setShowRetry(true); }, 5000);
     try {
       const [m, p, d, l] = await Promise.all([api.getMovements(), api.getProducts(), api.getDestinos(), api.getLocationsMaster()]);
       setMovements(m || []); setProducts(p || []); setDestinos((d || []).filter(dest => dest.active)); setLocations(l || []);
-      clearTimeout(timer);
     } catch (e) {
       setShowRetry(true); addNotification("Error al cargar datos del Kardex.", "error");
     } finally { setLoading(false); }

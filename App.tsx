@@ -85,8 +85,6 @@ export default function App() {
             setSession(currentSession);
             await fetchRole(currentSession.user.email!);
             if (productIdFromUrl) {
-              // Si se entra por URL, preparar la navegación al detalle del producto.
-              // Reemplazar el estado inicial para que 'back' vaya a 'inventory'.
               window.history.replaceState({ page: 'inventory' }, "", window.location.pathname);
               navigateTo('productDetail', { push: true, state: { productId: productIdFromUrl } });
             }
@@ -107,7 +105,6 @@ export default function App() {
     
     const unsubscribePromise = initAuth();
     
-    // Set initial history state only if not coming from a QR code link
     if (!new URLSearchParams(window.location.search).get('id')) {
         window.history.replaceState({ page: 'dashboard' }, "", window.location.pathname);
     }
@@ -116,7 +113,6 @@ export default function App() {
       if (event.state && event.state.page) {
         navigateTo(event.state.page, { push: false, state: event.state.state });
       } else {
-         // Si el estado es nulo (por ejemplo, al inicio), ir a dashboard.
          navigateTo('dashboard', {push: false});
       }
     };
@@ -128,6 +124,36 @@ export default function App() {
       unsubscribePromise.then(cleanup => { if (typeof cleanup === 'function') cleanup(); });
     };
   }, []);
+  
+  // Efecto para gestionar el cierre de sesión por inactividad
+  useEffect(() => {
+    const SESSION_TIMEOUT_MS = 30 * 60 * 1000; // 30 minutos
+    let inactivityTimer: number;
+
+    const handleInactiveLogout = () => {
+      if (isSupabaseConfigured) supabase.auth.signOut();
+      localStorage.removeItem('kardex_local_session');
+      localStorage.removeItem('kardex_user_role');
+      window.location.reload();
+    };
+
+    const resetTimer = () => {
+      clearTimeout(inactivityTimer);
+      inactivityTimer = window.setTimeout(handleInactiveLogout, SESSION_TIMEOUT_MS);
+    };
+    
+    if (session) {
+      const events: (keyof WindowEventMap)[] = ['mousemove', 'keydown', 'click', 'scroll'];
+      events.forEach(event => window.addEventListener(event, resetTimer));
+      resetTimer();
+
+      return () => {
+        clearTimeout(inactivityTimer);
+        events.forEach(event => window.removeEventListener(event, resetTimer));
+      };
+    }
+  }, [session]);
+
 
   const handleFinalExit = async () => {
     if (isSupabaseConfigured) await supabase.auth.signOut();

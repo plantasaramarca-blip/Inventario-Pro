@@ -5,7 +5,7 @@ import { Product, Movement, InventoryStats, CategoryMaster, LocationMaster, User
 const useSupabase = () => isSupabaseConfigured;
 
 // Función auxiliar para añadir tiempo límite a las peticiones
-const withTimeout = async (promise: any, timeoutMs: number = 8000): Promise<any> => {
+const withTimeout = async (promise: any, timeoutMs: number = 15000): Promise<any> => {
   const timeout = new Promise<never>((_, reject) =>
     setTimeout(() => reject(new Error('TIMEOUT_ERROR')), timeoutMs)
   );

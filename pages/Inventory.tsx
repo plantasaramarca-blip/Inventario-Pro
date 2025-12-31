@@ -4,8 +4,7 @@ import { Product, Role, CategoryMaster, LocationMaster } from '../types.ts';
 import * as api from '../services/supabaseService.ts';
 import { StockBadge } from '../components/StockBadge.tsx';
 import { formatCurrency, calculateMargin } from '../utils/currencyUtils.ts';
-import { exportToPDF } from '../services/excelService.ts';
-import { exportToExcel } from '../services/excelService.ts';
+import { exportToPDF, exportToExcel } from '../services/excelService.ts';
 import { ProductQRCode } from '../components/ProductQRCode.tsx';
 import { MultiQRCode } from '../components/MultiQRCode.tsx';
 import { QRScanner } from '../components/QRScanner.tsx';
@@ -46,10 +45,9 @@ export const Inventory: React.FC<InventoryProps> = ({ role, onNavigate }) => {
 
   const loadData = async () => {
     setLoading(true); setShowRetry(false);
-    const timer = setTimeout(() => { setShowRetry(true); }, 6000);
     try {
       const [p, c, l] = await Promise.all([api.getProducts(), api.getCategoriesMaster(), api.getLocationsMaster()]);
-      setProducts(p || []); setCategories(c || []); setLocations(l || []); clearTimeout(timer);
+      setProducts(p || []); setCategories(c || []); setLocations(l || []);
     } catch (e) { 
       setShowRetry(true); addNotification('Error de conexión con la base de datos.', 'error');
     } finally { setLoading(false); }
@@ -84,6 +82,19 @@ export const Inventory: React.FC<InventoryProps> = ({ role, onNavigate }) => {
     } catch (e) {
       addNotification('Código QR mal formado.', 'error');
     }
+  };
+  
+  const handleExportPDF = () => {
+    if (filteredProducts.length === 0) {
+      addNotification('No hay productos para exportar.', 'error');
+      return;
+    }
+    const headers = [['SKU', 'Producto', 'Marca', 'Categoría', 'Almacén', 'Stock', 'Costo', 'Venta']];
+    const body = filteredProducts.map(p => [
+      p.code, p.name, p.brand || '-', p.category, p.location, p.stock,
+      formatCurrency(p.purchasePrice), formatCurrency(p.salePrice || 0)
+    ]);
+    exportToPDF('Reporte de Inventario', headers, body, 'Inventario_KardexPro');
   };
 
   const toggleSelectAll = () => {
@@ -171,10 +182,11 @@ export const Inventory: React.FC<InventoryProps> = ({ role, onNavigate }) => {
       {isScannerOpen && <QRScanner onScanSuccess={handleScanSuccess} onClose={() => setIsScannerOpen(false)} />}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-4">
         <div><h1 className="text-2xl font-black text-slate-900 uppercase tracking-tight">PRODUCTOS</h1><p className="text-[9px] text-slate-500 font-black uppercase tracking-widest mt-0.5">Inventario Maestro</p></div>
-        <div className="flex gap-2 w-full sm:w-auto">
-          <div className="bg-white border border-slate-200 rounded-xl flex overflow-hidden shadow-sm flex-1 sm:flex-none">
-             <button onClick={() => setIsScannerOpen(true)} className="flex-1 px-4 py-3 text-slate-600 text-[9px] font-black uppercase flex items-center justify-center gap-1.5 hover:bg-slate-50 transition-all border-r border-slate-100"><ScanLine className="w-3.5 h-3.5" /> SCAN QR</button>
-             <button onClick={() => exportToExcel(filteredProducts, "Inventario", "Stock")} className="flex-1 px-4 py-3 text-emerald-600 text-[9px] font-black uppercase flex items-center justify-center gap-1.5 hover:bg-emerald-50 transition-all"><FileSpreadsheet className="w-3.5 h-3.5" /> EXCEL</button>
+        <div className="flex items-center gap-2 w-full sm:w-auto">
+          <div className="bg-white border border-slate-200 rounded-2xl flex overflow-hidden shadow-sm flex-1 sm:flex-none">
+             <button onClick={() => setIsScannerOpen(true)} className="px-4 py-3 text-slate-600 text-[9px] font-black uppercase flex items-center justify-center gap-1.5 hover:bg-slate-50 transition-all border-r border-slate-100"><ScanLine className="w-3.5 h-3.5" /> SCAN</button>
+             <button onClick={handleExportPDF} className="px-4 py-3 text-rose-600 text-[9px] font-black uppercase flex items-center justify-center gap-1.5 hover:bg-rose-50 transition-all border-r border-slate-100"><FileText className="w-3.5 h-3.5" /> PDF</button>
+             <button onClick={() => exportToExcel(filteredProducts, "Inventario", "Stock")} className="px-4 py-3 text-emerald-600 text-[9px] font-black uppercase flex items-center justify-center gap-1.5 hover:bg-emerald-50 transition-all"><FileSpreadsheet className="w-3.5 h-3.5" /> EXCEL</button>
           </div>
           {role !== 'VIEWER' && <button onClick={() => handleOpenModal()} className="bg-indigo-600 text-white px-6 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2 shadow-xl shadow-indigo-100 hover:bg-indigo-700 active:scale-95 transition-all"><Plus className="w-4 h-4" /> NUEVO</button>}
         </div>
