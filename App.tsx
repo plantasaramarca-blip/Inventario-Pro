@@ -58,7 +58,6 @@ export default function App() {
   const [showExitConfirm, setShowExitConfirm] = useState(false);
   const [navigationState, setNavigationState] = useState<any>(null);
 
-  // Global data states
   const [products, setProducts] = useState<Product[]>([]);
   const [movements, setMovements] = useState<Movement[]>([]);
   const [contacts, setContacts] = useState<Contact[]>([]);
@@ -76,11 +75,12 @@ export default function App() {
         api.getDestinos(), api.getCategoriesMaster(), api.getLocationsMaster(),
         api.getStats()
       ]);
-      setProducts(p); setMovements(m); setContacts(c); setDestinos(d);
-      setCategories(cats); setLocations(locs); setStats(s);
+      setProducts(p || []); setMovements(m || []); setContacts(c || []); setDestinos(d || []);
+      setCategories(cats || []); setLocations(locs || []); setStats(s || null);
     } catch (e) {
-      if (e.message === 'TIMEOUT_ERROR') setDataError(true);
       console.error("Failed to load global data", e);
+      setDataError(true);
+      throw e;
     } finally {
       setLoadingData(false);
     }
@@ -125,26 +125,49 @@ export default function App() {
   }, []);
 
   useEffect(() => {
+    let authSubscriptionCleanup: (() => void) | undefined;
+
     const initAuth = async () => {
       setLoadingSession(true);
-      const processSession = async (currentSession: any) => {
-        if (currentSession) {
-          setSession(currentSession);
-          await Promise.all([fetchRole(currentSession.user.email!), loadGlobalData()]);
+      try {
+        const processSession = async (currentSession: any) => {
+          if (currentSession) {
+            setSession(currentSession);
+            await Promise.all([fetchRole(currentSession.user.email!), loadGlobalData()]);
+          } else {
+            setLoadingData(false); // No session, so no data to load
+          }
+        };
+
+        if (isSupabaseConfigured) {
+          const { data: { session: initialSession } } = await supabase.auth.getSession();
+          await processSession(initialSession);
+
+          const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, newSession) => {
+            setSession(newSession);
+            if (newSession) {
+              await fetchRole(newSession.user.email!);
+              await loadGlobalData();
+            }
+          });
+          authSubscriptionCleanup = () => subscription.unsubscribe();
+        } else {
+          const localSession = localStorage.getItem('kardex_local_session');
+          await processSession(localSession ? JSON.parse(localSession) : null);
         }
-      };
-      if (isSupabaseConfigured) {
-        const { data: { session: initialSession } } = await supabase.auth.getSession();
-        await processSession(initialSession);
-        const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, newSession) => { await processSession(newSession); });
-        return () => { subscription.unsubscribe(); };
-      } else {
-        const localSession = localStorage.getItem('kardex_local_session');
-        if (localSession) await processSession(JSON.parse(localSession));
+      } catch (err) {
+        console.error("Error during app initialization:", err);
+        setDataError(true);
+      } finally {
+        setLoadingSession(false);
       }
-      setLoadingSession(false);
     };
+
     initAuth();
+
+    return () => {
+      authSubscriptionCleanup?.();
+    };
   }, []);
   
   if (loadingSession) return <div className="h-screen flex items-center justify-center bg-slate-50"><Loader2 className="animate-spin w-10 h-10 text-indigo-600" /></div>;
