@@ -4,6 +4,7 @@ import { Movement, Product } from '../types.ts';
 import * as api from '../services/supabaseService.ts';
 import { formatCurrency } from '../utils/currencyUtils.ts';
 import { exportToExcel } from '../services/excelService.ts';
+import { useNotification } from '../contexts/NotificationContext.tsx';
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
   LineChart, Line, PieChart, Pie, Cell
@@ -23,6 +24,7 @@ export const Reports: React.FC = () => {
   const [products, setProducts] = useState<Product[]>([]);
   const [movements, setMovements] = useState<Movement[]>([]);
   const [loading, setLoading] = useState(true);
+  const { addNotification } = useNotification();
   
   const today = new Date().toISOString().split('T')[0];
   const lastMonth = new Date(new Date().setMonth(new Date().getMonth() - 1)).toISOString().split('T')[0];
@@ -47,9 +49,6 @@ export const Reports: React.FC = () => {
   }, [movements, dateRange]);
 
   const topMovingProducts = useMemo(() => {
-    // FIX: Explicitly specify generic type for reduce to ensure correct type inference.
-    // This resolves issues where the result of the reduce was not being correctly typed as Record<string, number>,
-    // causing subsequent sort operations to fail with type errors.
     const counts = filteredMovements
       .filter(m => m.type === 'SALIDA')
       .reduce<Record<string, number>>((acc, m) => {
@@ -73,9 +72,6 @@ export const Reports: React.FC = () => {
   }, [filteredMovements, products]);
 
   const destinationData = useMemo(() => {
-    // FIX: Explicitly specify generic type for reduce to ensure correct type inference.
-    // This resolves issues where the result of the reduce was not being correctly typed as Record<string, number>,
-    // causing subsequent sort operations to fail with type errors.
     const counts = filteredMovements
       .filter(m => m.type === 'SALIDA' && m.destinationName)
       .reduce<Record<string, number>>((acc, m) => {
@@ -90,7 +86,10 @@ export const Reports: React.FC = () => {
   }, [filteredMovements]);
 
   const handleExportExcel = () => {
-    if (filteredMovements.length === 0) return;
+    if (filteredMovements.length === 0) {
+      addNotification('No hay datos para exportar en el rango seleccionado.', 'error');
+      return;
+    }
     const data = filteredMovements.map(m => ({
       Fecha: new Date(m.date).toLocaleString(),
       Producto: m.productName,
