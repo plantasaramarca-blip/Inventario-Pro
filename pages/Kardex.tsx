@@ -52,7 +52,9 @@ export const Kardex: React.FC<KardexProps> = ({ role, userEmail, initialState, o
     if (initialState?.prefill) {
       const { type: prefillType, product } = initialState.prefill;
       handleOpenModal(prefillType);
-      setCartItems([{ ...product, productId: product.id, quantity: 1 }]);
+      if (product) {
+        setCartItems([{ ...product, productId: product.id, quantity: 1 }]);
+      }
       onInitialStateConsumed();
     }
   }, [initialState]);
