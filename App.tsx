@@ -93,13 +93,38 @@ export default function App() {
     setLoadingData(true);
     setDataError(false);
     try {
-      const [p, m, c, d, cats, locs, s] = await Promise.all([
-        api.getProducts(), api.getMovements(), api.getContacts(),
-        api.getDestinos(), api.getCategoriesMaster(), api.getLocationsMaster(),
-        api.getStats()
+      const [p, m, c, d, cats, locs] = await Promise.all([
+        api.getProducts(), 
+        api.getMovements(), 
+        api.getContacts(),
+        api.getDestinos(), 
+        api.getCategoriesMaster(), 
+        api.getLocationsMaster(),
       ]);
-      setProducts(p || []); setMovements(m || []); setContacts(c || []); setDestinos(d || []);
-      setCategories(cats || []); setLocations(locs || []); setStats(s || null);
+
+      const productsData = p || [];
+      const movementsData = m || [];
+      const contactsData = c || [];
+
+      // Optimización: Calcular estadísticas localmente para evitar una llamada extra.
+      const statsData: InventoryStats = { 
+        totalProducts: productsData.length, 
+        lowStockCount: productsData.filter(x => x.stock <= x.minStock && x.stock > x.criticalStock).length, 
+        criticalStockCount: productsData.filter(x => x.stock <= x.criticalStock && x.stock > 0).length, 
+        outOfStockCount: productsData.filter(x => x.stock <= 0).length, 
+        totalMovements: movementsData.length, 
+        totalContacts: contactsData.length, 
+        totalValue: productsData.reduce((s, x) => s + (x.stock * x.purchasePrice), 0) 
+      };
+      
+      setProducts(productsData); 
+      setMovements(movementsData); 
+      setContacts(contactsData); 
+      setDestinos(d || []);
+      setCategories(cats || []); 
+      setLocations(locs || []); 
+      setStats(statsData);
+
     } catch (e) {
       console.error("Failed to load global data", e);
       setDataError(true);
