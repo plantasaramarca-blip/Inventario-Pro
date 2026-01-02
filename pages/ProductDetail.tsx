@@ -27,14 +27,14 @@ export const ProductDetail: React.FC<ProductDetailProps> = ({ productId, role, u
     if (!productId) { setError(true); setLoading(false); return; }
     setLoading(true); setError(false);
     try {
-      const allProducts = await api.getProducts();
-      const foundProduct = allProducts.find(p => p.id === productId);
-      if (!foundProduct) { setError(true); return; }
-      setProduct(foundProduct);
-
-      const allMovements = await api.getMovements();
-      const productMovements = allMovements.filter(m => m.productId === productId).slice(0, 10);
-      setMovements(productMovements);
+      const [productData, movementsData] = await Promise.all([
+        api.getProductById(productId),
+        api.getMovementsByProductId(productId)
+      ]);
+      
+      if (!productData) { setError(true); return; }
+      setProduct(productData);
+      setMovements(movementsData || []);
     } catch (e) {
       setError(true);
     } finally {
