@@ -11,14 +11,10 @@ import { formatCurrency } from '../utils/currencyUtils.ts';
 interface DashboardProps {
   onNavigate: (page: string, options?: { push?: boolean; state?: any }) => void;
   stats: InventoryStats | null;
-  products: Product[];
+  alertProducts: Product[];
 }
 
-export const Dashboard: React.FC<DashboardProps> = ({ onNavigate, stats, products }) => {
-  const alertProducts = products
-    .filter(p => p.stock <= p.minStock)
-    .sort((a, b) => a.stock - b.stock)
-    .slice(0, 6);
+export const Dashboard: React.FC<DashboardProps> = ({ onNavigate, stats, alertProducts }) => {
 
   const cards = [
     { title: 'Valor Total', value: formatCurrency(stats?.totalValue || 0), icon: DollarSign, color: 'bg-indigo-600', sub: 'Inversión', page: 'inventory' },

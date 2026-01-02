@@ -134,6 +134,26 @@ export const getProducts = async (): Promise<Product[]> => {
   } catch (e) { throw e; }
 };
 
+export const getAlertProducts = async (limit = 6): Promise<Product[]> => {
+  if (!useSupabase()) return [];
+  try {
+    // No podemos hacer un filtro `stock <= min_stock` en el cliente, así que traemos todos.
+    // Esto es una limitación sin RPC, pero el impacto se aisla al dashboard.
+    const { data } = await withTimeout(supabase.from('products').select('*').order('stock', { ascending: true }));
+    const allProducts = (data || []).map(p => ({
+      id: p.id, code: p.code, name: p.name, brand: p.brand || '', size: p.size || '', model: p.model || '',
+      category: p.category, location: p.location, stock: p.stock || 0, minStock: p.min_stock ?? 30, criticalStock: p.critical_stock ?? 10,
+      purchasePrice: p.precio_compra || 0, salePrice: p.precio_venta || 0, currency: p.moneda || 'PEN', unit: p.unit || 'UND', imageUrl: p.image_url, updatedAt: p.updated_at
+    }));
+
+    return allProducts.filter(p => p.stock <= p.minStock).slice(0, limit);
+
+  } catch (e) {
+    throw e;
+  }
+};
+
+
 export const saveProduct = async (product: Partial<Product>) => {
   if (!useSupabase()) return;
   
@@ -260,18 +280,45 @@ export const deleteContact = async (id: string) => {
 };
 
 export const getStats = async (): Promise<InventoryStats> => {
+  if (!useSupabase()) {
+     // Lógica local sin Supabase
+     return { totalProducts: 0, lowStockCount: 0, criticalStockCount: 0, outOfStockCount: 0, totalMovements: 0, totalContacts: 0, totalValue: 0 };
+  }
   try {
-    const [p, m, c] = await Promise.all([getProducts(), getMovements(), getContacts()]);
+    const productStatsPromise = supabase.from('products').select('stock, min_stock, critical_stock, precio_compra');
+    const movementsCountPromise = supabase.from('movements').select('*', { count: 'exact', head: true });
+    const contactsCountPromise = supabase.from('contacts').select('*', { count: 'exact', head: true });
+
+    const [
+        { data: products, error: pError },
+        { count: totalMovements, error: mError },
+        { count: totalContacts, error: cError }
+    ] = await Promise.all([
+        withTimeout(productStatsPromise),
+        withTimeout(movementsCountPromise),
+        withTimeout(contactsCountPromise)
+    ]);
+
+    if (pError || mError || cError) {
+        console.error("Error fetching stats components", { pError, mError, cError });
+        throw new Error('Failed to fetch stats components');
+    }
+    
+    const p = products || [];
+    const critStock = (p as any[]).map(x => x.critical_stock ?? 10);
+    const minStock = (p as any[]).map(x => x.min_stock ?? 30);
+    
     return { 
       totalProducts: p.length, 
-      lowStockCount: p.filter(x=>x.stock<=x.minStock && x.stock>x.criticalStock).length, 
-      criticalStockCount: p.filter(x=>x.stock<=x.criticalStock && x.stock>0).length, 
-      outOfStockCount: p.filter(x=>x.stock<=0).length, 
-      totalMovements: m.length, 
-      totalContacts: c.length, 
-      totalValue: p.reduce((s,x)=>s+(x.stock*x.purchasePrice),0) 
+      lowStockCount: p.filter((x, i) => x.stock <= minStock[i] && x.stock > critStock[i]).length,
+      criticalStockCount: p.filter((x, i) => x.stock <= critStock[i] && x.stock > 0).length,
+      outOfStockCount: p.filter(x => x.stock <= 0).length,
+      totalMovements: totalMovements || 0, 
+      totalContacts: totalContacts || 0, 
+      totalValue: p.reduce((s, x) => s + (x.stock * (x.precio_compra || 0)), 0)
     };
   } catch (e) {
+    console.error("Error in getStats:", e);
     return { totalProducts: 0, lowStockCount: 0, criticalStockCount: 0, outOfStockCount: 0, totalMovements: 0, totalContacts: 0, totalValue: 0 };
   }
 };

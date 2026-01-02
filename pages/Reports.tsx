@@ -10,7 +10,7 @@ import {
   LineChart, Line, PieChart, Pie, Cell
 } from 'recharts';
 import { 
-  TrendingUp, Filter, ArrowUpRight, ArrowDownRight, Package, RefreshCcw, PieChart as PieIcon, FileSpreadsheet, Archive, BarChart3 as BarChartIcon
+  TrendingUp, Filter, ArrowUpRight, ArrowDownRight, Package, RefreshCcw, PieChart as PieIcon, FileSpreadsheet, Archive, BarChart3 as BarChartIcon, Loader2
 } from 'https://esm.sh/lucide-react@0.475.0?external=react,react-dom';
 
 const EmptyState = ({ message }: { message: string }) => (
@@ -22,15 +22,32 @@ const EmptyState = ({ message }: { message: string }) => (
 
 interface ReportsProps {
   onNavigate: (page: string, options?: { push?: boolean; state?: any }) => void;
-  products: Product[];
-  movements: Movement[];
 }
 
-export const Reports: React.FC<ReportsProps> = ({ onNavigate, products, movements }) => {
+export const Reports: React.FC<ReportsProps> = ({ onNavigate }) => {
+  const [products, setProducts] = useState<Product[]>([]);
+  const [movements, setMovements] = useState<Movement[]>([]);
+  const [loading, setLoading] = useState(true);
   const { addNotification } = useNotification();
   const today = new Date().toISOString().split('T')[0];
   const lastMonth = new Date(new Date().setMonth(new Date().getMonth() - 1)).toISOString().split('T')[0];
   const [dateRange, setDateRange] = useState({ from: lastMonth, to: today });
+
+  useEffect(() => {
+    const loadData = async () => {
+      setLoading(true);
+      try {
+        const [prods, movs] = await Promise.all([api.getProducts(), api.getMovements()]);
+        setProducts(prods || []);
+        setMovements(movs || []);
+      } catch (e) {
+        addNotification('Error al cargar datos para reportes.', 'error');
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadData();
+  }, []);
 
   const filteredMovements = useMemo(() => {
     return movements.filter(m => {
@@ -107,6 +124,8 @@ export const Reports: React.FC<ReportsProps> = ({ onNavigate, products, movement
   }, [filteredMovements]);
 
   const COLORS = ['#4f46e5', '#f59e0b', '#ef4444', '#64748b'];
+  
+  if (loading) return <div className="h-[70vh] flex items-center justify-center"><Loader2 className="animate-spin w-8 h-8 text-indigo-500" /></div>;
 
   return (
     <div className="space-y-6 animate-in fade-in pb-10">

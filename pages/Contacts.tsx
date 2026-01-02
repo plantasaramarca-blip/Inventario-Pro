@@ -10,11 +10,11 @@ interface ContactsProps {
   role: Role;
   initialState?: any;
   onInitialStateConsumed: () => void;
-  contacts: Contact[];
-  onDataRefresh: () => void;
 }
 
-export const Contacts: React.FC<ContactsProps> = ({ role, initialState, onInitialStateConsumed, contacts, onDataRefresh }) => {
+export const Contacts: React.FC<ContactsProps> = ({ role, initialState, onInitialStateConsumed }) => {
+  const [contacts, setContacts] = useState<Contact[]>([]);
+  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingContact, setEditingContact] = useState<Contact | null>(null);
@@ -22,7 +22,20 @@ export const Contacts: React.FC<ContactsProps> = ({ role, initialState, onInitia
   const [formData, setFormData] = useState<Partial<Contact>>({ name: '', type: 'CLIENTE', taxId: '', phone: '', email: '' });
   const { addNotification } = useNotification();
 
+  const loadData = async () => {
+    setLoading(true);
+    try {
+      const data = await api.getContacts();
+      setContacts(data || []);
+    } catch (e) {
+      addNotification('Error al cargar contactos.', 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
+    loadData();
     if (initialState?.openNewContactModal) {
       handleOpenModal();
       onInitialStateConsumed();
@@ -39,7 +52,7 @@ export const Contacts: React.FC<ContactsProps> = ({ role, initialState, onInitia
     if (!contactToDelete) return;
     try {
       await api.deleteContact(contactToDelete.id);
-      onDataRefresh();
+      await loadData();
       addNotification(`Contacto "${contactToDelete.name}" eliminado.`, 'success');
     } catch (e) {
       addNotification("Error al eliminar el contacto.", "error");
@@ -53,12 +66,14 @@ export const Contacts: React.FC<ContactsProps> = ({ role, initialState, onInitia
     try {
       await api.saveContact({ ...formData, id: editingContact?.id });
       setIsModalOpen(false);
-      onDataRefresh();
+      await loadData();
       addNotification("Contacto guardado con éxito.", "success");
     } catch (e) {
       addNotification("Error al guardar el contacto.", "error");
     }
   };
+  
+  if (loading) return <div className="h-[70vh] flex items-center justify-center"><Loader2 className="animate-spin w-8 h-8 text-indigo-500" /></div>;
 
   return (
     <div className="space-y-6 pb-20">

@@ -16,14 +16,14 @@ interface KardexProps {
   userEmail?: string;
   initialState?: any;
   onInitialStateConsumed: () => void;
-  movements: Movement[];
-  products: Product[];
   destinos: Destination[];
   locations: LocationMaster[];
-  onDataRefresh: () => void;
 }
 
-export const Kardex: React.FC<KardexProps> = ({ role, userEmail, initialState, onInitialStateConsumed, movements, products, destinos, locations, onDataRefresh }) => {
+export const Kardex: React.FC<KardexProps> = ({ role, userEmail, initialState, onInitialStateConsumed, destinos, locations }) => {
+  const [movements, setMovements] = useState<Movement[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(0);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -39,13 +39,25 @@ export const Kardex: React.FC<KardexProps> = ({ role, userEmail, initialState, o
   const [dispatchNoteData, setDispatchNoteData] = useState<any>(null);
   const [isScannerOpen, setIsScannerOpen] = useState(false);
   
+  const loadData = async () => {
+    setLoading(true);
+    try {
+      const [movs, prods] = await Promise.all([api.getMovements(), api.getProducts()]);
+      setMovements(movs || []);
+      setProducts(prods || []);
+    } catch (e) {
+      addNotification('Error al cargar datos de kardex.', 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
+    loadData();
     if (initialState?.prefill) {
       const { type: prefillType, product } = initialState.prefill;
       handleOpenModal(prefillType);
-      if (product) {
-        setCartItems([{ ...product, productId: product.id, quantity: 1 }]);
-      }
+      if (product) setCartItems([{ ...product, productId: product.id, quantity: 1 }]);
       onInitialStateConsumed();
     }
   }, [initialState]);
@@ -107,13 +119,15 @@ export const Kardex: React.FC<KardexProps> = ({ role, userEmail, initialState, o
       }
 
       setIsModalOpen(false); 
-      onDataRefresh();
+      await loadData();
       addNotification('Movimiento registrado con éxito.', 'success');
     } catch (err: any) { addNotification(err.message, 'error'); 
     } finally { setSaving(false); }
   };
 
   const filteredSearch = useMemo(() => productSearch ? products.filter(p => p.name.toLowerCase().includes(productSearch.toLowerCase()) || p.code.toLowerCase().includes(productSearch.toLowerCase())).slice(0, 5) : [], [products, productSearch]);
+  
+  if (loading) return <div className="h-[70vh] flex items-center justify-center"><Loader2 className="animate-spin w-8 h-8 text-indigo-500" /></div>;
 
   return (
     <div className="space-y-4 animate-in fade-in pb-10">
