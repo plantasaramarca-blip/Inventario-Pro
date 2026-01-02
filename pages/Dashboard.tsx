@@ -3,7 +3,7 @@ import React from 'react';
 import { InventoryStats, Product } from '../types.ts';
 import { 
   TrendingUp, AlertTriangle, Package, 
-  AlertCircle, DollarSign, Layers, Users
+  AlertCircle, DollarSign, Layers, Users, ChevronRight
 } from 'https://esm.sh/lucide-react@0.475.0?external=react,react-dom';
 import { StockBadge } from '../components/StockBadge.tsx';
 import { formatCurrency } from '../utils/currencyUtils.ts';
@@ -51,27 +51,40 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate, stats, product
           <span className="text-[8px] font-black text-slate-300 uppercase tracking-widest">Top Críticos</span>
         </div>
         <div className="overflow-x-auto no-scrollbar">
-          <table className="w-full text-left min-w-[400px]">
+          <table className="w-full text-left min-w-[600px]">
             <thead className="text-[8px] font-black uppercase text-slate-400 tracking-widest border-b border-slate-50">
               <tr>
                 <th className="pb-3 px-2">Producto</th>
-                <th className="pb-3 text-center">Stock</th>
-                <th className="pb-3 text-right">Estado</th>
+                <th className="pb-3 px-2 text-center">Stock / Mínimo</th>
+                <th className="pb-3 px-2">Almacén</th>
+                <th className="pb-3 px-2 text-center">Estado</th>
+                <th className="pb-3 w-8"></th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-50">
               {alertProducts.map(p => (
-                <tr key={p.id} className="hover:bg-slate-50/50 transition-colors">
+                <tr 
+                  key={p.id} 
+                  onClick={() => onNavigate('productDetail', { push: true, state: { productId: p.id } })}
+                  className="hover:bg-indigo-50/50 transition-colors cursor-pointer group"
+                >
                   <td className="py-3 px-2">
-                    <p className="text-[11px] font-bold text-slate-800">{p.name}</p>
+                    <p className="text-[11px] font-bold text-slate-800 uppercase">{p.name}</p>
                     <p className="text-[8px] text-slate-400 font-black uppercase tracking-tighter">{p.code}</p>
                   </td>
-                  <td className="py-3 text-center">
+                  <td className="py-3 px-2 text-center">
                     <span className="text-[11px] font-black text-slate-800">{p.stock}</span>
+                    <span className="text-[9px] text-slate-400 font-bold"> / {p.minStock} </span>
                     <span className="text-[8px] text-slate-400 font-bold ml-0.5 uppercase">{p.unit}</span>
                   </td>
-                  <td className="py-3 text-right">
+                  <td className="py-3 px-2">
+                     <p className="text-[9px] text-slate-500 font-black uppercase tracking-widest">{p.location}</p>
+                  </td>
+                  <td className="py-3 px-2 text-center">
                     <StockBadge stock={p.stock} minStock={p.minStock} criticalStock={p.criticalStock} />
+                  </td>
+                  <td className="py-3">
+                    <ChevronRight className="w-5 h-5 text-slate-300 opacity-0 group-hover:opacity-100 transition-opacity" />
                   </td>
                 </tr>
               ))}
