@@ -125,7 +125,7 @@ export const deleteCategoryMaster = async (id: string) => {
 export const getProducts = async (): Promise<Product[]> => {
   if (!useSupabase()) return [];
   try {
-    const { data } = await withTimeout(supabase.from('products').select('*').order('name'));
+    const { data } = await withTimeout(supabase.from('products').select('*').order('updated_at', { ascending: false }));
     return (data || []).map(p => ({
       id: p.id, code: p.code, name: p.name, brand: p.brand || '', size: p.size || '', model: p.model || '',
       category: p.category, location: p.location, stock: p.stock || 0, minStock: p.min_stock ?? 30, criticalStock: p.critical_stock ?? 10,

@@ -78,15 +78,29 @@ export const saveCategory = (category: string): void => {
 
 export const getProducts = (): Product[] => {
   seedData();
-  return JSON.parse(localStorage.getItem(PRODUCTS_KEY) || '[]');
+  const products: Product[] = JSON.parse(localStorage.getItem(PRODUCTS_KEY) || '[]');
+  // Ordena por fecha de actualización descendente para que los más nuevos aparezcan primero.
+  return products.sort((a, b) => {
+    const dateA = a.updatedAt ? new Date(a.updatedAt).getTime() : 0;
+    const dateB = b.updatedAt ? new Date(b.updatedAt).getTime() : 0;
+    return dateB - dateA;
+  });
 };
 
 export const saveProduct = (product: Product): void => {
-  const products = getProducts();
+  const products = JSON.parse(localStorage.getItem(PRODUCTS_KEY) || '[]') as Product[];
   const idx = products.findIndex(p => p.id === product.id);
   const isUpdate = idx >= 0;
-  if (isUpdate) products[idx] = product;
-  else products.push(product);
+
+  // Asegura que la fecha de actualización esté presente y actualizada.
+  const productToSave = { ...product, updatedAt: new Date().toISOString() };
+  
+  if (isUpdate) {
+    products[idx] = productToSave;
+  } else {
+    products.push(productToSave);
+  }
+  
   localStorage.setItem(PRODUCTS_KEY, JSON.stringify(products));
   saveAuditLog({ action: isUpdate ? 'UPDATE' : 'CREATE', table_name: 'products', record_id: product.id, record_name: product.name, changes_summary: `${isUpdate ? 'Actualizó' : 'Creó'} el producto "${product.name}"` });
 };
