@@ -101,7 +101,7 @@ export interface AuditLog {
   table_name: string;
   record_id: string;
   record_name: string;
-  old_values: any;
-  new_values: any;
+  old_values?: any | null;
+  new_values?: any | null;
   changes_summary: string;
 }
