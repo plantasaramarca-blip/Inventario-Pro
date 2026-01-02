@@ -136,7 +136,18 @@ export const Inventory: React.FC<InventoryProps> = ({ role, onNavigate, initialS
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault(); setSaving(true);
+    e.preventDefault(); 
+    
+    // Si es un producto nuevo, verificar si el SKU ya existe.
+    if (!editingProduct) {
+      const trimmedCode = formData.code?.trim().toLowerCase();
+      if (products.some(p => p.code.trim().toLowerCase() === trimmedCode)) {
+        addNotification(`El código SKU "${formData.code}" ya existe.`, 'error');
+        return; // Detener el guardado.
+      }
+    }
+    
+    setSaving(true);
     try { 
       await api.saveProduct(formData); setIsModalOpen(false); onDataRefresh();
       addNotification(`"${formData.name}" guardado con éxito.`, 'success');
