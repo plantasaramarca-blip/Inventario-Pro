@@ -8,34 +8,65 @@ import {
 } from 'https://esm.sh/lucide-react@0.475.0?external=react,react-dom';
 
 interface DestinosProps {
-  destinations: Destination[];
-  onDataRefresh: () => void;
+  destinations: Destination[] | null;
+  setDestinations: (data: Destination[]) => void;
+  onCacheClear: (keys: Array<'destinos'>) => void;
 }
 
-export const Destinos: React.FC<DestinosProps> = ({ destinations, onDataRefresh }) => {
+export const Destinos: React.FC<DestinosProps> = ({ destinations, setDestinations, onCacheClear }) => {
+  const [loading, setLoading] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [search, setSearch] = useState('');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
   const { addNotification } = useNotification();
   
   const [formData, setFormData] = useState<Partial<Destination>>({
     name: '', type: 'sucursal', description: '', active: true
   });
 
+  useEffect(() => {
+    const loadData = async () => {
+      if (destinations === null) {
+        setLoading(true);
+        try {
+          const data = await api.getDestinos();
+          setDestinations(data || []);
+        } catch (e) {
+          addNotification("Error al cargar centros de costo.", "error");
+        } finally {
+          setLoading(false);
+        }
+      }
+    };
+    loadData();
+  }, [destinations]);
+  
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedSearchTerm(searchTerm);
+    }, 300);
+    return () => clearTimeout(handler);
+  }, [searchTerm]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
       await api.saveDestino({ ...formData, id: formData.id });
       setIsModalOpen(false);
-      onDataRefresh();
+      onCacheClear(['destinos']);
       addNotification("Centro de costo guardado.", "success");
     } catch (e) {
       addNotification("Error al guardar.", "error");
     }
   };
 
-  const filteredDestinos = destinations.filter(d => 
-    d.name.toLowerCase().includes(search.toLowerCase())
+  const filteredDestinos = (destinations || []).filter(d => 
+    d.name.toLowerCase().includes(debouncedSearchTerm.toLowerCase())
   );
+
+  if (loading || destinations === null) {
+    return <div className="h-[70vh] flex items-center justify-center"><Loader2 className="animate-spin w-8 h-8 text-indigo-500" /></div>;
+  }
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500 pb-20">
@@ -53,10 +84,10 @@ export const Destinos: React.FC<DestinosProps> = ({ destinations, onDataRefresh 
           type="text" 
           placeholder="Buscar centro de costo..." 
           className="w-full pl-12 pr-12 py-4 bg-white border border-slate-100 rounded-2xl text-xs outline-none shadow-sm focus:ring-2 focus:ring-indigo-500 transition-all font-bold"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
         />
-        {search && <button onClick={() => setSearch('')} className="absolute right-4 top-1/2 -translate-y-1/2 p-1 hover:bg-slate-100 rounded-full"><X className="w-3 h-3 text-slate-400" /></button>}
+        {searchTerm && <button onClick={() => setSearchTerm('')} className="absolute right-4 top-1/2 -translate-y-1/2 p-1 hover:bg-slate-100 rounded-full"><X className="w-3 h-3 text-slate-400" /></button>}
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">

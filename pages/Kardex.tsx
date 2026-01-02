@@ -34,6 +34,7 @@ export const Kardex: React.FC<KardexProps> = ({ role, userEmail, initialState, o
   const [saving, setSaving] = useState(false);
   const [type, setType] = useState<TransactionType>('SALIDA');
   const [productSearch, setProductSearch] = useState('');
+  const [debouncedProductSearch, setDebouncedProductSearch] = useState('');
   const [cartItems, setCartItems] = useState<any[]>([]);
   const [selectedDestinoId, setSelectedDestinoId] = useState('');
   const [selectedLocationId, setSelectedLocationId] = useState('');
@@ -67,7 +68,7 @@ export const Kardex: React.FC<KardexProps> = ({ role, userEmail, initialState, o
       }
     };
     loadPageData();
-  }, []);
+  }, [products, movements, destinos, locations]);
 
   useEffect(() => {
     if (initialState?.prefill) {
@@ -77,6 +78,13 @@ export const Kardex: React.FC<KardexProps> = ({ role, userEmail, initialState, o
       onInitialStateConsumed();
     }
   }, [initialState]);
+  
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedProductSearch(productSearch);
+    }, 300);
+    return () => clearTimeout(handler);
+  }, [productSearch]);
 
   const totalPages = Math.ceil((movements || []).length / ITEMS_PER_PAGE);
   const paginatedMovements = (movements || []).slice(currentPage * ITEMS_PER_PAGE, (currentPage + 1) * ITEMS_PER_PAGE);
@@ -102,7 +110,7 @@ export const Kardex: React.FC<KardexProps> = ({ role, userEmail, initialState, o
     } finally { setSaving(false); }
   };
 
-  const filteredSearch = useMemo(() => productSearch && products ? products.filter(p => p.name.toLowerCase().includes(productSearch.toLowerCase()) || p.code.toLowerCase().includes(productSearch.toLowerCase())).slice(0, 5) : [], [products, productSearch]);
+  const filteredSearch = useMemo(() => debouncedProductSearch && products ? products.filter(p => p.name.toLowerCase().includes(debouncedProductSearch.toLowerCase()) || p.code.toLowerCase().includes(debouncedProductSearch.toLowerCase())).slice(0, 5) : [], [products, debouncedProductSearch]);
 
   if (loading || !products || !movements || !destinos || !locations) {
     return <div className="h-[70vh] flex items-center justify-center"><Loader2 className="animate-spin w-8 h-8 text-indigo-500" /></div>;

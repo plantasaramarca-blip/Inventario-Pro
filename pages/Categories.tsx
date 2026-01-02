@@ -10,18 +10,45 @@ import {
 
 interface CategoryManagementProps {
   role: Role;
-  categories: CategoryMaster[];
-  onDataRefresh: () => void;
+  categories: CategoryMaster[] | null;
+  setCategories: (data: CategoryMaster[]) => void;
+  onCacheClear: (keys: Array<'categories'>) => void;
 }
 
-export const CategoryManagement: React.FC<CategoryManagementProps> = ({ role, categories, onDataRefresh }) => {
+export const CategoryManagement: React.FC<CategoryManagementProps> = ({ role, categories, setCategories, onCacheClear }) => {
+  const [loading, setLoading] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingCat, setEditingCat] = useState<CategoryMaster | null>(null);
   const [catToDelete, setCatToDelete] = useState<CategoryMaster | null>(null);
   const [name, setName] = useState('');
-  const [search, setSearch] = useState('');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
   const [saving, setSaving] = useState(false);
   const { addNotification } = useNotification();
+
+  useEffect(() => {
+    const loadData = async () => {
+      if (categories === null) {
+        setLoading(true);
+        try {
+          const data = await api.getCategoriesMaster();
+          setCategories(data || []);
+        } catch (e) {
+          addNotification("Error al cargar categorías.", "error");
+        } finally {
+          setLoading(false);
+        }
+      }
+    };
+    loadData();
+  }, [categories]);
+  
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedSearchTerm(searchTerm);
+    }, 300);
+    return () => clearTimeout(handler);
+  }, [searchTerm]);
 
   const handleOpenModal = (cat?: CategoryMaster) => {
     if (cat) { setEditingCat(cat); setName(cat.name); }
@@ -35,7 +62,7 @@ export const CategoryManagement: React.FC<CategoryManagementProps> = ({ role, ca
     try {
       await api.saveCategoryMaster({ id: editingCat?.id, name });
       setIsModalOpen(false);
-      onDataRefresh();
+      onCacheClear(['categories']);
       addNotification("Categoría guardada.", "success");
     } catch (e) {
       addNotification("Error al guardar.", "error");
@@ -47,7 +74,7 @@ export const CategoryManagement: React.FC<CategoryManagementProps> = ({ role, ca
     if (!catToDelete) return;
     try {
       await api.deleteCategoryMaster(catToDelete.id);
-      onDataRefresh();
+      onCacheClear(['categories']);
       addNotification(`Categoría "${catToDelete.name}" eliminada.`, 'success');
     } catch (e) {
       addNotification("Error al eliminar.", "error");
@@ -55,8 +82,12 @@ export const CategoryManagement: React.FC<CategoryManagementProps> = ({ role, ca
       setCatToDelete(null);
     }
   };
+  
+  if (loading || categories === null) {
+    return <div className="h-[70vh] flex items-center justify-center"><Loader2 className="animate-spin w-8 h-8 text-indigo-500" /></div>;
+  }
 
-  const filtered = categories.filter(c => c.name.toLowerCase().includes(search.toLowerCase()));
+  const filtered = categories.filter(c => c.name.toLowerCase().includes(debouncedSearchTerm.toLowerCase()));
 
   return (
     <div className="space-y-4 pb-20">
@@ -72,8 +103,8 @@ export const CategoryManagement: React.FC<CategoryManagementProps> = ({ role, ca
 
       <div className="relative group">
         <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300 group-focus-within:text-indigo-500 transition-colors" />
-        <input type="text" className="w-full pl-12 pr-12 py-4 bg-white border border-slate-100 rounded-2xl text-xs outline-none shadow-sm focus:ring-2 focus:ring-indigo-500 transition-all font-bold" placeholder="Buscar categoría..." value={search} onChange={e => setSearch(e.target.value)} />
-        {search && <button onClick={() => setSearch('')} className="absolute right-4 top-1/2 -translate-y-1/2 p-1 hover:bg-slate-100 rounded-full"><X className="w-3 h-3 text-slate-400" /></button>}
+        <input type="text" className="w-full pl-12 pr-12 py-4 bg-white border border-slate-100 rounded-2xl text-xs outline-none shadow-sm focus:ring-2 focus:ring-indigo-500 transition-all font-bold" placeholder="Buscar categoría..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
+        {searchTerm && <button onClick={() => setSearchTerm('')} className="absolute right-4 top-1/2 -translate-y-1/2 p-1 hover:bg-slate-100 rounded-full"><X className="w-3 h-3 text-slate-400" /></button>}
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">

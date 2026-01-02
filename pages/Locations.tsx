@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { LocationMaster, Role } from '../types.ts';
 import * as api from '../services/supabaseService.ts';
 import { useNotification } from '../contexts/NotificationContext.tsx';
@@ -10,18 +10,45 @@ import {
 
 interface LocationManagementProps {
   role: Role;
-  locations: LocationMaster[];
-  onDataRefresh: () => void;
+  locations: LocationMaster[] | null;
+  setLocations: (data: LocationMaster[]) => void;
+  onCacheClear: (keys: Array<'locations'>) => void;
 }
 
-export const LocationManagement: React.FC<LocationManagementProps> = ({ role, locations, onDataRefresh }) => {
+export const LocationManagement: React.FC<LocationManagementProps> = ({ role, locations, setLocations, onCacheClear }) => {
+  const [loading, setLoading] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingLoc, setEditingLoc] = useState<LocationMaster | null>(null);
   const [locToDelete, setLocToDelete] = useState<LocationMaster | null>(null);
   const [name, setName] = useState('');
-  const [search, setSearch] = useState('');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
   const [saving, setSaving] = useState(false);
   const { addNotification } = useNotification();
+
+  useEffect(() => {
+    const loadData = async () => {
+      if (locations === null) {
+        setLoading(true);
+        try {
+          const data = await api.getLocationsMaster();
+          setLocations(data || []);
+        } catch (e) {
+          addNotification("Error al cargar almacenes.", "error");
+        } finally {
+          setLoading(false);
+        }
+      }
+    };
+    loadData();
+  }, [locations]);
+  
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedSearchTerm(searchTerm);
+    }, 300);
+    return () => clearTimeout(handler);
+  }, [searchTerm]);
 
   const handleOpenModal = (loc?: LocationMaster) => {
     if (loc) { setEditingLoc(loc); setName(loc.name); }
@@ -35,7 +62,7 @@ export const LocationManagement: React.FC<LocationManagementProps> = ({ role, lo
     try {
       await api.saveLocationMaster({ id: editingLoc?.id, name });
       setIsModalOpen(false);
-      onDataRefresh();
+      onCacheClear(['locations']);
       addNotification("Almacén guardado.", "success");
     } catch (e) {
       addNotification("Error al guardar.", "error");
@@ -47,7 +74,7 @@ export const LocationManagement: React.FC<LocationManagementProps> = ({ role, lo
     if (!locToDelete) return;
     try {
       await api.deleteLocationMaster(locToDelete.id);
-      onDataRefresh();
+      onCacheClear(['locations']);
       addNotification(`Almacén "${locToDelete.name}" eliminado.`, 'success');
     } catch (e) {
       addNotification("Error al eliminar.", "error");
@@ -56,7 +83,11 @@ export const LocationManagement: React.FC<LocationManagementProps> = ({ role, lo
     }
   };
 
-  const filtered = locations.filter(l => l.name.toLowerCase().includes(search.toLowerCase()));
+  if (loading || locations === null) {
+    return <div className="h-[70vh] flex items-center justify-center"><Loader2 className="animate-spin w-8 h-8 text-indigo-500" /></div>;
+  }
+
+  const filtered = locations.filter(l => l.name.toLowerCase().includes(debouncedSearchTerm.toLowerCase()));
 
   return (
     <div className="space-y-4 pb-20">
@@ -72,8 +103,8 @@ export const LocationManagement: React.FC<LocationManagementProps> = ({ role, lo
 
       <div className="relative group">
         <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300 group-focus-within:text-indigo-500 transition-colors" />
-        <input type="text" className="w-full pl-12 pr-12 py-4 bg-white border border-slate-100 rounded-2xl text-xs outline-none shadow-sm focus:ring-2 focus:ring-indigo-500 transition-all font-bold" placeholder="Buscar almacén..." value={search} onChange={e => setSearch(e.target.value)} />
-        {search && <button onClick={() => setSearch('')} className="absolute right-4 top-1/2 -translate-y-1/2 p-1 hover:bg-slate-100 rounded-full"><X className="w-3 h-3 text-slate-400" /></button>}
+        <input type="text" className="w-full pl-12 pr-12 py-4 bg-white border border-slate-100 rounded-2xl text-xs outline-none shadow-sm focus:ring-2 focus:ring-indigo-500 transition-all font-bold" placeholder="Buscar almacén..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
+        {searchTerm && <button onClick={() => setSearchTerm('')} className="absolute right-4 top-1/2 -translate-y-1/2 p-1 hover:bg-slate-100 rounded-full"><X className="w-3 h-3 text-slate-400" /></button>}
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">

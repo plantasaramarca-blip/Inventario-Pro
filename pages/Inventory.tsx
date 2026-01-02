@@ -33,7 +33,8 @@ interface InventoryProps {
 export const Inventory: React.FC<InventoryProps> = ({ role, onNavigate, initialState, onInitialStateConsumed, products, setProducts, categories, setCategories, locations, setLocations, onCacheClear }) => {
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [search, setSearch] = useState('');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
   const [filters, setFilters] = useState({ category: 'ALL', location: 'ALL' });
   const [currentPage, setCurrentPage] = useState(0);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -76,15 +77,21 @@ export const Inventory: React.FC<InventoryProps> = ({ role, onNavigate, initialS
     };
     loadPageData();
   }, [products, categories, locations]);
+  
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedSearchTerm(searchTerm);
+    }, 300);
+    return () => clearTimeout(handler);
+  }, [searchTerm]);
 
   useEffect(() => {
     if (initialState?.openNewProductModal) { handleOpenModal(); onInitialStateConsumed(); }
   }, [initialState]);
   
-  // FIX: Moved side-effect (setCurrentPage) out of useMemo and into its own useEffect.
   useEffect(() => {
     setCurrentPage(0);
-  }, [search, filters]);
+  }, [debouncedSearchTerm, filters]);
 
   const filteredProducts = useMemo(() => {
     if (!products) return [];
@@ -96,12 +103,12 @@ export const Inventory: React.FC<InventoryProps> = ({ role, onNavigate, initialS
     if (filters.location !== 'ALL') {
       tempProducts = tempProducts.filter(p => p.location === filters.location);
     }
-    if (search) {
-      const lowerCaseSearch = search.toLowerCase();
+    if (debouncedSearchTerm) {
+      const lowerCaseSearch = debouncedSearchTerm.toLowerCase();
       tempProducts = tempProducts.filter(p => p.name.toLowerCase().includes(lowerCaseSearch) || p.code.toLowerCase().includes(lowerCaseSearch) || p.brand.toLowerCase().includes(lowerCaseSearch) );
     }
     return tempProducts;
-  }, [products, search, filters]);
+  }, [products, debouncedSearchTerm, filters]);
 
 
   const totalPages = Math.ceil(filteredProducts.length / ITEMS_PER_PAGE);

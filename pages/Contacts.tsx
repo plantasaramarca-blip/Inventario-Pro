@@ -10,17 +10,44 @@ interface ContactsProps {
   role: Role;
   initialState?: any;
   onInitialStateConsumed: () => void;
-  contacts: Contact[];
-  onDataRefresh: () => void;
+  contacts: Contact[] | null;
+  setContacts: (data: Contact[]) => void;
+  onCacheClear: (keys: Array<'contacts'>) => void;
 }
 
-export const Contacts: React.FC<ContactsProps> = ({ role, initialState, onInitialStateConsumed, contacts, onDataRefresh }) => {
-  const [search, setSearch] = useState('');
+export const Contacts: React.FC<ContactsProps> = ({ role, initialState, onInitialStateConsumed, contacts, setContacts, onCacheClear }) => {
+  const [loading, setLoading] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingContact, setEditingContact] = useState<Contact | null>(null);
   const [contactToDelete, setContactToDelete] = useState<Contact | null>(null);
   const [formData, setFormData] = useState<Partial<Contact>>({ name: '', type: 'CLIENTE', taxId: '', phone: '', email: '' });
   const { addNotification } = useNotification();
+
+  useEffect(() => {
+    const loadData = async () => {
+      if (contacts === null) {
+        setLoading(true);
+        try {
+          const data = await api.getContacts();
+          setContacts(data || []);
+        } catch (e) {
+          addNotification("Error al cargar contactos.", "error");
+        } finally {
+          setLoading(false);
+        }
+      }
+    };
+    loadData();
+  }, [contacts]);
+
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedSearchTerm(searchTerm);
+    }, 300);
+    return () => clearTimeout(handler);
+  }, [searchTerm]);
 
   useEffect(() => {
     if (initialState?.openNewContactModal) {
@@ -39,7 +66,7 @@ export const Contacts: React.FC<ContactsProps> = ({ role, initialState, onInitia
     if (!contactToDelete) return;
     try {
       await api.deleteContact(contactToDelete.id);
-      onDataRefresh();
+      onCacheClear(['contacts']);
       addNotification(`Contacto "${contactToDelete.name}" eliminado.`, 'success');
     } catch (e) {
       addNotification("Error al eliminar el contacto.", "error");
@@ -53,12 +80,18 @@ export const Contacts: React.FC<ContactsProps> = ({ role, initialState, onInitia
     try {
       await api.saveContact({ ...formData, id: editingContact?.id });
       setIsModalOpen(false);
-      onDataRefresh();
+      onCacheClear(['contacts']);
       addNotification("Contacto guardado con éxito.", "success");
     } catch (e) {
       addNotification("Error al guardar el contacto.", "error");
     }
   };
+  
+  const filteredContacts = (contacts || []).filter(c => c.name.toLowerCase().includes(debouncedSearchTerm.toLowerCase()));
+
+  if (loading || contacts === null) {
+    return <div className="h-[70vh] flex items-center justify-center"><Loader2 className="animate-spin w-8 h-8 text-indigo-500" /></div>;
+  }
 
   return (
     <div className="space-y-6 pb-20">
@@ -72,12 +105,12 @@ export const Contacts: React.FC<ContactsProps> = ({ role, initialState, onInitia
 
       <div className="relative group">
         <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300 group-focus-within:text-indigo-500 transition-colors" />
-        <input type="text" className="w-full pl-12 pr-12 py-4 bg-white border border-slate-100 rounded-2xl text-xs outline-none shadow-sm focus:ring-2 focus:ring-indigo-500 transition-all font-bold" placeholder="Buscar por nombre..." value={search} onChange={(e) => setSearch(e.target.value)} />
-        {search && <button onClick={() => setSearch('')} className="absolute right-4 top-1/2 -translate-y-1/2 p-1 hover:bg-slate-100 rounded-full"><X className="w-3 h-3 text-slate-400" /></button>}
+        <input type="text" className="w-full pl-12 pr-12 py-4 bg-white border border-slate-100 rounded-2xl text-xs outline-none shadow-sm focus:ring-2 focus:ring-indigo-500 transition-all font-bold" placeholder="Buscar por nombre..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+        {searchTerm && <button onClick={() => setSearchTerm('')} className="absolute right-4 top-1/2 -translate-y-1/2 p-1 hover:bg-slate-100 rounded-full"><X className="w-3 h-3 text-slate-400" /></button>}
       </div>
       
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        {contacts.filter(c => c.name.toLowerCase().includes(search.toLowerCase())).map((contact) => (
+        {filteredContacts.map((contact) => (
           <div key={contact.id} className="bg-white p-5 rounded-[2rem] shadow-sm border border-slate-100 flex items-start justify-between group">
             <div className="flex items-center space-x-4">
               <div className={`p-3 rounded-2xl ${contact.type === 'PROVEEDOR' ? 'bg-orange-50 text-orange-600' : 'bg-blue-50 text-blue-600'}`}>

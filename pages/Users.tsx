@@ -11,7 +11,8 @@ export const UsersPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [search, setSearch] = useState('');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
   const [editingUser, setEditingUser] = useState<UserAccount | null>(null);
   const [userToDelete, setUserToDelete] = useState<UserAccount | null>(null);
   const [formData, setFormData] = useState<any>({});
@@ -30,6 +31,13 @@ export const UsersPage: React.FC = () => {
   };
 
   useEffect(() => { loadData(); }, []);
+  
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedSearchTerm(searchTerm);
+    }, 300);
+    return () => clearTimeout(handler);
+  }, [searchTerm]);
 
   const handleOpenModal = (user?: UserAccount) => {
     if (user) { setEditingUser(user); setFormData({ email: user.email, role: user.role, password: '' }); }
@@ -64,6 +72,8 @@ export const UsersPage: React.FC = () => {
       setUserToDelete(null);
     }
   };
+  
+  const filteredUsers = users.filter(u => u.email.toLowerCase().includes(debouncedSearchTerm.toLowerCase()));
 
   return (
     <div className="space-y-4 animate-in fade-in pb-10">
@@ -79,12 +89,12 @@ export const UsersPage: React.FC = () => {
 
       <div className="relative group">
         <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300 group-focus-within:text-indigo-500 transition-colors" />
-        <input type="text" className="w-full pl-12 pr-12 py-4 bg-white border border-slate-100 rounded-2xl text-xs outline-none shadow-sm focus:ring-2 focus:ring-indigo-500 transition-all font-bold" placeholder="Buscar por email..." value={search} onChange={e => setSearch(e.target.value)} />
-        {search && <button onClick={() => setSearch('')} className="absolute right-4 top-1/2 -translate-y-1/2 p-1 hover:bg-slate-100 rounded-full"><X className="w-3 h-3 text-slate-400" /></button>}
+        <input type="text" className="w-full pl-12 pr-12 py-4 bg-white border border-slate-100 rounded-2xl text-xs outline-none shadow-sm focus:ring-2 focus:ring-indigo-500 transition-all font-bold" placeholder="Buscar por email..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
+        {searchTerm && <button onClick={() => setSearchTerm('')} className="absolute right-4 top-1/2 -translate-y-1/2 p-1 hover:bg-slate-100 rounded-full"><X className="w-3 h-3 text-slate-400" /></button>}
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        {loading ? <div className="col-span-full py-10 text-center"><Loader2 className="animate-spin mx-auto w-6 h-6 text-indigo-500" /></div> : users.filter(u => u.email.toLowerCase().includes(search.toLowerCase())).map(u => (
+        {loading ? <div className="col-span-full py-10 text-center"><Loader2 className="animate-spin mx-auto w-6 h-6 text-indigo-500" /></div> : filteredUsers.map(u => (
           <div key={u.id} className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm flex flex-col justify-between hover:border-indigo-100 transition-all">
              <div className="space-y-3">
                 <div className="flex justify-between items-start">

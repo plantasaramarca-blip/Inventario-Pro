@@ -1,6 +1,6 @@
+
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import * as api from '../services/supabaseService.ts';
-// FIX: Import Loader2 to fix reference error.
 import { 
   Search, Package, User, MapPin, ArrowRight, CornerDownLeft, X, Loader2
 } from 'https://esm.sh/lucide-react@0.475.0?external=react,react-dom';
@@ -22,7 +22,8 @@ const staticActions = [
 ];
 
 export const CommandPalette = ({ isOpen, onClose, onNavigate }: CommandPaletteProps) => {
-  const [search, setSearch] = useState('');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
   const [results, setResults] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState(0);
@@ -35,20 +36,28 @@ export const CommandPalette = ({ isOpen, onClose, onNavigate }: CommandPalettePr
       setLoading(true);
       Promise.all([api.getProducts(), api.getContacts(), api.getDestinos()])
         .then(([products, contacts, destinations]) => {
-          const productResults = products.map(p => ({ type: 'Product', ...p }));
-          const contactResults = contacts.map(c => ({ type: 'Contact', ...c }));
-          const destinationResults = destinations.map(d => ({ type: 'Destination', ...d }));
+          const productResults = (products || []).map(p => ({ type: 'Product', ...p }));
+          const contactResults = (contacts || []).map(c => ({ type: 'Contact', ...c }));
+          const destinationResults = (destinations || []).map(d => ({ type: 'Destination', ...d }));
           setResults([...productResults, ...contactResults, ...destinationResults]);
         }).finally(() => setLoading(false));
     } else {
-      setSearch('');
+      setSearchTerm('');
+      setDebouncedSearchTerm('');
       setSelectedIndex(0);
     }
   }, [isOpen]);
 
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedSearchTerm(searchTerm);
+    }, 300);
+    return () => clearTimeout(handler);
+  }, [searchTerm]);
+
   const filteredResults = useMemo(() => {
-    if (!search) return staticActions;
-    const lowerSearch = search.toLowerCase();
+    if (!debouncedSearchTerm) return staticActions;
+    const lowerSearch = debouncedSearchTerm.toLowerCase();
     
     const filteredContent = results.filter(item => 
       item.name.toLowerCase().includes(lowerSearch) || 
@@ -60,11 +69,11 @@ export const CommandPalette = ({ isOpen, onClose, onNavigate }: CommandPalettePr
     );
 
     return [...filteredActions, ...filteredContent];
-  }, [search, results]);
+  }, [debouncedSearchTerm, results]);
 
   useEffect(() => {
     setSelectedIndex(0);
-  }, [search]);
+  }, [debouncedSearchTerm]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -132,8 +141,8 @@ export const CommandPalette = ({ isOpen, onClose, onNavigate }: CommandPalettePr
           <input
             ref={inputRef}
             type="text"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
             placeholder="Buscar productos, acciones, o navegar..."
             className="w-full bg-transparent outline-none text-sm font-semibold placeholder:text-slate-400"
           />

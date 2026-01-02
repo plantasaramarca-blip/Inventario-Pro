@@ -161,21 +161,24 @@ export default function App() {
   useEffect(() => {
     const initAuth = async () => {
       setLoadingSession(true);
+
       if (isSupabaseConfigured) {
-        supabase.auth.onAuthStateChange(async (event, session) => {
-          if (event === 'INITIAL_SESSION' || event === 'SIGNED_IN') {
-            setSession(session);
-            if (session) {
-              await fetchRole(session.user.email!);
-              await loadDashboardData();
-            }
-          } else if (event === 'SIGNED_OUT') {
-            setSession(null);
-          } else if (event === 'TOKEN_REFRESHED') {
-            setSession(session);
+        const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+          setSession(session);
+          if (event === 'SIGNED_IN' && session) {
+            await fetchRole(session.user.email!);
+            await loadDashboardData();
+          }
+          if (event === 'INITIAL_SESSION' && session) {
+             await fetchRole(session.user.email!);
+             await loadDashboardData();
           }
           setLoadingSession(false);
         });
+        
+        return () => {
+          subscription.unsubscribe();
+        };
       } else {
         const localSession = localStorage.getItem('kardex_local_session');
         setSession(localSession ? JSON.parse(localSession) : null);
@@ -183,6 +186,7 @@ export default function App() {
         setLoadingSession(false);
       }
     };
+    
     initAuth();
   }, []);
   
