@@ -50,36 +50,59 @@ export const Inventory: React.FC<InventoryProps> = ({ role, onNavigate, initialS
 
   useEffect(() => {
     const loadPageData = async () => {
-      setLoading(true);
-      try {
-        const promises = [];
-        if (products === null) promises.push(api.getProducts());
-        if (categories === null) promises.push(api.getCategoriesMaster());
-        if (locations === null) promises.push(api.getLocationsMaster());
-        
-        const [pData, cData, lData] = await Promise.all(promises);
+      if (products === null || categories === null || locations === null) {
+        setLoading(true);
+        try {
+          const promises = [];
+          if (products === null) promises.push(api.getProducts());
+          if (categories === null) promises.push(api.getCategoriesMaster());
+          if (locations === null) promises.push(api.getLocationsMaster());
+          
+          const results = await Promise.all(promises);
+          let pData = products === null ? results.shift() : products;
+          let cData = categories === null ? results.shift() : categories;
+          let lData = locations === null ? results.shift() : locations;
 
-        if (products === null) setProducts(pData || []);
-        if (categories === null) setCategories(cData || []);
-        if (locations === null) setLocations(lData || []);
-      } catch (e) {
-        addNotification('Error al cargar datos de inventario.', 'error');
-      } finally {
-        setLoading(false);
+          if (products === null) setProducts(pData || []);
+          if (categories === null) setCategories(cData || []);
+          if (locations === null) setLocations(lData || []);
+
+        } catch (e) {
+          addNotification('Error al cargar datos de inventario.', 'error');
+        } finally {
+          setLoading(false);
+        }
       }
     };
     loadPageData();
-  }, []);
+  }, [products, categories, locations]);
 
   useEffect(() => {
     if (initialState?.openNewProductModal) { handleOpenModal(); onInitialStateConsumed(); }
   }, [initialState]);
+  
+  // FIX: Moved side-effect (setCurrentPage) out of useMemo and into its own useEffect.
+  useEffect(() => {
+    setCurrentPage(0);
+  }, [search, filters]);
 
   const filteredProducts = useMemo(() => {
-    setCurrentPage(0);
     if (!products) return [];
-    return products.filter(p => /* ... (filter logic unchanged) ... */);
+    let tempProducts = [...products];
+
+    if (filters.category !== 'ALL') {
+      tempProducts = tempProducts.filter(p => p.category === filters.category);
+    }
+    if (filters.location !== 'ALL') {
+      tempProducts = tempProducts.filter(p => p.location === filters.location);
+    }
+    if (search) {
+      const lowerCaseSearch = search.toLowerCase();
+      tempProducts = tempProducts.filter(p => p.name.toLowerCase().includes(lowerCaseSearch) || p.code.toLowerCase().includes(lowerCaseSearch) || p.brand.toLowerCase().includes(lowerCaseSearch) );
+    }
+    return tempProducts;
   }, [products, search, filters]);
+
 
   const totalPages = Math.ceil(filteredProducts.length / ITEMS_PER_PAGE);
   const paginatedProducts = filteredProducts.slice(currentPage * ITEMS_PER_PAGE, (currentPage + 1) * ITEMS_PER_PAGE);

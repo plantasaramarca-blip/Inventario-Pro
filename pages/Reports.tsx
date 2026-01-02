@@ -49,7 +49,7 @@ export const Reports: React.FC<ReportsProps> = ({ onNavigate, products, setProdu
       }
     };
     loadPageData();
-  }, []);
+  }, [products, movements]);
 
   const filteredMovements = useMemo(() => {
     return (movements || []).filter(m => { /* ... */ });
