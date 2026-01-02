@@ -136,23 +136,48 @@ export const getProducts = async (): Promise<Product[]> => {
 
 export const saveProduct = async (product: Partial<Product>) => {
   if (!useSupabase()) return;
-  const isUpdate = !!product.id;
+  
+  // Para un registro de auditoría preciso, determinamos si el producto ya existe.
+  const { data: existingProduct } = await supabase.from('products').select('id').eq('id', product.id!).maybeSingle();
+  const isUpdate = !!existingProduct;
+
   const payload: any = {
-    code: product.code, name: product.name, brand: product.brand, model: product.model, size: product.size, category: product.category, 
-    location: product.location, stock: Number(product.stock) || 0, min_stock: Number(product.minStock) || 30, 
-    critical_stock: Number(product.criticalStock) || 10, precio_compra: Number(product.purchasePrice) || 0, 
-    precio_venta: Number(product.salePrice) || 0, moneda: product.currency || 'PEN', unit: product.unit || 'UND',
-    image_url: product.imageUrl, updated_at: new Date().toISOString()
+    id: product.id, // El ID es crucial para que `upsert` funcione.
+    code: product.code, 
+    name: product.name, 
+    brand: product.brand, 
+    model: product.model, 
+    size: product.size, 
+    category: product.category, 
+    location: product.location, 
+    stock: Number(product.stock) || 0, 
+    min_stock: Number(product.minStock) || 30, 
+    critical_stock: Number(product.criticalStock) || 10, 
+    precio_compra: Number(product.purchasePrice) || 0, 
+    precio_venta: Number(product.salePrice) || 0, 
+    moneda: product.currency || 'PEN', 
+    unit: product.unit || 'UND',
+    image_url: product.imageUrl, 
+    updated_at: new Date().toISOString()
   };
   
-  const query = isUpdate 
-    ? supabase.from('products').update(payload).eq('id', product.id)
-    : supabase.from('products').insert([payload]);
-    
-  const { data, error } = await withTimeout(query.select().single());
-  if (error) throw error;
+  // `upsert` crea o actualiza el registro en una sola operación atómica.
+  const { data, error } = await withTimeout(
+    supabase.from('products').upsert(payload).select().single()
+  );
   
-  saveAuditLog({ action: isUpdate ? 'UPDATE' : 'CREATE', table_name: 'products', record_id: data.id, record_name: data.name, changes_summary: `${isUpdate ? 'Actualizó' : 'Creó'} el producto "${data.name}"` });
+  if (error) {
+    console.error("Error en Supabase al guardar producto:", error);
+    throw error;
+  }
+  
+  saveAuditLog({ 
+    action: isUpdate ? 'UPDATE' : 'CREATE', 
+    table_name: 'products', 
+    record_id: data.id, 
+    record_name: data.name, 
+    changes_summary: `${isUpdate ? 'Actualizó' : 'Creó'} el producto "${data.name}"` 
+  });
 };
 
 export const deleteProduct = async (id: string) => {
