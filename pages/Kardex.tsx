@@ -4,8 +4,9 @@ import { Movement, Product, TransactionType, Destination, Role, LocationMaster }
 import * as api from '../services/supabaseService.ts';
 import { useNotification } from '../contexts/NotificationContext.tsx';
 import { DispatchNote } from '../components/DispatchNote.tsx';
+import { QRScanner } from '../components/QRScanner.tsx';
 import { 
-  ArrowDownCircle, ArrowUpCircle, Loader2, X, Search, Save, UserCheck, ArrowUp, ArrowDown, Trash, ChevronLeft, ChevronRight
+  ArrowDownCircle, ArrowUpCircle, Loader2, X, Search, Save, UserCheck, ArrowUp, ArrowDown, Trash, ChevronLeft, ChevronRight, ScanLine
 } from 'https://esm.sh/lucide-react@0.475.0?external=react,react-dom';
 
 const ITEMS_PER_PAGE = 20;
@@ -36,6 +37,7 @@ export const Kardex: React.FC<KardexProps> = ({ role, userEmail, initialState, o
   const [reason, setReason] = useState('');
   const { addNotification } = useNotification();
   const [dispatchNoteData, setDispatchNoteData] = useState<any>(null);
+  const [isScannerOpen, setIsScannerOpen] = useState(false);
   
   useEffect(() => {
     if (initialState?.prefill) {
@@ -54,6 +56,35 @@ export const Kardex: React.FC<KardexProps> = ({ role, userEmail, initialState, o
   const handleOpenModal = (trxType: TransactionType) => {
     if (role === 'VIEWER') return;
     setType(trxType); setCartItems([]); setSelectedDestinoId(''); setSelectedLocationId(''); setCarriedBy(''); setSupplierName(''); setReason(''); setIsModalOpen(true);
+  };
+  
+  const handleScanSuccessForCart = (decodedText: string) => {
+    try {
+      const url = new URL(decodedText);
+      const productId = url.searchParams.get('id');
+      if (!productId) { addNotification('Código QR no válido.', 'error'); return; }
+
+      const product = products.find(p => p.id === productId);
+      if (!product) { addNotification('Producto no encontrado.', 'error'); return; }
+
+      const existingItem = cartItems.find(item => item.productId === productId);
+      const currentQuantityInCart = existingItem ? existingItem.quantity : 0;
+
+      if (type === 'SALIDA' && product.stock <= currentQuantityInCart) {
+        addNotification(`Stock insuficiente para ${product.name}.`, 'error');
+        return;
+      }
+
+      if (existingItem) {
+        setCartItems(cartItems.map(item => item.productId === productId ? { ...item, quantity: item.quantity + 1 } : item));
+        addNotification(`+1 ${product.name}`, 'success');
+      } else {
+        setCartItems(prev => [...prev, { ...product, productId: product.id, quantity: 1 }]);
+        addNotification(`${product.name} añadido.`, 'success');
+      }
+    } catch (e) {
+      addNotification('Código QR mal formado.', 'error');
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -86,6 +117,7 @@ export const Kardex: React.FC<KardexProps> = ({ role, userEmail, initialState, o
 
   return (
     <div className="space-y-4 animate-in fade-in pb-10">
+      {isScannerOpen && <QRScanner onScanSuccess={handleScanSuccessForCart} onClose={() => setIsScannerOpen(false)} />}
       <div className="flex justify-between items-end">
         <div><h1 className="text-2xl font-black text-slate-900 uppercase tracking-tight">Kardex Logístico</h1><p className="text-[9px] text-slate-500 font-black uppercase tracking-widest mt-0.5">Movimientos de Stock</p></div>
         <div className="flex gap-3">
@@ -139,10 +171,15 @@ export const Kardex: React.FC<KardexProps> = ({ role, userEmail, initialState, o
             </div>
             <div className="overflow-y-auto p-8 space-y-6 no-scrollbar grid grid-cols-1 md:grid-cols-2 gap-10">
                <div className="space-y-4">
-                  <div className="relative group">
-                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300 group-focus-within:text-indigo-500" />
-                    <input type="text" className="w-full pl-11 pr-4 py-4 bg-slate-50 rounded-2xl outline-none font-bold text-xs uppercase border-2 border-transparent focus:border-indigo-500 transition-all" placeholder="BUSCAR PRODUCTO..." value={productSearch} onChange={e => setProductSearch(e.target.value)} />
-                    {filteredSearch.length > 0 && <div className="absolute z-[110] w-full mt-2 bg-white border rounded-[2rem] shadow-2xl overflow-hidden animate-in fade-in zoom-in-95">{filteredSearch.map(p => (<button key={p.id} type="button" onClick={() => { if(!cartItems.find(i=>i.productId===p.id)) setCartItems([...cartItems,{...p,productId:p.id,quantity:1}]); setProductSearch(''); }} className="w-full p-4 text-left hover:bg-indigo-50 border-b last:border-0 flex justify-between items-center"><div className="flex flex-col"><span className="text-[10px] font-black uppercase text-slate-800">{p.name}</span><span className="text-[8px] text-slate-400 font-bold uppercase tracking-widest">{p.code} | MARCA: {p.brand || 'S/M'}</span></div><span className={`text-[9px] font-black uppercase px-2 py-1 rounded-lg ${p.stock > 0 ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'}`}>STK: {p.stock}</span></button>))}</div>}
+                  <div className="flex gap-2">
+                    <div className="relative group flex-1">
+                      <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300 group-focus-within:text-indigo-500" />
+                      <input type="text" className="w-full pl-11 pr-4 py-4 bg-slate-50 rounded-2xl outline-none font-bold text-xs uppercase border-2 border-transparent focus:border-indigo-500 transition-all" placeholder="BUSCAR PRODUCTO..." value={productSearch} onChange={e => setProductSearch(e.target.value)} />
+                      {filteredSearch.length > 0 && <div className="absolute z-[110] w-full mt-2 bg-white border rounded-[2rem] shadow-2xl overflow-hidden animate-in fade-in zoom-in-95">{filteredSearch.map(p => (<button key={p.id} type="button" onClick={() => { if(!cartItems.find(i=>i.productId===p.id)) setCartItems([...cartItems,{...p,productId:p.id,quantity:1}]); setProductSearch(''); }} className="w-full p-4 text-left hover:bg-indigo-50 border-b last:border-0 flex justify-between items-center"><div className="flex flex-col"><span className="text-[10px] font-black uppercase text-slate-800">{p.name}</span><span className="text-[8px] text-slate-400 font-bold uppercase tracking-widest">{p.code} | MARCA: {p.brand || 'S/M'}</span></div><span className={`text-[9px] font-black uppercase px-2 py-1 rounded-lg ${p.stock > 0 ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'}`}>STK: {p.stock}</span></button>))}</div>}
+                    </div>
+                    <button type="button" onClick={() => setIsScannerOpen(true)} className="p-4 bg-indigo-600 text-white rounded-2xl aspect-square flex items-center justify-center hover:bg-indigo-700 active:scale-95 transition-all shadow-xl shadow-indigo-100">
+                      <ScanLine className="w-5 h-5" />
+                    </button>
                   </div>
                   
                   {type === 'SALIDA' ? (
@@ -160,7 +197,7 @@ export const Kardex: React.FC<KardexProps> = ({ role, userEmail, initialState, o
                </div>
                <div className="bg-slate-50 rounded-[2.5rem] p-6 flex flex-col border shadow-inner">
                   <div className="flex justify-between items-center mb-4"><h4 className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Lista de Carga ({cartItems.length})</h4></div>
-                  <div className="flex-1 overflow-y-auto space-y-3 no-scrollbar pr-1">{cartItems.length === 0 ? <div className="h-full flex flex-col items-center justify-center opacity-30"><Search className="w-10 h-10 mb-2" /><p className="text-[8px] font-black uppercase">Busca productos para agregar</p></div> : cartItems.map(item => (<div key={item.productId} className="bg-white p-4 rounded-2xl border shadow-sm flex justify-between items-center animate-in slide-in-from-right-2 duration-300"><div className="w-2/3"><p className="text-[10px] font-black uppercase truncate text-slate-800 leading-tight">{item.name}</p><p className="text-[8px] text-slate-400 font-bold uppercase tracking-tighter">DISP: {item.stock} {item.unit}</p></div><div className="flex items-center gap-3"><input type="number" className="w-14 p-2 bg-slate-50 rounded-xl text-center text-xs font-black border-2 border-transparent focus:border-indigo-500 outline-none" value={item.quantity} onChange={e => setCartItems(cartItems.map(i=>i.productId===item.productId?{...i,quantity:Math.max(1,Number(e.target.value))}:i))} /><button type="button" onClick={() => setCartItems(cartItems.filter(i=>i.productId!==item.productId))} className="p-2 text-slate-300 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all"><Trash className="w-4 h-4" /></button></div></div>))}</div>
+                  <div className="flex-1 overflow-y-auto space-y-3 no-scrollbar pr-1">{cartItems.length === 0 ? <div className="h-full flex flex-col items-center justify-center opacity-30"><Search className="w-10 h-10 mb-2" /><p className="text-[8px] font-black uppercase">Busca o escanea para agregar</p></div> : cartItems.map(item => (<div key={item.productId} className="bg-white p-4 rounded-2xl border shadow-sm flex justify-between items-center animate-in slide-in-from-right-2 duration-300"><div className="w-2/3"><p className="text-[10px] font-black uppercase truncate text-slate-800 leading-tight">{item.name}</p><p className="text-[8px] text-slate-400 font-bold uppercase tracking-tighter">DISP: {item.stock} {item.unit}</p></div><div className="flex items-center gap-3"><input type="number" className="w-14 p-2 bg-slate-50 rounded-xl text-center text-xs font-black border-2 border-transparent focus:border-indigo-500 outline-none" value={item.quantity} onChange={e => setCartItems(cartItems.map(i=>i.productId===item.productId?{...i,quantity:Math.max(1,Number(e.target.value))}:i))} /><button type="button" onClick={() => setCartItems(cartItems.filter(i=>i.productId!==item.productId))} className="p-2 text-slate-300 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all"><Trash className="w-4 h-4" /></button></div></div>))}</div>
                </div>
             </div>
             <div className="px-8 py-6 border-t flex gap-5 bg-white shrink-0">
