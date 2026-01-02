@@ -75,8 +75,19 @@ export default function App() {
   
   const [installPrompt, setInstallPrompt] = useState<any>(null);
 
-  useEffect(() => { /* ... (no changes) ... */ }, []);
-  const handleInstallClick = async () => { /* ... (no changes) ... */ };
+  useEffect(() => {
+    const handleBeforeInstallPrompt = (e: Event) => { e.preventDefault(); setInstallPrompt(e); };
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+    return () => { window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt); };
+  }, []);
+
+  const handleInstallClick = async () => {
+    if (!installPrompt) return;
+    installPrompt.prompt();
+    const { outcome } = await installPrompt.userChoice;
+    console.log(`User response: ${outcome}`);
+    setInstallPrompt(null);
+  };
 
   const loadDashboardData = async () => {
     setLoadingData(true);
@@ -107,7 +118,17 @@ export default function App() {
     });
   };
 
-  const fetchRole = async (email: string) => { /* ... (no changes) ... */ };
+  const fetchRole = async (email: string) => {
+    try {
+      const profile = await api.getCurrentUserProfile(email);
+      const userRole = profile ? profile.role : 'VIEWER';
+      setRole(userRole);
+      localStorage.setItem('kardex_user_role', userRole);
+    } catch (e) {
+      console.warn("Error de red al sincronizar el rol. Usando la versión local.");
+      setRole(localStorage.getItem('kardex_user_role') as Role || 'VIEWER');
+    }
+  };
   
   const navigateTo = (page: string, options: { push?: boolean; state?: any } = {}) => {
     const { push = true, state = null } = options;
@@ -122,8 +143,20 @@ export default function App() {
     }
   };
 
-  useEffect(() => { /* ... (no changes) ... */ }, []);
-  useEffect(() => { /* ... (no changes) ... */ }, []);
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => { if ((e.metaKey || e.ctrlKey) && e.key === 'k') { e.preventDefault(); setIsCommandPaletteOpen(prev => !prev); }};
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
+  useEffect(() => {
+    const handlePopState = (event: PopStateEvent) => {
+      if (event.state?.page) navigateTo(event.state.page, { push: false, state: event.state.state });
+      else navigateTo('dashboard', { push: false });
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
 
   useEffect(() => {
     const initAuth = async () => {
@@ -164,14 +197,10 @@ export default function App() {
       case 'productDetail': return <ProductDetail productId={navigationState?.productId} role={role} userEmail={session.user?.email} onBack={() => window.history.back()} onNavigate={navigateTo} />;
       case 'inventory': return <Inventory role={role} onNavigate={navigateTo} initialState={navigationState} onInitialStateConsumed={() => setNavigationState(null)} products={products} setProducts={setProducts} categories={categories} setCategories={setCategories} locations={locations} setLocations={setLocations} onCacheClear={clearCache} />;
       case 'kardex': return <Kardex role={role} userEmail={session.user?.email} initialState={navigationState} onInitialStateConsumed={() => setNavigationState(null)} products={products} setProducts={setProducts} movements={movements} setMovements={setMovements} destinos={destinos} setDestinos={setDestinos} locations={locations} setLocations={setLocations} onCacheClear={clearCache} />;
-      // FIX: Changed props to match updated component interfaces.
       case 'destinos': return <Destinos destinations={destinos} setDestinations={setDestinos} onCacheClear={clearCache} />;
       case 'reports': return <Reports onNavigate={navigateTo} products={products} setProducts={setProducts} movements={movements} setMovements={setMovements} />;
-      // FIX: Changed props to match updated component interfaces.
       case 'contacts': return <Contacts role={role} initialState={navigationState} onInitialStateConsumed={() => setNavigationState(null)} contacts={contacts} setContacts={setContacts} onCacheClear={clearCache} />;
-      // FIX: Changed props to match updated component interfaces.
       case 'categories': return <CategoryManagement role={role} categories={categories} setCategories={setCategories} onCacheClear={clearCache} />;
-      // FIX: Changed props to match updated component interfaces.
       case 'locations': return <LocationManagement role={role} locations={locations} setLocations={setLocations} onCacheClear={clearCache} />;
       case 'users': return role === 'ADMIN' ? <UsersPage /> : <Dashboard onNavigate={navigateTo} stats={stats} alertProducts={alertProducts} />;
       case 'audit': return role === 'ADMIN' ? <AuditPage /> : <Dashboard onNavigate={navigateTo} stats={stats} alertProducts={alertProducts} />;
@@ -188,8 +217,13 @@ export default function App() {
       </div>
       <CommandPalette isOpen={isCommandPaletteOpen} onClose={() => setIsCommandPaletteOpen(false)} onNavigate={navigateTo} />
       <NotificationContainer />
-      {/* CustomDialog for exit confirmation removed for brevity, no changes needed */}
-      {installPrompt && ( /* ... (no changes) ... */ )}
+      {installPrompt && (
+        <div className="fixed bottom-8 right-8 z-[100] animate-in slide-in-from-bottom-10">
+          <button onClick={handleInstallClick} className="bg-indigo-600 text-white px-6 py-4 rounded-full text-sm font-black uppercase tracking-widest flex items-center gap-3 shadow-2xl hover:bg-indigo-700 active:scale-95 ring-4 ring-white/20">
+            <DownloadCloud className="w-5 h-5" /> Instalar App
+          </button>
+        </div>
+      )}
     </div>
   );
 }
