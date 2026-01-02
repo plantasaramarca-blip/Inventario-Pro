@@ -1,7 +1,6 @@
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Movement, Product } from '../types.ts';
-import * as api from '../services/supabaseService.ts';
 import { formatCurrency } from '../utils/currencyUtils.ts';
 import { exportToExcel } from '../services/excelService.ts';
 import { useNotification } from '../contexts/NotificationContext.tsx';
@@ -10,7 +9,7 @@ import {
   LineChart, Line, PieChart, Pie, Cell
 } from 'recharts';
 import { 
-  TrendingUp, Filter, ArrowUpRight, ArrowDownRight, Package, RefreshCcw, PieChart as PieIcon, FileSpreadsheet, Archive, BarChart3 as BarChartIcon, Loader2
+  TrendingUp, Filter, ArrowUpRight, ArrowDownRight, Package, RefreshCcw, PieChart as PieIcon, FileSpreadsheet, Archive, BarChart3 as BarChartIcon
 } from 'https://esm.sh/lucide-react@0.475.0?external=react,react-dom';
 
 const EmptyState = ({ message }: { message: string }) => (
@@ -22,32 +21,15 @@ const EmptyState = ({ message }: { message: string }) => (
 
 interface ReportsProps {
   onNavigate: (page: string, options?: { push?: boolean; state?: any }) => void;
+  products: Product[];
+  movements: Movement[];
 }
 
-export const Reports: React.FC<ReportsProps> = ({ onNavigate }) => {
-  const [products, setProducts] = useState<Product[]>([]);
-  const [movements, setMovements] = useState<Movement[]>([]);
-  const [loading, setLoading] = useState(true);
+export const Reports: React.FC<ReportsProps> = ({ onNavigate, products, movements }) => {
   const { addNotification } = useNotification();
   const today = new Date().toISOString().split('T')[0];
   const lastMonth = new Date(new Date().setMonth(new Date().getMonth() - 1)).toISOString().split('T')[0];
   const [dateRange, setDateRange] = useState({ from: lastMonth, to: today });
-
-  useEffect(() => {
-    const loadData = async () => {
-      setLoading(true);
-      try {
-        const [prods, movs] = await Promise.all([api.getProducts(), api.getMovements()]);
-        setProducts(prods || []);
-        setMovements(movs || []);
-      } catch (e) {
-        addNotification('Error al cargar datos para reportes.', 'error');
-      } finally {
-        setLoading(false);
-      }
-    };
-    loadData();
-  }, []);
 
   const filteredMovements = useMemo(() => {
     return movements.filter(m => {
@@ -59,10 +41,10 @@ export const Reports: React.FC<ReportsProps> = ({ onNavigate }) => {
   const topMovingProducts = useMemo(() => {
     const counts = filteredMovements
       .filter(m => m.type === 'SALIDA')
-      .reduce<Record<string, number>>((acc, m) => {
-        acc[m.productId] = (acc[m.productId] || 0) + Number(m.quantity);
-        return acc;
-      }, {});
+      .reduce<Record<string, number>>((acc, m) => ({
+          ...acc,
+          [m.productId]: (acc[m.productId] || 0) + Number(m.quantity)
+      }), {});
       
     return Object.entries(counts)
       .sort(([, qtyA], [, qtyB]) => qtyB - qtyA)
@@ -82,10 +64,10 @@ export const Reports: React.FC<ReportsProps> = ({ onNavigate }) => {
   const destinationData = useMemo(() => {
     const counts = filteredMovements
       .filter(m => m.type === 'SALIDA' && m.destinationName)
-      .reduce<Record<string, number>>((acc, m) => {
-        acc[m.destinationName!] = (acc[m.destinationName!] || 0) + Number(m.quantity);
-        return acc;
-      }, {});
+      .reduce<Record<string, number>>((acc, m) => ({
+          ...acc,
+          [m.destinationName!]: (acc[m.destinationName!] || 0) + Number(m.quantity)
+      }), {});
 
     return Object.entries(counts)
       .map(([name, quantity]) => ({ name, quantity }))
@@ -124,8 +106,6 @@ export const Reports: React.FC<ReportsProps> = ({ onNavigate }) => {
   }, [filteredMovements]);
 
   const COLORS = ['#4f46e5', '#f59e0b', '#ef4444', '#64748b'];
-  
-  if (loading) return <div className="h-[70vh] flex items-center justify-center"><Loader2 className="animate-spin w-8 h-8 text-indigo-500" /></div>;
 
   return (
     <div className="space-y-6 animate-in fade-in pb-10">

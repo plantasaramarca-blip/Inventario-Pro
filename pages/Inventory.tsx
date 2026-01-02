@@ -21,13 +21,13 @@ interface InventoryProps {
   onNavigate: (page: string, options: { push?: boolean, state?: any }) => void;
   initialState?: any;
   onInitialStateConsumed: () => void;
+  products: Product[];
   categories: CategoryMaster[];
   locations: LocationMaster[];
+  onDataRefresh: () => void;
 }
 
-export const Inventory: React.FC<InventoryProps> = ({ role, onNavigate, initialState, onInitialStateConsumed, categories, locations }) => {
-  const [products, setProducts] = useState<Product[]>([]);
-  const [loading, setLoading] = useState(true);
+export const Inventory: React.FC<InventoryProps> = ({ role, onNavigate, initialState, onInitialStateConsumed, products, categories, locations, onDataRefresh }) => {
   const [saving, setSaving] = useState(false);
   const [search, setSearch] = useState('');
   const [filters, setFilters] = useState({ category: 'ALL', location: 'ALL' });
@@ -43,21 +43,8 @@ export const Inventory: React.FC<InventoryProps> = ({ role, onNavigate, initialS
   const [isScannerOpen, setIsScannerOpen] = useState(false);
   const [productToDelete, setProductToDelete] = useState<Product | null>(null);
   const { addNotification } = useNotification();
-  
-  const loadData = async () => {
-    setLoading(true);
-    try {
-      const prods = await api.getProducts();
-      setProducts(prods || []);
-    } catch (e) {
-      addNotification('Error al cargar productos.', 'error');
-    } finally {
-      setLoading(false);
-    }
-  };
 
   useEffect(() => {
-    loadData();
     if (initialState?.openNewProductModal) {
       handleOpenModal();
       onInitialStateConsumed();
@@ -160,7 +147,9 @@ export const Inventory: React.FC<InventoryProps> = ({ role, onNavigate, initialS
     
     setSaving(true);
     try { 
-      await api.saveProduct(formData); setIsModalOpen(false); await loadData();
+      await api.saveProduct(formData); 
+      setIsModalOpen(false); 
+      onDataRefresh();
       addNotification(`"${formData.name}" guardado con éxito.`, 'success');
     } catch (err) { addNotification("Error al guardar producto.", 'error');
     } finally { setSaving(false); }
@@ -169,13 +158,12 @@ export const Inventory: React.FC<InventoryProps> = ({ role, onNavigate, initialS
   const handleConfirmDelete = async () => {
     if (!productToDelete) return;
     try {
-      await api.deleteProduct(productToDelete.id); await loadData();
+      await api.deleteProduct(productToDelete.id); 
+      onDataRefresh();
       addNotification(`Producto "${productToDelete.name}" eliminado.`, 'success');
     } catch (err) { addNotification('Error al eliminar el producto.', 'error');
     } finally { setProductToDelete(null); }
   };
-  
-  if (loading) return <div className="h-[70vh] flex items-center justify-center"><Loader2 className="animate-spin w-8 h-8 text-indigo-500" /></div>;
 
   return (
     <div className="space-y-4 animate-in fade-in pb-24">

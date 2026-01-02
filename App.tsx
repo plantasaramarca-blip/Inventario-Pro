@@ -55,9 +55,10 @@ export default function App() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
   const [role, setRole] = useState<Role>('VIEWER');
-  const [showExitConfirm, setShowExitConfirm] = useState(false);
   const [navigationState, setNavigationState] = useState<any>(null);
+  const [showExitConfirm, setShowExitConfirm] = useState(false);
 
+  // Centralized Data Store
   const [products, setProducts] = useState<Product[]>([]);
   const [movements, setMovements] = useState<Movement[]>([]);
   const [contacts, setContacts] = useState<Contact[]>([]);
@@ -65,27 +66,21 @@ export default function App() {
   const [categories, setCategories] = useState<CategoryMaster[]>([]);
   const [locations, setLocations] = useState<LocationMaster[]>([]);
   const [stats, setStats] = useState<InventoryStats | null>(null);
+  const [alertProducts, setAlertProducts] = useState<Product[]>([]);
   
   const [installPrompt, setInstallPrompt] = useState<any>(null);
 
   useEffect(() => {
-    const handleBeforeInstallPrompt = (e: Event) => {
-      e.preventDefault();
-      setInstallPrompt(e);
-    };
-
+    const handleBeforeInstallPrompt = (e: Event) => { e.preventDefault(); setInstallPrompt(e); };
     window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
-
-    return () => {
-      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
-    };
+    return () => { window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt); };
   }, []);
 
   const handleInstallClick = async () => {
     if (!installPrompt) return;
     installPrompt.prompt();
     const { outcome } = await installPrompt.userChoice;
-    console.log(`User response to the install prompt: ${outcome}`);
+    console.log(`User response: ${outcome}`);
     setInstallPrompt(null);
   };
 
@@ -93,37 +88,27 @@ export default function App() {
     setLoadingData(true);
     setDataError(false);
     try {
-      const [p, m, c, d, cats, locs] = await Promise.all([
-        api.getProducts(), 
-        api.getMovements(), 
+      const [productsData, movementsData, contactsData, destinosData, catsData, locsData, statsData] = await Promise.all([
+        api.getProducts(),
+        api.getMovements(),
         api.getContacts(),
-        api.getDestinos(), 
-        api.getCategoriesMaster(), 
+        api.getDestinos(),
+        api.getCategoriesMaster(),
         api.getLocationsMaster(),
+        api.getStats(),
       ]);
-
-      const productsData = p || [];
-      const movementsData = m || [];
-      const contactsData = c || [];
-
-      // Optimización: Calcular estadísticas localmente para evitar una llamada extra.
-      const statsData: InventoryStats = { 
-        totalProducts: productsData.length, 
-        lowStockCount: productsData.filter(x => x.stock <= x.minStock && x.stock > x.criticalStock).length, 
-        criticalStockCount: productsData.filter(x => x.stock <= x.criticalStock && x.stock > 0).length, 
-        outOfStockCount: productsData.filter(x => x.stock <= 0).length, 
-        totalMovements: movementsData.length, 
-        totalContacts: contactsData.length, 
-        totalValue: productsData.reduce((s, x) => s + (x.stock * x.purchasePrice), 0) 
-      };
       
-      setProducts(productsData); 
-      setMovements(movementsData); 
-      setContacts(contactsData); 
-      setDestinos(d || []);
-      setCategories(cats || []); 
-      setLocations(locs || []); 
+      const prods = productsData || [];
+      setProducts(prods);
+      setMovements(movementsData || []);
+      setContacts(contactsData || []);
+      setDestinos(destinosData || []);
+      setCategories(catsData || []);
+      setLocations(locsData || []);
       setStats(statsData);
+
+      // Calculate alert products locally from the already fetched data
+      setAlertProducts(prods.filter(p => p.stock <= p.minStock).sort((a,b) => a.stock - b.stock).slice(0, 6));
 
     } catch (e) {
       console.error("Failed to load global data", e);
@@ -137,13 +122,15 @@ export default function App() {
   const fetchRole = async (email: string) => {
     try {
       const profile = await api.getCurrentUserProfile(email);
-      setRole(profile ? profile.role : 'VIEWER');
+      const userRole = profile ? profile.role : 'VIEWER';
+      setRole(userRole);
+      localStorage.setItem('kardex_user_role', userRole);
     } catch (e) {
       console.warn("Error de red al sincronizar el rol. Usando la versión local.");
       setRole(localStorage.getItem('kardex_user_role') as Role || 'VIEWER');
     }
   };
-
+  
   const navigateTo = (page: string, options: { push?: boolean; state?: any } = {}) => {
     const { push = true, state = null } = options;
     if (page === currentPage && JSON.stringify(state) === JSON.stringify(navigationState)) return;
@@ -174,7 +161,6 @@ export default function App() {
 
   useEffect(() => {
     let authSubscriptionCleanup: (() => void) | undefined;
-
     const initAuth = async () => {
       setLoadingSession(true);
       try {
@@ -183,39 +169,27 @@ export default function App() {
             setSession(currentSession);
             await Promise.all([fetchRole(currentSession.user.email!), loadGlobalData()]);
           } else {
-            setLoadingData(false); // No session, so no data to load
+            setLoadingData(false);
           }
         };
 
         if (isSupabaseConfigured) {
           const { data: { session: initialSession } } = await supabase.auth.getSession();
           await processSession(initialSession);
-
           const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, newSession) => {
             setSession(newSession);
-            if (newSession) {
-              await fetchRole(newSession.user.email!);
-              await loadGlobalData();
-            }
+            if (newSession) { await fetchRole(newSession.user.email!); await loadGlobalData(); }
           });
           authSubscriptionCleanup = () => subscription.unsubscribe();
         } else {
           const localSession = localStorage.getItem('kardex_local_session');
           await processSession(localSession ? JSON.parse(localSession) : null);
         }
-      } catch (err) {
-        console.error("Error during app initialization:", err);
-        setDataError(true);
-      } finally {
-        setLoadingSession(false);
-      }
+      } catch (err) { console.error("Error during app initialization:", err); setDataError(true);
+      } finally { setLoadingSession(false); }
     };
-
     initAuth();
-
-    return () => {
-      authSubscriptionCleanup?.();
-    };
+    return () => { authSubscriptionCleanup?.(); };
   }, []);
   
   if (loadingSession) return <div className="h-screen flex items-center justify-center bg-slate-50"><Loader2 className="animate-spin w-10 h-10 text-indigo-600" /></div>;
@@ -234,9 +208,9 @@ export default function App() {
       case 'contacts': return <Contacts role={role} initialState={navigationState} onInitialStateConsumed={() => setNavigationState(null)} contacts={contacts} onDataRefresh={loadGlobalData} />;
       case 'categories': return <CategoryManagement role={role} categories={categories} onDataRefresh={loadGlobalData} />;
       case 'locations': return <LocationManagement role={role} locations={locations} onDataRefresh={loadGlobalData} />;
-      case 'users': return role === 'ADMIN' ? <UsersPage /> : <Dashboard onNavigate={navigateTo} stats={stats} products={products} />;
-      case 'audit': return role === 'ADMIN' ? <AuditPage /> : <Dashboard onNavigate={navigateTo} stats={stats} products={products} />;
-      default: return <Dashboard onNavigate={navigateTo} stats={stats} products={products} />;
+      case 'users': return role === 'ADMIN' ? <UsersPage /> : <Dashboard onNavigate={navigateTo} stats={stats} alertProducts={alertProducts} />;
+      case 'audit': return role === 'ADMIN' ? <AuditPage /> : <Dashboard onNavigate={navigateTo} stats={stats} alertProducts={alertProducts} />;
+      default: return <Dashboard onNavigate={navigateTo} stats={stats} alertProducts={alertProducts} />;
     }
   };
 
@@ -253,12 +227,7 @@ export default function App() {
       
       {installPrompt && (
         <div className="fixed bottom-8 right-8 z-[100] animate-in slide-in-from-bottom-10">
-          <button 
-            onClick={handleInstallClick}
-            className="bg-indigo-600 text-white px-6 py-4 rounded-full text-sm font-black uppercase tracking-widest flex items-center gap-3 shadow-2xl hover:bg-indigo-700 transition-all active:scale-95 ring-4 ring-white/20"
-          >
-            <DownloadCloud className="w-5 h-5" /> Instalar App
-          </button>
+          <button onClick={handleInstallClick} className="bg-indigo-600 text-white px-6 py-4 rounded-full text-sm font-black uppercase tracking-widest flex items-center gap-3 shadow-2xl hover:bg-indigo-700 active:scale-95 ring-4 ring-white/20"><DownloadCloud className="w-5 h-5" /> Instalar App</button>
         </div>
       )}
     </div>

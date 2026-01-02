@@ -16,14 +16,14 @@ interface KardexProps {
   userEmail?: string;
   initialState?: any;
   onInitialStateConsumed: () => void;
+  products: Product[];
+  movements: Movement[];
   destinos: Destination[];
   locations: LocationMaster[];
+  onDataRefresh: () => void;
 }
 
-export const Kardex: React.FC<KardexProps> = ({ role, userEmail, initialState, onInitialStateConsumed, destinos, locations }) => {
-  const [movements, setMovements] = useState<Movement[]>([]);
-  const [products, setProducts] = useState<Product[]>([]);
-  const [loading, setLoading] = useState(true);
+export const Kardex: React.FC<KardexProps> = ({ role, userEmail, initialState, onInitialStateConsumed, products, movements, destinos, locations, onDataRefresh }) => {
   const [currentPage, setCurrentPage] = useState(0);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -38,22 +38,8 @@ export const Kardex: React.FC<KardexProps> = ({ role, userEmail, initialState, o
   const { addNotification } = useNotification();
   const [dispatchNoteData, setDispatchNoteData] = useState<any>(null);
   const [isScannerOpen, setIsScannerOpen] = useState(false);
-  
-  const loadData = async () => {
-    setLoading(true);
-    try {
-      const [movs, prods] = await Promise.all([api.getMovements(), api.getProducts()]);
-      setMovements(movs || []);
-      setProducts(prods || []);
-    } catch (e) {
-      addNotification('Error al cargar datos de kardex.', 'error');
-    } finally {
-      setLoading(false);
-    }
-  };
 
   useEffect(() => {
-    loadData();
     if (initialState?.prefill) {
       const { type: prefillType, product } = initialState.prefill;
       handleOpenModal(prefillType);
@@ -105,7 +91,7 @@ export const Kardex: React.FC<KardexProps> = ({ role, userEmail, initialState, o
     try {
       const destinoObj = type === 'SALIDA' ? destinos.find(d => d.id === selectedDestinoId) : null;
       const locationObj = type === 'INGRESO' ? locations.find(l => l.name === selectedLocationId) : null;
-      const batchPayload = cartItems.map(item => ({ productId: item.productId, type, quantity: item.quantity, dispatcher: userEmail, reason: type === 'SALIDA' ? `${reason} (Transp: ${carriedBy})` : `${reason} (Prov: ${supplierName})`, destinationName: type === 'SALIDA' ? destinoObj?.name : locationObj?.name }));
+      const batchPayload = cartItems.map(item => ({ productId: item.productId, name: item.name, type, quantity: item.quantity, dispatcher: userEmail, reason: type === 'SALIDA' ? `${reason} (Transp: ${carriedBy})` : `${reason} (Prov: ${supplierName})`, destinationName: type === 'SALIDA' ? destinoObj?.name : locationObj?.name }));
       await api.registerBatchMovements(batchPayload); 
       
       if (type === 'SALIDA') {
@@ -119,7 +105,7 @@ export const Kardex: React.FC<KardexProps> = ({ role, userEmail, initialState, o
       }
 
       setIsModalOpen(false); 
-      await loadData();
+      onDataRefresh();
       addNotification('Movimiento registrado con éxito.', 'success');
     } catch (err: any) { addNotification(err.message, 'error'); 
     } finally { setSaving(false); }
@@ -127,8 +113,6 @@ export const Kardex: React.FC<KardexProps> = ({ role, userEmail, initialState, o
 
   const filteredSearch = useMemo(() => productSearch ? products.filter(p => p.name.toLowerCase().includes(productSearch.toLowerCase()) || p.code.toLowerCase().includes(productSearch.toLowerCase())).slice(0, 5) : [], [products, productSearch]);
   
-  if (loading) return <div className="h-[70vh] flex items-center justify-center"><Loader2 className="animate-spin w-8 h-8 text-indigo-500" /></div>;
-
   return (
     <div className="space-y-4 animate-in fade-in pb-10">
       {isScannerOpen && <QRScanner onScanSuccess={handleScanSuccessForCart} onClose={() => setIsScannerOpen(false)} />}

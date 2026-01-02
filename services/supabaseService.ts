@@ -161,19 +161,6 @@ export const getProducts = async (): Promise<Product[]> => {
   } catch (e) { throw e; }
 };
 
-export const getAlertProducts = async (limit = 6): Promise<Product[]> => {
-  if (!useSupabase()) return [];
-  try {
-    const { data } = await withTimeout(supabase.from('products').select('*').order('stock', { ascending: true }));
-    const allProducts = (data || []).map(p => ({
-      id: p.id, code: p.code, name: p.name, brand: p.brand || '', size: p.size || '', model: p.model || '',
-      category: p.category, location: p.location, stock: p.stock || 0, minStock: p.min_stock ?? 30, criticalStock: p.critical_stock ?? 10,
-      purchasePrice: p.precio_compra || 0, salePrice: p.precio_venta || 0, currency: p.moneda || 'PEN', unit: p.unit || 'UND', imageUrl: p.image_url, updatedAt: p.updated_at
-    }));
-    return allProducts.filter(p => p.stock <= p.minStock).slice(0, limit);
-  } catch (e) { throw e; }
-};
-
 export const saveProduct = async (product: Partial<Product>) => {
   if (!useSupabase()) return;
   
@@ -277,24 +264,20 @@ export const getStats = async (): Promise<InventoryStats> => {
      return { totalProducts: 0, lowStockCount: 0, criticalStockCount: 0, outOfStockCount: 0, totalMovements: 0, totalContacts: 0, totalValue: 0 };
   }
   try {
-    const productStatsPromise = supabase.from('products').select('stock, min_stock, critical_stock, precio_compra');
-    const movementsCountPromise = supabase.from('movements').select('*', { count: 'exact', head: true });
-    const contactsCountPromise = supabase.from('contacts').select('*', { count: 'exact', head: true });
-
-    const [ { data: products, error: pError }, { count: totalMovements, error: mError }, { count: totalContacts, error: cError } ] = await Promise.all([
-        withTimeout(productStatsPromise), withTimeout(movementsCountPromise), withTimeout(contactsCountPromise)
-    ]);
+    const { data: products, error: pError } = await withTimeout(supabase.from('products').select('*'));
+    const { count: totalMovements, error: mError } = await withTimeout(supabase.from('movements').select('*', { count: 'exact', head: true }));
+    const { count: totalContacts, error: cError } = await withTimeout(supabase.from('contacts').select('*', { count: 'exact', head: true }));
 
     if (pError || mError || cError) throw new Error('Failed to fetch stats components');
     
     const p = products || [];
-    const critStock = (p as any[]).map(x => x.critical_stock ?? 10);
-    const minStock = (p as any[]).map(x => x.min_stock ?? 30);
+    const critStock = p.filter(x => x.stock <= (x.critical_stock ?? 10) && x.stock > 0).length;
+    const lowStock = p.filter(x => x.stock <= (x.min_stock ?? 30) && x.stock > (x.critical_stock ?? 10)).length;
     
     return { 
       totalProducts: p.length, 
-      lowStockCount: p.filter((x, i) => x.stock <= minStock[i] && x.stock > critStock[i]).length,
-      criticalStockCount: p.filter((x, i) => x.stock <= critStock[i] && x.stock > 0).length,
+      lowStockCount: lowStock,
+      criticalStockCount: critStock,
       outOfStockCount: p.filter(x => x.stock <= 0).length,
       totalMovements: totalMovements || 0, 
       totalContacts: totalContacts || 0, 
