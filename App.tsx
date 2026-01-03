@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { supabase, isSupabaseConfigured } from './supabaseClient.ts';
 import { Navbar } from './components/Navbar.tsx';
 import { Sidebar } from './components/Sidebar.tsx';
@@ -72,10 +72,11 @@ export default function App() {
     setLoadingData(false);
   };
   
-  const navigateTo = (page: string, options: { push?: boolean; state?: any } = {}) => {
+  const navigateTo = useCallback((page: string, options: { push?: boolean; state?: any } = {}) => {
     const { push = true, state = null } = options;
     if (page === currentPage && JSON.stringify(state) === JSON.stringify(navigationState)) return;
-    setCurrentPage(page); setNavigationState(state);
+    setCurrentPage(page);
+    setNavigationState(state);
     if (isSidebarOpen) setIsSidebarOpen(false);
     if (push) {
       const url = new URL(window.location.href);
@@ -83,7 +84,7 @@ export default function App() {
       if (page === 'productDetail' && state?.productId) url.searchParams.set('id', state.productId);
       window.history.pushState({ page, state }, "", url.toString());
     }
-  };
+  }, [currentPage, navigationState, isSidebarOpen]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => { if ((e.metaKey || e.ctrlKey) && e.key === 'k') { e.preventDefault(); setIsCommandPaletteOpen(prev => !prev); }};
@@ -98,7 +99,7 @@ export default function App() {
     };
     window.addEventListener('popstate', handlePopState);
     return () => window.removeEventListener('popstate', handlePopState);
-  }, []);
+  }, [navigateTo]);
 
   useEffect(() => {
     if (isSupabaseConfigured) {
@@ -108,13 +109,13 @@ export default function App() {
         if(currentSession) loadInitialData(currentSession);
       });
 
-      const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, newSession) => {
-        if (JSON.stringify(session) !== JSON.stringify(newSession)) {
-          if (!newSession) { // User logged out
-            dataLoadedRef.current = false;
-            setDestinos(null); setCategories(null); setLocations(null);
-          }
-          setSession(newSession);
+      const { data: { subscription } } = supabase.auth.onAuthStateChange((event, newSession) => {
+        setSession(newSession);
+        if (event === 'SIGNED_OUT') {
+          dataLoadedRef.current = false;
+          setDestinos(null);
+          setCategories(null);
+          setLocations(null);
         }
       });
 
