@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { supabase, isSupabaseConfigured } from './supabaseClient.ts';
 import { Navbar } from './components/Navbar.tsx';
 import { Sidebar } from './components/Sidebar.tsx';
@@ -16,25 +16,18 @@ import { LocationManagement } from './pages/Locations.tsx';
 import { Login } from './pages/Login.tsx';
 import { ProductDetail } from './pages/ProductDetail.tsx';
 import { CommandPalette } from './components/CommandPalette.tsx';
-import { Role, Product, Movement, Contact, Destination, CategoryMaster, LocationMaster, InventoryStats } from './types.ts';
+import { Role, Product, Destination, CategoryMaster, LocationMaster, InventoryStats } from './types.ts';
 import * as api from './services/supabaseService.ts';
 import { Loader2, RefreshCcw, DownloadCloud } from 'https://esm.sh/lucide-react@0.475.0?external=react,react-dom';
 import { CustomDialog } from './components/CustomDialog.tsx';
 import { useNotification } from './contexts/NotificationContext.tsx';
 import { Toast } from './components/Toast.tsx';
 
-// FIX: Implemented NotificationContainer to render notifications.
 const NotificationContainer = () => {
   const { notifications, removeNotification } = useNotification();
   return (
-    <div className="fixed top-5 right-5 z-[2000] space-y-2 w-full max-w-sm">
-      {notifications.map((notification) => (
-        <Toast
-          key={notification.id}
-          notification={notification}
-          onClose={removeNotification}
-        />
-      ))}
+    <div className="fixed top-6 right-6 z-[2000] w-full max-w-sm space-y-3">
+      {notifications.map((n) => ( <Toast key={n.id} notification={n} onClose={removeNotification} /> ))}
     </div>
   );
 };
@@ -64,9 +57,7 @@ export default function App() {
   const [role, setRole] = useState<Role>('VIEWER');
   const [navigationState, setNavigationState] = useState<any>(null);
 
-  const [products, setProducts] = useState<Product[] | null>(null);
-  const [movements, setMovements] = useState<Movement[] | null>(null);
-  const [contacts, setContacts] = useState<Contact[] | null>(null);
+  // Global State (Lightweight & Master Data)
   const [destinos, setDestinos] = useState<Destination[] | null>(null);
   const [categories, setCategories] = useState<CategoryMaster[] | null>(null);
   const [locations, setLocations] = useState<LocationMaster[] | null>(null);
@@ -74,6 +65,7 @@ export default function App() {
   const [alertProducts, setAlertProducts] = useState<Product[]>([]);
   
   const [installPrompt, setInstallPrompt] = useState<any>(null);
+  const dataLoadedRef = useRef(false);
 
   useEffect(() => {
     const handleBeforeInstallPrompt = (e: Event) => { e.preventDefault(); setInstallPrompt(e); };
@@ -89,33 +81,29 @@ export default function App() {
     setInstallPrompt(null);
   };
 
-  const loadDashboardData = async () => {
+  const loadGlobalData = async () => {
     setLoadingData(true);
     setDataError(false);
     try {
-      const { stats, alertProducts } = await api.getDashboardData();
-      setStats(stats);
-      setAlertProducts(alertProducts);
+      const [statsData, alertProdsData, destinosData, catsData, locsData] = await Promise.all([
+        api.getStats(),
+        api.getAlertProducts(6),
+        api.getDestinos(), 
+        api.getCategoriesMaster(), 
+        api.getLocationsMaster(),
+      ]);
+      setStats(statsData);
+      setAlertProducts(alertProdsData || []);
+      setDestinos(destinosData || []);
+      setCategories(catsData || []); 
+      setLocations(locsData || []);
+      dataLoadedRef.current = true;
     } catch (e) {
-      console.error("Fallo al cargar datos del dashboard", e);
+      console.error("Failed to load global data", e);
       setDataError(true);
-      throw e;
     } finally {
       setLoadingData(false);
     }
-  };
-
-  const clearCache = (keys: Array<'products' | 'movements' | 'contacts' | 'destinos' | 'categories' | 'locations'>) => {
-    keys.forEach(key => {
-      switch(key) {
-        case 'products': setProducts(null); break;
-        case 'movements': setMovements(null); break;
-        case 'contacts': setContacts(null); break;
-        case 'destinos': setDestinos(null); break;
-        case 'categories': setCategories(null); break;
-        case 'locations': setLocations(null); break;
-      }
-    });
   };
 
   const fetchRole = async (email: string) => {
@@ -159,51 +147,53 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    const initAuth = async () => {
-      setLoadingSession(true);
-
-      if (isSupabaseConfigured) {
-        const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-          setSession(session);
-          if (event === 'SIGNED_IN' && session) {
-            await fetchRole(session.user.email!);
-            await loadDashboardData();
-          }
-          if (event === 'INITIAL_SESSION' && session) {
-             await fetchRole(session.user.email!);
-             await loadDashboardData();
-          }
-          setLoadingSession(false);
-        });
-        
-        return () => {
-          subscription.unsubscribe();
-        };
-      } else {
-        const localSession = localStorage.getItem('kardex_local_session');
-        setSession(localSession ? JSON.parse(localSession) : null);
-        await loadDashboardData();
+    if (isSupabaseConfigured) {
+      supabase.auth.getSession().then(({ data: { session } }) => {
+        setSession(session);
         setLoadingSession(false);
-      }
-    };
-    
-    initAuth();
+      });
+
+      const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+        setSession(session);
+      });
+
+      return () => subscription.unsubscribe();
+    } else {
+      const localSession = localStorage.getItem('kardex_local_session');
+      setSession(localSession ? JSON.parse(localSession) : null);
+      setLoadingSession(false);
+    }
   }, []);
+
+  useEffect(() => {
+    if (session && !dataLoadedRef.current) {
+      fetchRole(session.user.email!);
+      loadGlobalData();
+    }
+  }, [session]);
   
+  const clearCache = (keys: Array<'destinos' | 'categories' | 'locations'>) => {
+    keys.forEach(key => {
+      if (key === 'destinos') setDestinos(null);
+      if (key === 'categories') setCategories(null);
+      if (key === 'locations') setLocations(null);
+    });
+  };
+
   if (loadingSession) return <div className="h-screen flex items-center justify-center bg-slate-50"><Loader2 className="animate-spin w-10 h-10 text-indigo-600" /></div>;
   if (!session) return <Login />;
-  if (dataError) return <FullScreenError onRetry={loadDashboardData} />;
+  if (dataError) return <FullScreenError onRetry={loadGlobalData} />;
 
   const renderContent = () => {
-    if (loadingData && !stats) return <div className="h-full flex items-center justify-center"><Loader2 className="animate-spin w-10 h-10 text-indigo-600" /></div>;
+    if (loadingData) return <div className="h-full flex items-center justify-center"><Loader2 className="animate-spin w-10 h-10 text-indigo-600" /></div>;
     
     switch (currentPage) {
       case 'productDetail': return <ProductDetail productId={navigationState?.productId} role={role} userEmail={session.user?.email} onBack={() => window.history.back()} onNavigate={navigateTo} />;
-      case 'inventory': return <Inventory role={role} onNavigate={navigateTo} initialState={navigationState} onInitialStateConsumed={() => setNavigationState(null)} products={products} setProducts={setProducts} categories={categories} setCategories={setCategories} locations={locations} setLocations={setLocations} onCacheClear={clearCache} />;
-      case 'kardex': return <Kardex role={role} userEmail={session.user?.email} initialState={navigationState} onInitialStateConsumed={() => setNavigationState(null)} products={products} setProducts={setProducts} movements={movements} setMovements={setMovements} destinos={destinos} setDestinos={setDestinos} locations={locations} setLocations={setLocations} onCacheClear={clearCache} />;
+      case 'inventory': return <Inventory role={role} onNavigate={navigateTo} initialState={navigationState} onInitialStateConsumed={() => setNavigationState(null)} categories={categories || []} locations={locations || []} />;
+      case 'kardex': return <Kardex role={role} userEmail={session.user?.email} initialState={navigationState} onInitialStateConsumed={() => setNavigationState(null)} destinos={destinos || []} locations={locations || []} />;
       case 'destinos': return <Destinos destinations={destinos} setDestinations={setDestinos} onCacheClear={clearCache} />;
-      case 'reports': return <Reports onNavigate={navigateTo} products={products} setProducts={setProducts} movements={movements} setMovements={setMovements} />;
-      case 'contacts': return <Contacts role={role} initialState={navigationState} onInitialStateConsumed={() => setNavigationState(null)} contacts={contacts} setContacts={setContacts} onCacheClear={clearCache} />;
+      case 'reports': return <Reports onNavigate={navigateTo} />;
+      case 'contacts': return <Contacts role={role} initialState={navigationState} onInitialStateConsumed={() => setNavigationState(null)} />;
       case 'categories': return <CategoryManagement role={role} categories={categories} setCategories={setCategories} onCacheClear={clearCache} />;
       case 'locations': return <LocationManagement role={role} locations={locations} setLocations={setLocations} onCacheClear={clearCache} />;
       case 'users': return role === 'ADMIN' ? <UsersPage /> : <Dashboard onNavigate={navigateTo} stats={stats} alertProducts={alertProducts} />;
