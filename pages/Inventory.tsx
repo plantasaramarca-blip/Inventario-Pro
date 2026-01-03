@@ -32,47 +32,65 @@ export const Inventory: React.FC<InventoryProps> = ({ role, userEmail, onNavigat
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  
   const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [filters, setFilters] = useState({ category: 'ALL', location: 'ALL' });
+  
   const [currentPage, setCurrentPage] = useState(0);
+  const [totalCount, setTotalCount] = useState(0);
+  const totalPages = Math.ceil(totalCount / ITEMS_PER_PAGE);
+
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [isMultiQRModalOpen, setIsMultiQRModalOpen] = useState(false);
   const [selectedQRProduct, setSelectedQRProduct] = useState<Product | null>(null);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
-  const [imageInfo, setImageInfo] = useState<{ size: string; status: string } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [formData, setFormData] = useState<Partial<Product>>({});
   const [isScannerOpen, setIsScannerOpen] = useState(false);
   const [productToDelete, setProductToDelete] = useState<Product | null>(null);
   const { addNotification } = useNotification();
   
-  const loadData = async () => {
-    setLoading(true);
-    try {
-      const prods = await api.getProducts();
-      setProducts(prods || []);
-    } catch (e) {
-      addNotification('Error al cargar productos.', 'error');
-    } finally {
-      setLoading(false);
-    }
-  };
-  
-  const handleLoadCategories = async () => { if (!categories || categories.length === 0) { try { const catsData = await api.getCategoriesMaster(); setCategories(catsData || []); } catch (e) { addNotification('Error al cargar categorías.', 'error'); } } };
-  const handleLoadLocations = async () => { if (!locations || locations.length === 0) { try { const locsData = await api.getLocationsMaster(); setLocations(locsData || []); } catch (e) { addNotification('Error al cargar almacenes.', 'error'); } } };
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedSearch(search);
+      setCurrentPage(0);
+    }, 500);
+    return () => clearTimeout(handler);
+  }, [search]);
 
   useEffect(() => {
+    setCurrentPage(0);
+  }, [filters]);
+
+  useEffect(() => {
+    const loadData = async () => {
+      setLoading(true);
+      try {
+        const { products: prods, count } = await api.getProducts({ 
+          page: currentPage, 
+          pageSize: ITEMS_PER_PAGE,
+          searchTerm: debouncedSearch,
+          filters
+        });
+        setProducts(prods || []);
+        setTotalCount(count || 0);
+      } catch (e) {
+        addNotification('Error al cargar productos.', 'error');
+      } finally {
+        setLoading(false);
+      }
+    };
     loadData();
     if (initialState?.openNewProductModal) {
       handleOpenModal();
       onInitialStateConsumed();
     }
-  }, [initialState]);
+  }, [initialState, currentPage, debouncedSearch, filters]);
 
-  const filteredProducts = useMemo(() => { setCurrentPage(0); return products.filter(p => (p.name.toLowerCase().includes(search.toLowerCase()) || p.code.toLowerCase().includes(search.toLowerCase()) || (p.brand && p.brand.toLowerCase().includes(search.toLowerCase()))) && (filters.category === 'ALL' || p.category === filters.category) && (filters.location === 'ALL' || p.location === filters.location)); }, [products, search, filters]);
-  const totalPages = Math.ceil(filteredProducts.length / ITEMS_PER_PAGE);
-  const paginatedProducts = filteredProducts.slice(currentPage * ITEMS_PER_PAGE, (currentPage + 1) * ITEMS_PER_PAGE);
+  const handleLoadCategories = async () => { if (!categories || categories.length === 0) { try { const catsData = await api.getCategoriesMaster(); setCategories(catsData || []); } catch (e) { addNotification('Error al cargar categorías.', 'error'); } } };
+  const handleLoadLocations = async () => { if (!locations || locations.length === 0) { try { const locsData = await api.getLocationsMaster(); setLocations(locsData || []); } catch (e) { addNotification('Error al cargar almacenes.', 'error'); } } };
 
   const handleScanSuccess = (decodedText: string) => { /* ... */ };
   const handleExportPDF = () => { /* ... */ };
@@ -80,13 +98,10 @@ export const Inventory: React.FC<InventoryProps> = ({ role, userEmail, onNavigat
   const toggleSelect = (id: string) => setSelectedIds(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]);
 
   const handleOpenModal = (product?: Product) => {
-    setImageInfo(null);
     if (product) { setEditingProduct(product); setFormData({ ...product }); }
     else { setEditingProduct(null); setFormData({ code: '', name: '', brand: '', size: '', model: '', category: '', location: '', stock: 0, minStock: 30, criticalStock: 10, purchasePrice: 0, salePrice: 0, currency: 'PEN', unit: 'PAR', imageUrl: '' }); }
     setIsModalOpen(true);
   };
-  
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => { /* ... */ };
   
   const checkExistingCode = () => {
     const codeToCheck = formData.code?.trim().toLowerCase();
@@ -110,38 +125,33 @@ export const Inventory: React.FC<InventoryProps> = ({ role, userEmail, onNavigat
 
     setSaving(true);
     try {
-      if (editingProduct) { // EDITING
-        if (products.some(p => p.code.trim().toLowerCase() === codeToCheck && p.id !== editingProduct.id)) {
-          addNotification(`El código SKU "${formData.code}" ya pertenece a otro producto.`, 'error');
-          setSaving(false); return;
-        }
+      if (editingProduct) {
         await api.saveProduct(formData as Product);
-      } else { // CREATING
-        if (products.some(p => p.code.trim().toLowerCase() === codeToCheck)) {
-          addNotification(`El código SKU "${formData.code}" ya existe.`, 'error');
-          setSaving(false); return;
-        }
+      } else {
         const initialStock = formData.stock || 0;
         const newProductPayload = { ...formData, stock: initialStock };
-        const savedProduct = await api.saveProductAndInitialMovement(newProductPayload as Product, initialStock, userEmail);
+        await api.saveProductAndInitialMovement(newProductPayload as Product, initialStock, userEmail);
       }
 
       setIsModalOpen(false);
       setFormData({}); 
-      await loadData();
+      // Force reload of current page
+      const { products: prods, count } = await api.getProducts({ page: currentPage, pageSize: ITEMS_PER_PAGE, searchTerm: debouncedSearch, filters });
+      setProducts(prods || []);
+      setTotalCount(count || 0);
       addNotification(`"${formData.name}" guardado con éxito.`, 'success');
     } catch (err) { addNotification("Error al guardar producto.", 'error');
     } finally { setSaving(false); }
   };
 
-  const handleConfirmDelete = async () => { if (!productToDelete) return; try { await api.deleteProduct(productToDelete.id); await loadData(); addNotification(`Producto "${productToDelete.name}" eliminado.`, 'success'); } catch (err) { addNotification('Error al eliminar el producto.', 'error'); } finally { setProductToDelete(null); } };
+  const handleConfirmDelete = async () => { if (!productToDelete) return; try { await api.deleteProduct(productToDelete.id); const { products: prods, count } = await api.getProducts({ page: currentPage, pageSize: ITEMS_PER_PAGE, searchTerm: debouncedSearch, filters }); setProducts(prods || []); setTotalCount(count || 0); addNotification(`Producto "${productToDelete.name}" eliminado.`, 'success'); } catch (err) { addNotification('Error al eliminar el producto.', 'error'); } finally { setProductToDelete(null); } };
   
   const handleStockInputChange = (field: 'minStock' | 'criticalStock', value: string) => {
     const numValue = parseInt(value, 10);
     setFormData(prev => ({ ...prev, [field]: isNaN(numValue) ? 0 : numValue }));
   };
 
-  if (loading) return <div className="h-[70vh] flex items-center justify-center"><Loader2 className="animate-spin w-8 h-8 text-indigo-500" /></div>;
+  if (loading && products.length === 0) return <div className="h-[70vh] flex items-center justify-center"><Loader2 className="animate-spin w-8 h-8 text-indigo-500" /></div>;
 
   return (
     <div className="space-y-4 animate-in fade-in pb-24">
@@ -152,7 +162,7 @@ export const Inventory: React.FC<InventoryProps> = ({ role, userEmail, onNavigat
           <div className="bg-white border border-slate-200 rounded-2xl flex overflow-hidden shadow-sm flex-1 sm:flex-none">
              <button onClick={() => setIsScannerOpen(true)} className="px-4 py-3 text-slate-600 text-[9px] font-black uppercase flex items-center justify-center gap-1.5 hover:bg-slate-50 transition-all border-r border-slate-100"><ScanLine className="w-3.5 h-3.5" /> SCAN</button>
              <button onClick={handleExportPDF} className="px-4 py-3 text-rose-600 text-[9px] font-black uppercase flex items-center justify-center gap-1.5 hover:bg-rose-50 transition-all border-r border-slate-100"><FileText className="w-3.5 h-3.5" /> PDF</button>
-             <button onClick={() => exportToExcel(filteredProducts, "Inventario", "Stock")} className="px-4 py-3 text-emerald-600 text-[9px] font-black uppercase flex items-center justify-center gap-1.5 hover:bg-emerald-50 transition-all"><FileSpreadsheet className="w-3.5 h-3.5" /> EXCEL</button>
+             <button onClick={() => exportToExcel(products, "Inventario", "Stock")} className="px-4 py-3 text-emerald-600 text-[9px] font-black uppercase flex items-center justify-center gap-1.5 hover:bg-emerald-50 transition-all"><FileSpreadsheet className="w-3.5 h-3.5" /> EXCEL</button>
           </div>
           {role !== 'VIEWER' && <button onClick={() => handleOpenModal()} className="bg-indigo-600 text-white px-6 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2 shadow-xl shadow-indigo-100 hover:bg-indigo-700 active:scale-95 transition-all"><Plus className="w-4 h-4" /> NUEVO</button>}
         </div>
@@ -237,7 +247,7 @@ export const Inventory: React.FC<InventoryProps> = ({ role, userEmail, onNavigat
           <table className="w-full min-w-[1000px]">
             <thead className="text-[9px] font-black uppercase text-slate-400 tracking-widest bg-slate-50/50">
               <tr>
-                <th className="px-6 py-4 w-10 text-center"><button onClick={toggleSelectAll}>{selectedIds.length === filteredProducts.length ? <CheckSquare className="w-5 h-5 mx-auto text-indigo-600" /> : <Square className="w-5 h-5 mx-auto text-slate-300" />}</button></th>
+                <th className="px-6 py-4 w-10 text-center"><button onClick={toggleSelectAll}>{selectedIds.length === totalCount ? <CheckSquare className="w-5 h-5 mx-auto text-indigo-600" /> : <Square className="w-5 h-5 mx-auto text-slate-300" />}</button></th>
                 <th className="px-6 py-4 text-left">Producto</th>
                 <th className="px-6 py-4 text-center">Stock</th>
                 <th className="px-6 py-4 text-left">Almacén</th>
@@ -247,7 +257,7 @@ export const Inventory: React.FC<InventoryProps> = ({ role, userEmail, onNavigat
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-50">
-              {paginatedProducts.map(p => (
+              {products.map(p => (
                 <tr key={p.id} className="hover:bg-indigo-50/30 transition-colors group">
                   <td className="px-6 py-3 text-center"><button onClick={() => toggleSelect(p.id)}>{selectedIds.includes(p.id) ? <CheckSquare className="w-5 h-5 mx-auto text-indigo-600" /> : <Square className="w-5 h-5 mx-auto text-slate-200 group-hover:text-slate-400" />}</button></td>
                   <td className="px-6 py-3"><p className="text-sm font-bold text-slate-800 uppercase">{p.name}</p><p className="text-[9px] text-slate-400 font-black uppercase tracking-tighter">{p.code}</p></td>
@@ -271,12 +281,12 @@ export const Inventory: React.FC<InventoryProps> = ({ role, userEmail, onNavigat
         <div className="p-4 flex flex-col sm:flex-row justify-between items-center gap-4 text-[10px] font-black uppercase text-slate-500 border-t">
           <div className="flex items-center gap-2">
             <button onClick={() => setIsMultiQRModalOpen(true)} disabled={selectedIds.length === 0} className="px-4 py-2 bg-slate-800 text-white rounded-lg disabled:opacity-30 disabled:cursor-not-allowed flex items-center gap-1.5"><Printer className="w-3.5 h-3.5" /> IMPRIMIR QR ({selectedIds.length})</button>
-            <p className="hidden sm:block">({selectedIds.length} de {products.length} seleccionados)</p>
+            <p className="hidden sm:block">({selectedIds.length} de {totalCount} seleccionados)</p>
           </div>
           <div className="flex items-center gap-2">
-            <button onClick={() => setCurrentPage(p => Math.max(0, p - 1))} disabled={currentPage === 0} className="px-3 py-2 hover:bg-slate-100 rounded-lg disabled:opacity-30 flex items-center gap-1.5"><ChevronLeft className="w-3.5 h-3.5" /> Ant</button>
+            <button onClick={() => setCurrentPage(p => Math.max(0, p - 1))} disabled={currentPage === 0 || loading} className="px-3 py-2 hover:bg-slate-100 rounded-lg disabled:opacity-30 flex items-center gap-1.5"><ChevronLeft className="w-3.5 h-3.5" /> Ant</button>
             <span>Página {currentPage + 1} de {totalPages}</span>
-            <button onClick={() => setCurrentPage(p => Math.min(totalPages - 1, p + 1))} disabled={currentPage >= totalPages - 1} className="px-3 py-2 hover:bg-slate-100 rounded-lg disabled:opacity-30 flex items-center gap-1.5">Sig <ChevronRight className="w-3.5 h-3.5" /></button>
+            <button onClick={() => setCurrentPage(p => Math.min(totalPages - 1, p + 1))} disabled={currentPage >= totalPages - 1 || loading} className="px-3 py-2 hover:bg-slate-100 rounded-lg disabled:opacity-30 flex items-center gap-1.5">Sig <ChevronRight className="w-3.5 h-3.5" /></button>
           </div>
         </div>
       </div>

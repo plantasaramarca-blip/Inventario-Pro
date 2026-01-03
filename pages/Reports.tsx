@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { Movement, Product } from '../types.ts';
 import * as api from '../services/supabaseService.ts';
@@ -36,7 +37,7 @@ export const Reports: React.FC<ReportsProps> = ({ onNavigate }) => {
     const loadData = async () => {
       setLoading(true);
       try {
-        const [prods, movs] = await Promise.all([api.getProducts(), api.getMovements()]);
+        const [{ products: prods }, movs] = await Promise.all([api.getProducts({ fetchAll: true }), api.getMovements()]);
         setProducts(prods || []);
         setMovements(movs || []);
       } catch (e) {
@@ -64,7 +65,6 @@ export const Reports: React.FC<ReportsProps> = ({ onNavigate }) => {
       }, {});
       
     return Object.entries(counts)
-      // FIX: Explicitly cast values to numbers for arithmetic operation.
       .sort(([, qtyA], [, qtyB]) => Number(qtyB) - Number(qtyA))
       .slice(0, 5)
       .map(([productId, quantity]) => ({
@@ -89,7 +89,6 @@ export const Reports: React.FC<ReportsProps> = ({ onNavigate }) => {
 
     return Object.entries(counts)
       .map(([name, quantity]) => ({ name, quantity }))
-      // FIX: Explicitly cast values to numbers for arithmetic operation.
       .sort((a, b) => Number(b.quantity) - Number(a.quantity))
       .slice(0, 8);
   }, [filteredMovements]);

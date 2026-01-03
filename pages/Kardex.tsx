@@ -46,7 +46,7 @@ export const Kardex: React.FC<KardexProps> = ({ role, userEmail, initialState, o
   const loadData = async () => {
     setLoading(true);
     try {
-      const [movs, prods, conts] = await Promise.all([api.getMovements(), api.getProducts(), api.getContacts()]);
+      const [movs, { products: prods }, conts] = await Promise.all([api.getMovements(), api.getProducts({ fetchAll: true }), api.getContacts()]);
       setMovements(movs || []);
       setProducts(prods || []);
       setContacts(conts || []);

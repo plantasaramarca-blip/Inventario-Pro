@@ -34,8 +34,8 @@ export const CommandPalette = ({ isOpen, onClose, onNavigate }: CommandPalettePr
     if (isOpen) {
       inputRef.current?.focus();
       setLoading(true);
-      Promise.all([api.getProducts(), api.getContacts(), api.getDestinos()])
-        .then(([products, contacts, destinations]) => {
+      Promise.all([api.getProducts({ fetchAll: true }), api.getContacts(), api.getDestinos()])
+        .then(([{ products }, contacts, destinations]) => {
           const productResults = (products || []).map(p => ({ type: 'Product', ...p }));
           const contactResults = (contacts || []).map(c => ({ type: 'Contact', ...c }));
           const destinationResults = (destinations || []).map(d => ({ type: 'Destination', ...d }));

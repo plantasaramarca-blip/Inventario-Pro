@@ -114,33 +114,61 @@ export const saveCategoryMaster = async (cat: Partial<CategoryMaster>) => { if (
 export const deleteCategoryMaster = async (id: string) => { if (!useSupabase()) return;};
 
 const FULL_PRODUCT_QUERY = 'id, code, name, brand, size, model, category, location, stock, min_stock, critical_stock, precio_compra, precio_venta, moneda, unit, image_url, updated_at';
+const LIST_PRODUCT_QUERY = 'id, code, name, stock, location, min_stock, critical_stock, precio_compra, moneda, unit';
 
-export const getProducts = async (): Promise<Product[]> => {
-  if (!useSupabase()) return [];
+export const getProducts = async (options?: { page?: number; pageSize?: number; searchTerm?: string; filters?: { category: string; location: string }; fetchAll?: boolean; }): Promise<{ products: Product[]; count: number | null }> => {
+  if (!useSupabase()) return { products: [], count: 0 };
+
   return fetchWithRetry(async () => {
-    const { data, error } = await supabase.from('products').select(FULL_PRODUCT_QUERY).order('updated_at', { ascending: false });
+    const selectFields = options?.fetchAll ? FULL_PRODUCT_QUERY : LIST_PRODUCT_QUERY + ', updated_at';
+    let query = supabase.from('products').select(selectFields, { count: 'exact' });
+    
+    if (options?.searchTerm) {
+      query = query.or(`name.ilike.%${options.searchTerm}%,code.ilike.%${options.searchTerm}%,brand.ilike.%${options.searchTerm}%`);
+    }
+
+    if (options?.filters) {
+      if (options.filters.category && options.filters.category !== 'ALL') {
+        query = query.eq('category', options.filters.category);
+      }
+      if (options.filters.location && options.filters.location !== 'ALL') {
+        query = query.eq('location', options.filters.location);
+      }
+    }
+    
+    query = query.order('updated_at', { ascending: false });
+
+    if (!options?.fetchAll && options?.page !== undefined && options?.pageSize !== undefined) {
+      const from = options.page * options.pageSize;
+      const to = from + options.pageSize - 1;
+      query = query.range(from, to);
+    }
+
+    const { data, error, count } = await query;
     if (error) throw error;
-    return (data || []).map(mapToProduct);
+    
+    return { products: (data || []).map(mapToProduct), count };
   });
 };
 
 export const getProductById = async (id: string): Promise<Product | null> => {
   if (!useSupabase()) return null;
   return fetchWithRetry(async () => {
-    const { data, error } = await supabase.from('products').select('*').eq('id', id).single();
+    const { data, error } = await supabase.from('products').select(FULL_PRODUCT_QUERY).eq('id', id).single();
     if (error) throw error;
     return data ? mapToProduct(data) : null;
   });
 };
 
 export const getAlertProducts = async (limit = 6): Promise<Product[]> => {
-  if (!useSupabase()) return [];
-  return fetchWithRetry(async () => {
-    const { data, error } = await supabase.from('products').select(FULL_PRODUCT_QUERY).order('stock', { ascending: true });
-    if (error) throw error;
-    const allProducts = (data || []).map(mapToProduct);
-    return allProducts.filter(p => p.stock <= p.minStock).slice(0, limit);
-  });
+    if (!useSupabase()) return [];
+    return fetchWithRetry(async () => {
+        const { products } = await getProducts({ fetchAll: true });
+        return products
+            .filter(p => p.stock <= p.minStock)
+            .sort((a, b) => a.stock - b.stock)
+            .slice(0, limit);
+    });
 };
 
 export const saveProduct = async (product: Partial<Product>): Promise<Product> => {
@@ -169,11 +197,7 @@ export const saveProduct = async (product: Partial<Product>): Promise<Product> =
 
 export const saveProductAndInitialMovement = async (product: Product, initialStock: number, userEmail?: string): Promise<Product> => {
     if (!useSupabase()) return product;
-
-    // 1. Save the product with the initial stock.
     const savedProduct = await saveProduct({ ...product, stock: initialStock });
-    
-    // 2. If initial stock is positive, register the initial movement.
     if (initialStock > 0) {
         await registerBatchMovements([{
             productId: savedProduct.id,
@@ -184,10 +208,8 @@ export const saveProductAndInitialMovement = async (product: Product, initialSto
             reason: 'Stock Inicial'
         }]);
     }
-
     return savedProduct;
 };
-
 
 export const deleteProduct = async (id: string) => {
     if (!useSupabase()) return;
@@ -265,30 +287,26 @@ export const saveContact = async (contact: Partial<Contact>) => {
 export const deleteContact = async (id: string) => { if (!useSupabase()) return; };
 
 export const getStats = async (): Promise<InventoryStats> => {
-  if (!useSupabase()) return { totalProducts: 0, lowStockCount: 0, criticalStockCount: 0, outOfStockCount: 0, totalMovements: 0, totalContacts: 0, totalValue: 0 };
-  return fetchWithRetry(async () => {
-    const productCountPromise = supabase.from('products').select('id', { count: 'exact', head: true });
-    const movementsCountPromise = supabase.from('movements').select('id', { count: 'exact', head: true });
-    const contactsCountPromise = supabase.from('contacts').select('id', { count: 'exact', head: true });
-    const productCalcsPromise = supabase.from('products').select('stock, min_stock, critical_stock, precio_compra');
-    const [{ count: totalProducts, error: pCountError }, { count: totalMovements, error: mError }, { count: totalContacts, error: cError }, { data: productsForCalcs, error: pCalcsError }] = await Promise.all([productCountPromise, movementsCountPromise, contactsCountPromise, productCalcsPromise]);
-    if (pCountError || mError || cError || pCalcsError) throw new Error('Fallo al obtener los componentes del dashboard');
-    const p = productsForCalcs || [];
-    
-    // Fallback logic for possibly null min_stock/critical_stock values
-    const getCrit = (prod: any) => prod.critical_stock ?? 10;
-    const getMin = (prod: any) => prod.min_stock ?? 30;
+    if (!useSupabase()) return { totalProducts: 0, lowStockCount: 0, criticalStockCount: 0, outOfStockCount: 0, totalMovements: 0, totalContacts: 0, totalValue: 0 };
+    return fetchWithRetry(async () => {
+        const productCountPromise = supabase.from('products').select('id', { count: 'exact', head: true });
+        const movementsCountPromise = supabase.from('movements').select('id', { count: 'exact', head: true });
+        const contactsCountPromise = supabase.from('contacts').select('id', { count: 'exact', head: true });
+        const { products } = await getProducts({ fetchAll: true });
 
-    return {
-      totalProducts: totalProducts || 0,
-      lowStockCount: p.filter(x => x.stock <= getMin(x) && x.stock > getCrit(x)).length,
-      criticalStockCount: p.filter(x => x.stock <= getCrit(x) && x.stock > 0).length,
-      outOfStockCount: p.filter(x => x.stock <= 0).length,
-      totalMovements: totalMovements || 0,
-      totalContacts: totalContacts || 0,
-      totalValue: p.reduce((s, x) => s + (x.stock * (x.precio_compra || 0)), 0)
-    };
-  });
+        const [{ count: totalProducts, error: pCountError }, { count: totalMovements, error: mError }, { count: totalContacts, error: cError }] = await Promise.all([productCountPromise, movementsCountPromise, contactsCountPromise]);
+        if (pCountError || mError || cError) throw new Error('Fallo al obtener los componentes del dashboard');
+        
+        return {
+            totalProducts: totalProducts || 0,
+            lowStockCount: products.filter(p => p.stock > p.criticalStock && p.stock <= p.minStock).length,
+            criticalStockCount: products.filter(p => p.stock > 0 && p.stock <= p.criticalStock).length,
+            outOfStockCount: products.filter(p => p.stock <= 0).length,
+            totalMovements: totalMovements || 0,
+            totalContacts: totalContacts || 0,
+            totalValue: products.reduce((s, p) => s + (p.stock * p.purchasePrice), 0)
+        };
+    });
 };
 
 export const getDestinos = async (): Promise<Destination[]> => {
