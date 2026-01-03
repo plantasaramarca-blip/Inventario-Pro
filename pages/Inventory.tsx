@@ -88,7 +88,7 @@ export const Inventory: React.FC<InventoryProps> = ({ role, onNavigate, initialS
     if (product) { setEditingProduct(product); setFormData({ ...product }); }
     else {
       setEditingProduct(null);
-      setFormData({ id: crypto.randomUUID(), code: '', name: '', brand: '', size: '', model: '', category: '', location: '', stock: 0, minStock: 30, criticalStock: 10, purchasePrice: 0, salePrice: 0, currency: 'PEN', unit: 'PAR', imageUrl: '' });
+      setFormData({ code: '', name: '', brand: '', size: '', model: '', category: '', location: '', stock: 0, minStock: 30, criticalStock: 10, purchasePrice: 0, salePrice: 0, currency: 'PEN', unit: 'PAR', imageUrl: '' });
     }
     setIsModalOpen(true);
   };

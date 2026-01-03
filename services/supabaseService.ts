@@ -94,18 +94,18 @@ export const getCategoriesMaster = async (): Promise<CategoryMaster[]> => {
 export const saveCategoryMaster = async (cat: Partial<CategoryMaster>) => { if (!useSupabase()) return;};
 export const deleteCategoryMaster = async (id: string) => { if (!useSupabase()) return;};
 
+const FULL_PRODUCT_QUERY = 'id, code, name, brand, size, model, category, location, stock, min_stock, critical_stock, precio_compra, precio_venta, moneda, unit, image_url, updated_at';
+
 export const getProducts = async (): Promise<Product[]> => {
   if (!useSupabase()) return [];
-  // OPTIMIZED: Select only columns needed for the inventory list view.
-  const query = 'id, name, code, stock, precio_compra, precio_venta, min_stock, critical_stock, unit';
-  const { data, error } = await withTimeout(supabase.from('products').select(query).order('updated_at', { ascending: false }));
+  // FIX: Select all fields required by mapToProduct for data consistency.
+  const { data, error } = await withTimeout(supabase.from('products').select(FULL_PRODUCT_QUERY).order('updated_at', { ascending: false }));
   if (error) throw error;
   return (data || []).map(mapToProduct);
 };
 
 export const getProductById = async (id: string): Promise<Product | null> => {
   if (!useSupabase()) return null;
-  // Keep select('*') here as we need all details for the detail page.
   const { data, error } = await withTimeout(supabase.from('products').select('*').eq('id', id).single());
   if (error) throw error;
   return data ? mapToProduct(data) : null;
@@ -114,10 +114,9 @@ export const getProductById = async (id: string): Promise<Product | null> => {
 export const getAlertProducts = async (limit = 6): Promise<Product[]> => {
   if (!useSupabase()) return [];
   try {
-    // OPTIMIZED: Select only columns needed for the dashboard alert table.
-    const query = 'id, name, code, stock, min_stock, critical_stock, location, unit';
+    // FIX: Select all fields required by mapToProduct for data consistency.
     const { data, error } = await withTimeout(
-      supabase.from('products').select(query).lte('stock', 30).order('stock', { ascending: true })
+      supabase.from('products').select(FULL_PRODUCT_QUERY).lte('stock', 30).order('stock', { ascending: true })
     );
 
     if (error) throw error;
@@ -129,12 +128,45 @@ export const getAlertProducts = async (limit = 6): Promise<Product[]> => {
   }
 };
 
-export const saveProduct = async (product: Partial<Product>) => { if (!useSupabase()) return; };
-export const deleteProduct = async (id: string) => { if (!useSupabase()) return; };
+export const saveProduct = async (product: Partial<Product>) => {
+  if (!useSupabase()) return;
+
+  const { id, minStock, criticalStock, purchasePrice, salePrice, imageUrl, updatedAt, ...rest } = product;
+  
+  const payload: any = {
+      ...rest,
+      min_stock: minStock,
+      critical_stock: criticalStock,
+      precio_compra: purchasePrice,
+      precio_venta: salePrice,
+      image_url: imageUrl,
+      updated_at: new Date().toISOString(),
+  };
+
+  Object.keys(payload).forEach(key => payload[key] === undefined && delete payload[key]);
+
+  if (id) {
+      const { data: oldData } = await supabase.from('products').select('*').eq('id', id).single();
+      const { error } = await withTimeout(supabase.from('products').update(payload).eq('id', id));
+      if (error) throw error;
+      saveAuditLog({ action: 'UPDATE', table_name: 'products', record_id: id, record_name: payload.name || 'N/A' }, oldData, payload);
+  } else {
+      const { data, error } = await withTimeout(supabase.from('products').insert([payload]).select().single());
+      if (error) throw error;
+      saveAuditLog({ action: 'CREATE', table_name: 'products', record_id: data.id, record_name: data.name }, null, payload);
+  }
+};
+
+export const deleteProduct = async (id: string) => {
+    if (!useSupabase()) return;
+    const { data: oldData } = await supabase.from('products').select('name').eq('id', id).single();
+    const { error } = await withTimeout(supabase.from('products').delete().eq('id', id));
+    if (error) throw error;
+    if (oldData) saveAuditLog({ action: 'DELETE', table_name: 'products', record_id: id, record_name: oldData.name }, oldData, null);
+};
 
 export const getMovements = async (): Promise<Movement[]> => {
   if (!useSupabase()) return [];
-  // OPTIMIZED: Select only columns needed for the Kardex list view.
   const query = 'id, product_id, product_name, type, quantity, date, dispatcher, destino_nombre, balance_after';
   const { data, error } = await withTimeout(supabase.from('movements').select(query).order('date', { ascending: false }));
   if (error) throw error;
@@ -143,7 +175,6 @@ export const getMovements = async (): Promise<Movement[]> => {
 
 export const getMovementsByProductId = async (productId: string): Promise<Movement[]> => {
   if (!useSupabase()) return [];
-   // OPTIMIZED: Select only columns needed for the Product Detail history.
   const query = 'id, product_id, product_name, type, quantity, date, dispatcher, destino_nombre, balance_after';
   const { data, error } = await withTimeout(supabase.from('movements').select(query).eq('product_id', productId).order('date', { ascending: false }).limit(10));
   if (error) throw error;
@@ -183,7 +214,6 @@ export const registerBatchMovements = async (items: any[]) => {
 
 export const getContacts = async (): Promise<Contact[]> => {
   if (!useSupabase()) return [];
-  // OPTIMIZED: Select only columns needed for the CRM contact card view.
   const query = 'id, name, type, phone, email';
   const { data, error } = await withTimeout(supabase.from('contacts').select(query).order('name'));
   if (error) throw error;
