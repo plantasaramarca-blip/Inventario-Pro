@@ -173,7 +173,7 @@ export default function App() {
   const renderContent = () => {
     switch (currentPage) {
       case 'productDetail': return <ProductDetail productId={navigationState?.productId} role={role} userEmail={session.user?.email} onBack={() => window.history.back()} onNavigate={navigateTo} />;
-      case 'inventory': return <Inventory role={role} onNavigate={navigateTo} initialState={navigationState} onInitialStateConsumed={() => setNavigationState(null)} categories={categories || []} setCategories={setCategories} locations={locations || []} setLocations={setLocations} />;
+      case 'inventory': return <Inventory role={role} userEmail={session.user?.email} onNavigate={navigateTo} initialState={navigationState} onInitialStateConsumed={() => setNavigationState(null)} categories={categories || []} setCategories={setCategories} locations={locations || []} setLocations={setLocations} />;
       case 'kardex': return <Kardex role={role} userEmail={session.user?.email} initialState={navigationState} onInitialStateConsumed={() => setNavigationState(null)} destinos={destinos || []} setDestinos={setDestinos} locations={locations || []} setLocations={setLocations} />;
       case 'destinos': return <Destinos destinations={destinos} setDestinations={setDestinos} onCacheClear={clearCache} />;
       case 'reports': return <Reports onNavigate={navigateTo} />;

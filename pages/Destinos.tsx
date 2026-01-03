@@ -119,8 +119,8 @@ export const Destinos: React.FC<DestinosProps> = ({ destinations, setDestination
 
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => setIsModalOpen(false)}></div>
-          <form onSubmit={handleSubmit} className="relative bg-white rounded-[2.5rem] p-8 w-full max-w-md shadow-2xl">
+          <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm"></div>
+          <form onSubmit={handleSubmit} onClick={e => e.stopPropagation()} className="relative bg-white rounded-[2.5rem] p-8 w-full max-w-md shadow-2xl">
              <div className="flex justify-between items-center mb-8">
                 <h3 className="text-xl font-black text-slate-800 uppercase tracking-tight">Centro de Costo</h3>
                 <button type="button" onClick={() => setIsModalOpen(false)} className="p-2 hover:bg-slate-100 rounded-xl"><X className="text-slate-400 w-5 h-5" /></button>

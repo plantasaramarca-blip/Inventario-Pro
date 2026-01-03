@@ -1,29 +1,54 @@
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { InventoryStats, Product } from '../types.ts';
+import * as api from '../services/supabaseService.ts';
 import { 
   TrendingUp, AlertTriangle, Package, 
-  AlertCircle, DollarSign, Layers, Users, ChevronRight
+  AlertCircle, DollarSign, Layers, Users, ChevronRight, Loader2, Ban
 } from 'https://esm.sh/lucide-react@0.475.0?external=react,react-dom';
 import { StockBadge } from '../components/StockBadge.tsx';
 import { formatCurrency } from '../utils/currencyUtils.ts';
 
 interface DashboardProps {
   onNavigate: (page: string, options?: { push?: boolean; state?: any }) => void;
-  stats: InventoryStats | null;
-  alertProducts: Product[];
 }
 
-export const Dashboard: React.FC<DashboardProps> = ({ onNavigate, stats, alertProducts }) => {
+export const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
+  const [stats, setStats] = useState<InventoryStats | null>(null);
+  const [alertProducts, setAlertProducts] = useState<Product[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const loadDashboardData = async () => {
+      setLoading(true);
+      try {
+        const [statsData, alertData] = await Promise.all([
+          api.getStats(),
+          api.getAlertProducts(6)
+        ]);
+        setStats(statsData);
+        setAlertProducts(alertData || []);
+      } catch (error) {
+        console.error("Failed to load dashboard data", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadDashboardData();
+  }, []);
+  
+  const totalLowStock = (stats?.lowStockCount || 0) + (stats?.criticalStockCount || 0) + (stats?.outOfStockCount || 0);
 
   const cards = [
     { title: 'Valor Total', value: formatCurrency(stats?.totalValue || 0), icon: DollarSign, color: 'bg-indigo-600', sub: 'Inversión', page: 'inventory' },
-    { title: 'Crítico', value: (stats?.criticalStockCount || 0) + (stats?.outOfStockCount || 0), icon: AlertCircle, color: 'bg-rose-500', sub: 'Reponer ya', page: 'inventory', state: { prefilter: 'CRITICAL' } },
+    { title: 'Sin Stock', value: (stats?.outOfStockCount || 0), icon: Ban, color: 'bg-slate-600', sub: 'Agotados', page: 'inventory', state: { prefilter: 'OUTOFSTOCK' } },
+    { title: 'Crítico', value: stats?.criticalStockCount || 0, icon: AlertCircle, color: 'bg-rose-500', sub: 'Reponer ya', page: 'inventory', state: { prefilter: 'CRITICAL' } },
     { title: 'Stock Bajo', value: stats?.lowStockCount || 0, icon: AlertTriangle, color: 'bg-amber-500', sub: 'En alerta', page: 'inventory', state: { prefilter: 'LOW' } },
     { title: 'Productos', value: stats?.totalProducts || 0, icon: Layers, color: 'bg-indigo-400', sub: 'Registrados', page: 'inventory' },
-    { title: 'Contactos', value: stats?.totalContacts || 0, icon: Users, color: 'bg-emerald-500', sub: 'CRM', page: 'contacts' },
     { title: 'Movimientos', value: stats?.totalMovements || 0, icon: TrendingUp, color: 'bg-purple-600', sub: 'Operaciones', page: 'kardex' },
   ];
+  
+  if (loading) return <div className="h-[70vh] flex items-center justify-center"><Loader2 className="animate-spin w-8 h-8 text-indigo-500" /></div>;
 
   return (
     <div className="space-y-4 animate-in fade-in duration-500 pb-20">

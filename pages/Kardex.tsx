@@ -17,10 +17,12 @@ interface KardexProps {
   initialState?: any;
   onInitialStateConsumed: () => void;
   destinos: Destination[];
+  setDestinos: (destinos: Destination[]) => void;
   locations: LocationMaster[];
+  setLocations: (locations: LocationMaster[]) => void;
 }
 
-export const Kardex: React.FC<KardexProps> = ({ role, userEmail, initialState, onInitialStateConsumed, destinos, locations }) => {
+export const Kardex: React.FC<KardexProps> = ({ role, userEmail, initialState, onInitialStateConsumed, destinos, setDestinos, locations, setLocations }) => {
   const [movements, setMovements] = useState<Movement[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [contacts, setContacts] = useState<Contact[]>([]);
@@ -65,8 +67,10 @@ export const Kardex: React.FC<KardexProps> = ({ role, userEmail, initialState, o
     }
   }, [initialState]);
   
-  const suppliers = useMemo(() => contacts.filter(c => c.type === 'PROVEEDOR'), [contacts]);
+  const handleLoadDestinos = async () => { if (!destinos || destinos.length === 0) { try { const data = await api.getDestinos(); setDestinos(data || []); } catch (e) { addNotification('Error al cargar destinos.', 'error'); } } };
+  const handleLoadLocations = async () => { if (!locations || locations.length === 0) { try { const data = await api.getLocationsMaster(); setLocations(data || []); } catch (e) { addNotification('Error al cargar almacenes.', 'error'); } } };
 
+  const suppliers = useMemo(() => contacts.filter(c => c.type === 'PROVEEDOR'), [contacts]);
   const totalPages = Math.ceil(movements.length / ITEMS_PER_PAGE);
   const paginatedMovements = movements.slice(currentPage * ITEMS_PER_PAGE, (currentPage + 1) * ITEMS_PER_PAGE);
 
@@ -74,10 +78,7 @@ export const Kardex: React.FC<KardexProps> = ({ role, userEmail, initialState, o
   const handleScanSuccessForCart = (decodedText: string) => { /* ... */ };
 
   const handleAddToCart = (product: Product) => {
-    if (cartItems.some(item => item.productId === product.id)) {
-        addNotification('Producto ya está en la lista.', 'info');
-        return;
-    }
+    if (cartItems.some(item => item.productId === product.id)) { addNotification('Producto ya está en la lista.', 'info'); return; }
     setCartItems(prev => [...prev, { ...product, productId: product.id, quantity: 1 }]);
     setProductSearch('');
     productSearchInputRef.current?.focus();
@@ -87,12 +88,8 @@ export const Kardex: React.FC<KardexProps> = ({ role, userEmail, initialState, o
     if (!productSearch) return;
     const exactMatch = products.find(p => p.code.trim().toLowerCase() === productSearch.trim().toLowerCase());
     if (exactMatch) {
-      if (!cartItems.some(item => item.productId === exactMatch.id)) {
-        handleAddToCart(exactMatch);
-        addNotification(`"${exactMatch.name}" agregado.`, 'success');
-      } else {
-        addNotification('Producto ya está en la lista.', 'info');
-      }
+      if (!cartItems.some(item => item.productId === exactMatch.id)) { handleAddToCart(exactMatch); addNotification(`"${exactMatch.name}" agregado.`, 'success'); } 
+      else { addNotification('Producto ya está en la lista.', 'info'); }
       setProductSearch('');
     }
   };
@@ -105,18 +102,7 @@ export const Kardex: React.FC<KardexProps> = ({ role, userEmail, initialState, o
       const supplierObj = type === 'INGRESO' ? suppliers.find(s => s.id === selectedSupplierId) : null;
       const locationObj = type === 'INGRESO' ? locations.find(l => l.name === selectedLocationId) : null;
       
-      const batchPayload = cartItems.map(item => ({ 
-          productId: item.productId, 
-          name: item.name, 
-          type, 
-          quantity: item.quantity, 
-          dispatcher: userEmail, 
-          reason,
-          destinationName: type === 'SALIDA' ? destinoObj?.name : null,
-          locationName: type === 'INGRESO' ? locationObj?.name : null,
-          contactId: type === 'INGRESO' ? supplierObj?.id : null,
-          supplierName: type === 'INGRESO' ? supplierObj?.name : null
-      }));
+      const batchPayload = cartItems.map(item => ({ productId: item.productId, name: item.name, type, quantity: item.quantity, dispatcher: userEmail, reason, destinationName: type === 'SALIDA' ? destinoObj?.name : null, locationName: type === 'INGRESO' ? locationObj?.name : null, contactId: type === 'INGRESO' ? supplierObj?.id : null, supplierName: type === 'INGRESO' ? supplierObj?.name : null }));
       
       await api.registerBatchMovements(batchPayload); 
       
@@ -154,28 +140,20 @@ export const Kardex: React.FC<KardexProps> = ({ role, userEmail, initialState, o
           <form onSubmit={handleSubmit} onClick={e => e.stopPropagation()} className="relative bg-white rounded-3xl w-full max-w-4xl shadow-2xl animate-in zoom-in-95 flex flex-col h-[85vh]">
             {/* ... Modal content ... */}
             <div className="relative">
+              {type === 'SALIDA' && (
+                <div className="grid grid-cols-2 gap-3 mb-3">
+                   <select required value={selectedDestinoId} onFocus={handleLoadDestinos} onChange={e => setSelectedDestinoId(e.target.value)} className="w-full p-3 bg-slate-100 rounded-xl font-bold text-sm uppercase"><option value="">Centro de Costo (Destino)...</option>{destinos.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}</select>
+                   <input type="text" placeholder="Transportista..." value={carriedBy} onChange={e => setCarriedBy(e.target.value)} className="w-full p-3 bg-slate-100 rounded-xl font-bold text-sm" />
+                </div>
+              )}
               {type === 'INGRESO' && (
                 <div className="grid grid-cols-2 gap-3 mb-3">
-                  <select required value={selectedLocationId} onChange={e => setSelectedLocationId(e.target.value)} className="w-full p-3 bg-slate-100 rounded-xl font-bold text-sm uppercase">
-                    <option value="">Almacén de Ingreso...</option>
-                    {locations.map(l => <option key={l.id} value={l.name}>{l.name}</option>)}
-                  </select>
-                  <select required value={selectedSupplierId} onChange={e => setSelectedSupplierId(e.target.value)} className="w-full p-3 bg-slate-100 rounded-xl font-bold text-sm uppercase">
-                    <option value="">Seleccionar Proveedor...</option>
-                    {suppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-                  </select>
+                  <select required value={selectedLocationId} onFocus={handleLoadLocations} onChange={e => setSelectedLocationId(e.target.value)} className="w-full p-3 bg-slate-100 rounded-xl font-bold text-sm uppercase"><option value="">Almacén de Ingreso...</option>{locations.map(l => <option key={l.id} value={l.name}>{l.name}</option>)}</select>
+                  <select required value={selectedSupplierId} onChange={e => setSelectedSupplierId(e.target.value)} className="w-full p-3 bg-slate-100 rounded-xl font-bold text-sm uppercase"><option value="">Seleccionar Proveedor...</option>{suppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}</select>
                 </div>
               )}
               <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300 pointer-events-none" />
-              <input
-                ref={productSearchInputRef}
-                type="text"
-                placeholder="Buscar por SKU o nombre..."
-                value={productSearch}
-                onChange={e => setProductSearch(e.target.value)}
-                onBlur={handleProductInputBlur}
-                className="w-full pl-12 pr-4 py-3 bg-slate-100 rounded-xl outline-none font-bold text-sm"
-              />
+              <input ref={productSearchInputRef} type="text" placeholder="Buscar por SKU o nombre..." value={productSearch} onChange={e => setProductSearch(e.target.value)} onBlur={handleProductInputBlur} className="w-full pl-12 pr-4 py-3 bg-slate-100 rounded-xl outline-none font-bold text-sm" />
             </div>
             {/* ... Rest of the modal ... */}
           </form>
