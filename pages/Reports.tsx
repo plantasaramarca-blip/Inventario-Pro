@@ -14,195 +14,218 @@ import {
 } from 'https://esm.sh/lucide-react@0.475.0?external=react,react-dom';
 
 const EmptyState = ({ message }: { message: string }) => (
-  <div className="col-span-full py-16 text-center animate-in fade-in">
-    <RefreshCcw className="mx-auto w-10 h-10 text-slate-200 mb-4" />
-    <p className="text-[10px] font-black text-slate-400 uppercase">{message}</p>
+  <div className="h-full flex flex-col items-center justify-center text-center text-slate-400 p-10">
+    <BarChartIcon className="w-10 h-10 mb-3" />
+    <p className="text-[9px] font-black uppercase tracking-widest">{message}</p>
   </div>
 );
 
 interface ReportsProps {
   onNavigate: (page: string, options?: { push?: boolean; state?: any }) => void;
-  products: Product[] | null;
-  setProducts: (data: Product[]) => void;
-  movements: Movement[] | null;
-  setMovements: (data: Movement[]) => void;
 }
 
-export const Reports: React.FC<ReportsProps> = ({ onNavigate, products, setProducts, movements, setMovements }) => {
-  const [loading, setLoading] = useState(false);
+export const Reports: React.FC<ReportsProps> = ({ onNavigate }) => {
+  const [products, setProducts] = useState<Product[]>([]);
+  const [movements, setMovements] = useState<Movement[]>([]);
+  const [loading, setLoading] = useState(true);
   const { addNotification } = useNotification();
   const today = new Date().toISOString().split('T')[0];
   const lastMonth = new Date(new Date().setMonth(new Date().getMonth() - 1)).toISOString().split('T')[0];
   const [dateRange, setDateRange] = useState({ from: lastMonth, to: today });
 
   useEffect(() => {
-    const loadPageData = async () => {
-      if (products === null || movements === null) {
-        setLoading(true);
-        try {
-          const [pData, mData] = await Promise.all([
-            products === null ? api.getProducts() : Promise.resolve(products),
-            movements === null ? api.getMovements() : Promise.resolve(movements),
-          ]);
-          if (products === null) setProducts(pData || []);
-          if (movements === null) setMovements(mData || []);
-        } catch (e) {
-          addNotification('Error al cargar datos para reportes.', 'error');
-        } finally {
-          setLoading(false);
-        }
+    const loadData = async () => {
+      setLoading(true);
+      try {
+        const [prods, movs] = await Promise.all([api.getProducts(), api.getMovements()]);
+        setProducts(prods || []);
+        setMovements(movs || []);
+      } catch (e) {
+        addNotification('Error al cargar datos para reportes.', 'error');
+      } finally {
+        setLoading(false);
       }
     };
-    loadPageData();
-  }, [products, movements]);
+    loadData();
+  }, []);
 
   const filteredMovements = useMemo(() => {
-    return (movements || []).filter(m => {
-      const moveDate = new Date(m.date);
-      const from = new Date(dateRange.from);
-      const to = new Date(dateRange.to);
-      to.setHours(23, 59, 59, 999);
-      return moveDate >= from && moveDate <= to;
+    return movements.filter(m => {
+      const mDate = m.date.split('T')[0];
+      return mDate >= dateRange.from && mDate <= dateRange.to;
     });
   }, [movements, dateRange]);
 
   const topMovingProducts = useMemo(() => {
-    const productMovements = filteredMovements.reduce((acc, move) => {
-      acc[move.productId] = (acc[move.productId] || 0) + Math.abs(move.quantity);
-      return acc;
-    }, {} as Record<string, number>);
-
-    return Object.entries(productMovements)
-      .sort(([, a], [, b]) => b - a)
+    const counts = filteredMovements
+      .filter(m => m.type === 'SALIDA')
+      .reduce<Record<string, number>>((acc, m) => {
+        acc[m.productId] = (acc[m.productId] || 0) + Number(m.quantity);
+        return acc;
+      }, {});
+      
+    return Object.entries(counts)
+      .sort(([, qtyA], [, qtyB]) => qtyB - qtyA)
       .slice(0, 5)
-      .map(([productId, quantity]) => {
-        const product = products?.find(p => p.id === productId);
-        return { name: product?.name || 'Desconocido', quantity };
-      });
+      .map(([productId, quantity]) => ({
+        product: products.find(p => p.id === productId),
+        quantity,
+      }))
+      .filter(item => item.product);
   }, [filteredMovements, products]);
 
   const stagnantProducts = useMemo(() => {
     const movedProductIds = new Set(filteredMovements.map(m => m.productId));
-    return (products || [])
-      .filter(p => !movedProductIds.has(p.id) && p.stock > 0)
-      .sort((a, b) => new Date(a.updatedAt).getTime() - new Date(b.updatedAt).getTime())
-      .slice(0, 5);
+    return products.filter(p => !movedProductIds.has(p.id) && p.stock > 0).slice(0, 5);
   }, [filteredMovements, products]);
 
   const destinationData = useMemo(() => {
-    const destinationCounts = filteredMovements
+    const counts = filteredMovements
       .filter(m => m.type === 'SALIDA' && m.destinationName)
-      .reduce((acc, move) => {
-        const dest = move.destinationName || 'Sin Destino';
-        acc[dest] = (acc[dest] || 0) + 1;
+      .reduce<Record<string, number>>((acc, m) => {
+        acc[m.destinationName!] = (acc[m.destinationName!] || 0) + Number(m.quantity);
         return acc;
-      }, {} as Record<string, number>);
-    return Object.entries(destinationCounts)
-      .map(([name, value]) => ({ name, value }))
-      .sort((a,b) => b.value - a.value);
+      }, {});
+
+    return Object.entries(counts)
+      .map(([name, quantity]) => ({ name, quantity }))
+      .sort((a, b) => b.quantity - a.quantity)
+      .slice(0, 8);
   }, [filteredMovements]);
-  
+
   const handleExportExcel = () => {
-    try {
-      const dataToExport = filteredMovements.map(m => ({
-        Fecha: new Date(m.date).toLocaleString(),
-        Tipo: m.type,
-        Producto: m.productName,
-        Cantidad: m.quantity,
-        Responsable: m.dispatcher,
-        Motivo: m.reason,
-        'Centro de Costo': m.destinationName || 'N/A'
-      }));
-      exportToExcel(dataToExport, `Reporte_Movimientos_${dateRange.from}_a_${dateRange.to}`, 'Movimientos');
-      addNotification('Reporte Excel generado.', 'success');
-    } catch (e) {
-      addNotification('No hay datos para exportar.', 'error');
+    if (filteredMovements.length === 0) {
+      addNotification('No hay datos para exportar en el rango seleccionado.', 'error');
+      return;
     }
+    const data = filteredMovements.map(m => ({
+      Fecha: new Date(m.date).toLocaleString(), Producto: m.productName, Tipo: m.type,
+      Cantidad: m.quantity, Responsable: m.dispatcher, Destino: m.destinationName || '-', Saldo_Final: m.balanceAfter
+    }));
+    exportToExcel(data, `Reporte_Movimientos_${dateRange.from}_${dateRange.to}`, "Movimientos");
   };
 
   const chartData = useMemo(() => {
-    const dataByDay: Record<string, { ingresos: number, salidas: number }> = {};
-    filteredMovements.forEach(m => {
-      const day = new Date(m.date).toISOString().split('T')[0];
-      if (!dataByDay[day]) dataByDay[day] = { ingresos: 0, salidas: 0 };
-      if (m.type === 'INGRESO') dataByDay[day].ingresos += 1;
-      else dataByDay[day].salidas += 1;
+    if (!filteredMovements.length) return [];
+    const daily: Record<string, any> = {};
+    const recentMovements = [...filteredMovements].reverse();
+    recentMovements.forEach(m => {
+      const date = m.date.split('T')[0];
+      if (!daily[date]) daily[date] = { date, entradas: 0, salidas: 0 };
+      if (m.type === 'INGRESO') daily[date].entradas += Number(m.quantity);
+      else daily[date].salidas += Number(m.quantity);
     });
-    return Object.entries(dataByDay)
-      .map(([name, values]) => ({ name, ...values }))
-      .sort((a, b) => new Date(a.name).getTime() - new Date(b.name).getTime());
+    return Object.values(daily).slice(-10);
   }, [filteredMovements]);
-  
+
   const COLORS = ['#4f46e5', '#f59e0b', '#ef4444', '#64748b'];
   
-  if (loading || !products || !movements) {
-    return <div className="h-[70vh] flex items-center justify-center"><Loader2 className="animate-spin w-8 h-8 text-indigo-500" /></div>;
-  }
+  if (loading) return <div className="h-[70vh] flex items-center justify-center"><Loader2 className="animate-spin w-8 h-8 text-indigo-500" /></div>;
 
   return (
     <div className="space-y-6 animate-in fade-in pb-10">
-      <div className="flex justify-between items-center">
-        <div><h1 className="text-2xl font-black text-slate-900 uppercase tracking-tight">Reportes Avanzados</h1><p className="text-[9px] text-slate-500 font-black uppercase tracking-widest mt-1">Análisis de Movimientos</p></div>
-        <button onClick={handleExportExcel} className="bg-emerald-600 text-white px-5 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2 shadow-xl shadow-emerald-100 hover:bg-emerald-700 active:scale-95 transition-all"><FileSpreadsheet className="w-4 h-4" /> Exportar</button>
-      </div>
-      <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm flex items-center gap-4 text-xs">
-        <Filter className="w-4 h-4 text-indigo-500" />
-        <label className="font-bold">Desde:</label> <input type="date" value={dateRange.from} onChange={e => setDateRange({...dateRange, from: e.target.value})} className="bg-slate-100 p-2 rounded-lg font-bold" />
-        <label className="font-bold">Hasta:</label> <input type="date" value={dateRange.to} onChange={e => setDateRange({...dateRange, to: e.target.value})} className="bg-slate-100 p-2 rounded-lg font-bold" />
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-4">
+        <div>
+          <h1 className="text-2xl font-black text-slate-900 uppercase">Reportes Pro</h1>
+          <p className="text-[9px] text-slate-500 font-black uppercase tracking-widest mt-0.5">Indicadores Críticos de Gestión</p>
+        </div>
+        <div className="flex items-center gap-2 w-full sm:w-auto">
+          <button onClick={handleExportExcel} className="flex-1 sm:flex-none bg-emerald-600 text-white px-5 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2 shadow-xl shadow-emerald-100 hover:bg-emerald-700 transition-all active:scale-95">
+            <FileSpreadsheet className="w-4 h-4" /> EXPORTAR EXCEL
+          </button>
+          <div className="flex items-center gap-2 bg-white px-3 py-3 rounded-2xl border border-slate-200 shadow-sm flex-1 sm:flex-none">
+            <Filter className="w-3.5 h-3.5 text-slate-300" />
+            <input type="date" className="text-[9px] font-black uppercase bg-transparent outline-none" value={dateRange.from} onChange={e => setDateRange({...dateRange, from: e.target.value})} />
+            <span className="text-slate-200">/</span>
+            <input type="date" className="text-[9px] font-black uppercase bg-transparent outline-none" value={dateRange.to} onChange={e => setDateRange({...dateRange, to: e.target.value})} />
+          </div>
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
-          <h3 className="text-[10px] font-black text-slate-800 uppercase tracking-widest mb-4 flex items-center gap-2"><BarChartIcon className="w-4 h-4 text-indigo-500" /> Frecuencia de Operaciones</h3>
-          {chartData.length > 0 ? (
-            <ResponsiveContainer width="100%" height={250}>
-              <BarChart data={chartData}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                <XAxis dataKey="name" tick={{ fontSize: 10 }} />
-                <YAxis tick={{ fontSize: 10 }} />
-                <Tooltip contentStyle={{ fontSize: 12, borderRadius: '1rem', padding: '0.5rem' }} />
-                <Legend wrapperStyle={{ fontSize: 10, paddingTop: '1rem' }} />
-                <Bar dataKey="ingresos" fill="#4f46e5" name="Ingresos" radius={[4, 4, 0, 0]} />
-                <Bar dataKey="salidas" fill="#f43f5e" name="Salidas" radius={[4, 4, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          ) : <EmptyState message="Sin datos en el rango seleccionado"/> }
-        </div>
-
-        <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
-          <h3 className="text-[10px] font-black text-slate-800 uppercase tracking-widest mb-4 flex items-center gap-2"><PieIcon className="w-4 h-4 text-emerald-500" /> Top Centros de Costo</h3>
-          {destinationData.length > 0 ? (
-            <ResponsiveContainer width="100%" height={250}>
-              <PieChart>
-                <Pie data={destinationData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={80} label>
-                  {destinationData.map((entry, index) => <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />)}
-                </Pie>
-                <Tooltip />
-                <Legend wrapperStyle={{ fontSize: 10, paddingTop: '1rem' }} />
-              </PieChart>
-            </ResponsiveContainer>
-          ) : <EmptyState message="Sin salidas registradas a destinos"/>}
-        </div>
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        {[
+          { label: 'Movimientos', val: filteredMovements.length, icon: RefreshCcw, color: 'bg-indigo-600' },
+          { label: 'Total Salidas', val: filteredMovements.filter(m=>m.type==='SALIDA').reduce((s,m)=>s+Number(m.quantity),0), icon: ArrowUpRight, color: 'bg-rose-500' },
+          { label: 'Total Entradas', val: filteredMovements.filter(m=>m.type==='INGRESO').reduce((s,m)=>s+Number(m.quantity),0), icon: ArrowDownRight, color: 'bg-emerald-500' },
+          { label: 'Valorización', val: formatCurrency(products.reduce((s,p)=>s+(p.stock*p.purchasePrice),0)), icon: Package, color: 'bg-slate-900' }
+        ].map((c, i) => (
+          <div key={i} className="bg-white p-5 rounded-[2rem] border border-slate-100 shadow-sm flex items-center gap-4">
+            <div className={`p-3 rounded-2xl text-white ${c.color} shadow-lg`}><c.icon className="w-4 h-4" /></div>
+            <div>
+              <p className="text-[8px] font-black text-slate-400 uppercase mb-0.5 tracking-widest">{c.label}</p>
+              <p className="text-sm font-black text-slate-800 tracking-tighter truncate">{c.val}</p>
+            </div>
+          </div>
+        ))}
       </div>
       
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
-          <h3 className="text-[10px] font-black text-slate-800 uppercase tracking-widest mb-4 flex items-center gap-2"><TrendingUp className="w-4 h-4 text-rose-500" /> Top Productos con más movimiento</h3>
+       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div className="bg-white rounded-[2.5rem] p-6 border border-slate-100 shadow-sm h-80 flex flex-col">
+          <h3 className="text-[10px] font-black text-slate-800 uppercase tracking-widest mb-4">Tendencia de Movimientos (Últimos 10 días)</h3>
+          {chartData.length > 0 ? (
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={chartData} margin={{ top: 5, right: 20, left: -20, bottom: 5 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                <XAxis dataKey="date" tick={{ fontSize: 9 }} stroke="#94a3b8" />
+                <YAxis tick={{ fontSize: 9 }} stroke="#94a3b8" />
+                <Tooltip contentStyle={{ fontSize: '10px', borderRadius: '1rem', padding: '8px' }} />
+                <Legend wrapperStyle={{ fontSize: "10px" }} />
+                <Line type="monotone" dataKey="entradas" stroke="#10b981" strokeWidth={2} />
+                <Line type="monotone" dataKey="salidas" stroke="#f43f5e" strokeWidth={2} />
+              </LineChart>
+            </ResponsiveContainer>
+          ) : <EmptyState message="Sin datos en el rango para mostrar tendencia" />}
+        </div>
+        <div className="bg-white rounded-[2.5rem] p-6 border border-slate-100 shadow-sm h-80 flex flex-col">
+           <h3 className="text-[10px] font-black text-slate-800 uppercase tracking-widest mb-4">Distribución de Salidas por Destino</h3>
+           {destinationData.length > 0 ? (
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={destinationData} layout="vertical" margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                <XAxis type="number" tick={{ fontSize: 9 }} stroke="#94a3b8" />
+                <YAxis type="category" dataKey="name" tick={{ fontSize: 8 }} stroke="#94a3b8" width={80} />
+                <Tooltip contentStyle={{ fontSize: '10px', borderRadius: '1rem', padding: '8px' }} />
+                <Bar dataKey="quantity" fill="#4f46e5" barSize={15} />
+              </BarChart>
+            </ResponsiveContainer>
+          ) : <EmptyState message="Sin datos de salidas por destino en este rango" />}
+        </div>
+       </div>
+
+       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div className="bg-white rounded-[2.5rem] p-6 border border-slate-100 shadow-sm">
+          <h3 className="text-[10px] font-black text-slate-800 uppercase tracking-widest mb-4">Productos con Mayor Rotación (Salidas)</h3>
           {topMovingProducts.length > 0 ? (
             <ul className="space-y-2">
-              {topMovingProducts.map(p => <li key={p.name} className="flex justify-between items-center bg-slate-50 p-3 rounded-xl text-xs"><span className="font-bold">{p.name}</span> <span className="font-black text-indigo-600">{p.quantity} ops.</span></li>)}
+              {topMovingProducts.map(({ product, quantity }) => (
+                <li key={product!.id} onClick={() => onNavigate('productDetail', { push: true, state: { productId: product!.id }})} className="flex justify-between items-center p-3 hover:bg-slate-50 rounded-2xl cursor-pointer">
+                  <div>
+                    <p className="text-xs font-bold text-slate-800">{product!.name}</p>
+                    <p className="text-[8px] font-black text-slate-400 uppercase">{product!.code}</p>
+                  </div>
+                  <p className="text-sm font-black text-rose-500">{quantity} unds.</p>
+                </li>
+              ))}
             </ul>
-          ) : <EmptyState message="Sin movimientos de productos"/>}
+          ) : <EmptyState message="Sin datos de rotación de productos" />}
         </div>
-        <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
-          <h3 className="text-[10px] font-black text-slate-800 uppercase tracking-widest mb-4 flex items-center gap-2"><Archive className="w-4 h-4 text-amber-500" /> Top Productos Estancados</h3>
+         <div className="bg-white rounded-[2.5rem] p-6 border border-slate-100 shadow-sm">
+          <h3 className="text-[10px] font-black text-slate-800 uppercase tracking-widest mb-4">Productos Estancados (Sin movimientos y con stock)</h3>
           {stagnantProducts.length > 0 ? (
             <ul className="space-y-2">
-              {stagnantProducts.map(p => <li key={p.id} className="flex justify-between items-center bg-slate-50 p-3 rounded-xl text-xs"><span className="font-bold">{p.name}</span> <span className="text-slate-400 font-bold">{p.stock} {p.unit}</span></li>)}
+              {stagnantProducts.map(p => (
+                 <li key={p.id} onClick={() => onNavigate('productDetail', { push: true, state: { productId: p.id }})} className="flex justify-between items-center p-3 hover:bg-slate-50 rounded-2xl cursor-pointer">
+                  <div>
+                    <p className="text-xs font-bold text-slate-800">{p.name}</p>
+                    <p className="text-[8px] font-black text-slate-400 uppercase">{p.code}</p>
+                  </div>
+                  <p className="text-sm font-black text-amber-500">{p.stock} unds.</p>
+                </li>
+              ))}
             </ul>
-          ) : <EmptyState message="Todos los productos tuvieron movimiento"/>}
+          ) : <EmptyState message="Todos los productos con stock tuvieron movimiento" />}
         </div>
-      </div>
+       </div>
     </div>
   );
 };

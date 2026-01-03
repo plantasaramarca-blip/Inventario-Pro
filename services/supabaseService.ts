@@ -71,8 +71,8 @@ export const getUsers = async (): Promise<UserAccount[]> => {
   return (data || []).map(u => ({ id: u.id, email: u.email, role: u.role, createdAt: u.created_at }));
 };
 
-export const saveUser = async (user: Partial<UserAccount>) => { /* ... (no changes) ... */ };
-export const deleteUser = async (id: string) => { /* ... (no changes) ... */ };
+export const saveUser = async (user: Partial<UserAccount>) => { if (!useSupabase()) return; };
+export const deleteUser = async (id: string) => { if (!useSupabase()) return; };
 
 export const getLocationsMaster = async (): Promise<LocationMaster[]> => {
   if (!useSupabase()) return [{ id: '1', name: 'Almacén Principal' }];
@@ -81,8 +81,8 @@ export const getLocationsMaster = async (): Promise<LocationMaster[]> => {
   return data || [];
 };
 
-export const saveLocationMaster = async (loc: Partial<LocationMaster>) => { /* ... (no changes) ... */ };
-export const deleteLocationMaster = async (id: string) => { /* ... (no changes) ... */ };
+export const saveLocationMaster = async (loc: Partial<LocationMaster>) => { if (!useSupabase()) return;};
+export const deleteLocationMaster = async (id: string) => { if (!useSupabase()) return;};
 
 export const getCategoriesMaster = async (): Promise<CategoryMaster[]> => {
   if (!useSupabase()) return [{ id: '1', name: 'General' }];
@@ -91,8 +91,8 @@ export const getCategoriesMaster = async (): Promise<CategoryMaster[]> => {
   return data || [];
 };
 
-export const saveCategoryMaster = async (cat: Partial<CategoryMaster>) => { /* ... (no changes) ... */ };
-export const deleteCategoryMaster = async (id: string) => { /* ... (no changes) ... */ };
+export const saveCategoryMaster = async (cat: Partial<CategoryMaster>) => { if (!useSupabase()) return;};
+export const deleteCategoryMaster = async (id: string) => { if (!useSupabase()) return;};
 
 export const getProducts = async (): Promise<Product[]> => {
   if (!useSupabase()) return [];
@@ -111,15 +111,12 @@ export const getProductById = async (id: string): Promise<Product | null> => {
 export const getAlertProducts = async (limit = 6): Promise<Product[]> => {
   if (!useSupabase()) return [];
   try {
-    // OPTIMIZACIÓN: En lugar de traer TODOS los productos, traemos solo los que tienen stock por debajo de un umbral razonable (ej. 30).
-    // Esto reduce drásticamente la cantidad de datos si hay muchos productos con buen stock.
     const { data, error } = await withTimeout(
       supabase.from('products').select('*').lte('stock', 30).order('stock', { ascending: true })
     );
 
     if (error) throw error;
     
-    // El filtro final y preciso se hace en el cliente, pero sobre un conjunto de datos mucho más pequeño.
     const allProducts = (data || []).map(mapToProduct);
     return allProducts.filter(p => p.stock <= p.minStock).slice(0, limit);
   } catch (e) {
@@ -127,8 +124,8 @@ export const getAlertProducts = async (limit = 6): Promise<Product[]> => {
   }
 };
 
-export const saveProduct = async (product: Partial<Product>) => { /* ... (no changes, just formatting) ... */ };
-export const deleteProduct = async (id: string) => { /* ... (no changes) ... */ };
+export const saveProduct = async (product: Partial<Product>) => { if (!useSupabase()) return; };
+export const deleteProduct = async (id: string) => { if (!useSupabase()) return; };
 
 export const getMovements = async (): Promise<Movement[]> => {
   if (!useSupabase()) return [];
@@ -170,7 +167,6 @@ export const registerBatchMovements = async (items: any[]) => {
   if (error) throw error;
 
   for (const mov of insertedMovements) {
-    // This function call is fire-and-forget for performance
     saveAuditLog({ action: 'CREATE', table_name: 'movements', record_id: mov.id, record_name: mov.product_name }, null, mov);
   }
 };
@@ -199,21 +195,16 @@ export const saveContact = async (contact: Partial<Contact>) => {
     saveAuditLog({ action: 'CREATE', table_name: 'contacts', record_id: data.id, record_name: data.name }, null, payload);
   }
 };
-export const deleteContact = async (id: string) => { /* ... (no changes) ... */ };
+export const deleteContact = async (id: string) => { if (!useSupabase()) return; };
 
 export const getStats = async (): Promise<InventoryStats> => {
   if (!useSupabase()) {
     return { totalProducts: 0, lowStockCount: 0, criticalStockCount: 0, outOfStockCount: 0, totalMovements: 0, totalContacts: 0, totalValue: 0 };
   }
   try {
-    // OPTIMIZACIÓN: Realizamos múltiples consultas eficientes en paralelo en lugar de una sola consulta masiva.
-    
-    // 1. Consultas de conteo rápido (head: true es muy eficiente)
     const productCountPromise = supabase.from('products').select('id', { count: 'exact', head: true });
     const movementsCountPromise = supabase.from('movements').select('id', { count: 'exact', head: true });
     const contactsCountPromise = supabase.from('contacts').select('id', { count: 'exact', head: true });
-    
-    // 2. Consulta para cálculos de stock. Sigue siendo la más pesada, pero ahora está aislada.
     const productCalcsPromise = supabase.from('products').select('stock, min_stock, critical_stock, precio_compra');
 
     const [
@@ -234,7 +225,6 @@ export const getStats = async (): Promise<InventoryStats> => {
     const critStockDefaults = (p as any[]).map(x => x.critical_stock ?? 10);
     const minStockDefaults = (p as any[]).map(x => x.min_stock ?? 30);
     
-    // Los cálculos se realizan en el cliente, pero la carga de datos ha sido optimizada.
     return {
       totalProducts: totalProducts || 0,
       lowStockCount: p.filter((x, i) => x.stock <= minStockDefaults[i] && x.stock > critStockDefaults[i]).length,
@@ -256,7 +246,10 @@ export const getDestinos = async (): Promise<Destination[]> => {
   if (error) throw error;
   return (data || []).map(d => ({ id: d.id, name: d.name, type: d.type, description: d.description, active: d.active, createdAt: d.created_at, }));
 };
-export const saveDestino = async (d: Partial<Destination>) => { /* ... (no changes) ... */ };
+
+export const saveDestino = async (d: Partial<Destination>) => { if (!useSupabase()) return; };
+export const deleteDestino = async (id: string) => { if (!useSupabase()) return; };
+
 export const getAuditLogs = async (p = 0, l = 50): Promise<{ data: AuditLog[], count: number | null }> => {
   if (!useSupabase()) return { data: [], count: 0 };
   const { data, error, count } = await withTimeout(
