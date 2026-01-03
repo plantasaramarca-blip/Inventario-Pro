@@ -57,14 +57,10 @@ export default function App() {
   const [role, setRole] = useState<Role>('VIEWER');
   const [navigationState, setNavigationState] = useState<any>(null);
 
-  // Global State (Lightweight & Master Data)
+  // Global State for Master Data (for lazy loading)
   const [destinos, setDestinos] = useState<Destination[] | null>(null);
   const [categories, setCategories] = useState<CategoryMaster[] | null>(null);
   const [locations, setLocations] = useState<LocationMaster[] | null>(null);
-  
-  // Dashboard-specific state
-  const [stats, setStats] = useState<InventoryStats | null>(null);
-  const [alertProducts, setAlertProducts] = useState<Product[]>([]);
   
   const [installPrompt, setInstallPrompt] = useState<any>(null);
   const dataLoadedRef = useRef(false);
@@ -82,50 +78,7 @@ export default function App() {
     console.log(`User response: ${outcome}`);
     setInstallPrompt(null);
   };
-
-  // Carga inicial: Solo datos críticos para el Dashboard.
-  const loadInitialData = async () => {
-    setLoadingData(true);
-    setDataError(false);
-    try {
-      // 1. Cargar estadísticas (crítico para el dashboard)
-      const statsData = await api.getStats();
-      setStats(statsData);
-      
-      // 2. Cargar productos en alerta (crítico para el dashboard)
-      const alertProdsData = await api.getAlertProducts(6);
-      setAlertProducts(alertProdsData || []);
-
-      // Marcamos que los datos críticos están listos
-      dataLoadedRef.current = true;
-    } catch (e) {
-      console.error("Failed to load critical initial data", e);
-      setDataError(true); // Si los datos críticos fallan, es un error de bloqueo
-    } finally {
-      // Dejamos de bloquear la UI, el dashboard ya puede renderizar
-      setLoadingData(false);
-    }
-  };
-
-  // Carga en segundo plano: Datos maestros que no bloquean la UI inicial.
-  const loadMasterDataInBackground = async () => {
-    try {
-      // Se cargan secuencialmente para no saturar la conexión
-      const destinosData = await api.getDestinos();
-      setDestinos(destinosData || []);
-      
-      const catsData = await api.getCategoriesMaster();
-      setCategories(catsData || []);
-      
-      const locsData = await api.getLocationsMaster();
-      setLocations(locsData || []);
-    } catch (e) {
-      // Para errores de datos maestros, no bloqueamos la app.
-      console.error("Failed to load master data in background", e);
-    }
-  };
-
-
+  
   const fetchRole = async (email: string) => {
     try {
       const profile = await api.getCurrentUserProfile(email);
@@ -135,6 +88,23 @@ export default function App() {
     } catch (e) {
       console.warn("Error de red al sincronizar el rol. Usando la versión local.");
       setRole(localStorage.getItem('kardex_user_role') as Role || 'VIEWER');
+      throw e;
+    }
+  };
+
+  const loadInitialData = async (currentSession: any) => {
+    if (!currentSession?.user?.email) return;
+    if (dataLoadedRef.current) return;
+    setLoadingData(true);
+    setDataError(false);
+    try {
+      await fetchRole(currentSession.user.email);
+      dataLoadedRef.current = true;
+    } catch (e) {
+      console.error("Failed to load user profile", e);
+      setDataError(true);
+    } finally {
+      setLoadingData(false);
     }
   };
   
@@ -168,32 +138,48 @@ export default function App() {
 
   useEffect(() => {
     if (isSupabaseConfigured) {
-      supabase.auth.getSession().then(({ data: { session } }) => {
-        setSession(session);
+      supabase.auth.getSession().then(({ data: { session: currentSession } }) => {
+        setSession(currentSession);
         setLoadingSession(false);
+        if(currentSession) loadInitialData(currentSession);
       });
 
-      const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-        setSession(session);
+      const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, newSession) => {
+        if (JSON.stringify(session) !== JSON.stringify(newSession)) {
+          if (!newSession) { // User logged out
+            dataLoadedRef.current = false;
+            setDestinos(null); setCategories(null); setLocations(null);
+          }
+          setSession(newSession);
+        }
       });
 
       return () => subscription.unsubscribe();
     } else {
       const localSession = localStorage.getItem('kardex_local_session');
-      setSession(localSession ? JSON.parse(localSession) : null);
+      const currentSession = localSession ? JSON.parse(localSession) : null;
+      setSession(currentSession);
       setLoadingSession(false);
+      if (currentSession) loadInitialData(currentSession);
     }
   }, []);
-
-  useEffect(() => {
-    if (session && !dataLoadedRef.current) {
-      fetchRole(session.user.email!);
-      loadInitialData().then(() => {
-        loadMasterDataInBackground();
-      });
-    }
-  }, [session]);
   
+  const handleLoginSuccess = (newSession: any) => {
+    setSession(newSession);
+    loadInitialData(newSession);
+  };
+  
+  const handleLogout = async () => {
+    if (isSupabaseConfigured) {
+      await supabase.auth.signOut();
+    } else {
+      localStorage.removeItem('kardex_local_session');
+      setSession(null);
+    }
+    dataLoadedRef.current = false;
+    setCurrentPage('dashboard');
+  };
+
   const clearCache = (keys: Array<'destinos' | 'categories' | 'locations'>) => {
     keys.forEach(key => {
       if (key === 'destinos') setDestinos(null);
@@ -202,33 +188,31 @@ export default function App() {
     });
   };
 
-  if (loadingSession) return <div className="h-screen flex items-center justify-center bg-slate-50"><Loader2 className="animate-spin w-10 h-10 text-indigo-600" /></div>;
-  if (!session) return <Login />;
-  if (dataError) return <FullScreenError onRetry={loadInitialData} />;
+  if (loadingSession || (session && loadingData)) return <div className="h-screen flex items-center justify-center bg-slate-50"><Loader2 className="animate-spin w-10 h-10 text-indigo-600" /></div>;
+  if (!session) return <Login onLoginSuccess={handleLoginSuccess} />;
+  if (dataError) return <FullScreenError onRetry={() => loadInitialData(session)} />;
 
   const renderContent = () => {
-    if (loadingData) return <div className="h-full flex items-center justify-center"><Loader2 className="animate-spin w-10 h-10 text-indigo-600" /></div>;
-    
     switch (currentPage) {
       case 'productDetail': return <ProductDetail productId={navigationState?.productId} role={role} userEmail={session.user?.email} onBack={() => window.history.back()} onNavigate={navigateTo} />;
-      case 'inventory': return <Inventory role={role} onNavigate={navigateTo} initialState={navigationState} onInitialStateConsumed={() => setNavigationState(null)} categories={categories || []} locations={locations || []} />;
-      case 'kardex': return <Kardex role={role} userEmail={session.user?.email} initialState={navigationState} onInitialStateConsumed={() => setNavigationState(null)} destinos={destinos || []} locations={locations || []} />;
+      case 'inventory': return <Inventory role={role} onNavigate={navigateTo} initialState={navigationState} onInitialStateConsumed={() => setNavigationState(null)} categories={categories || []} setCategories={setCategories} locations={locations || []} setLocations={setLocations} />;
+      case 'kardex': return <Kardex role={role} userEmail={session.user?.email} initialState={navigationState} onInitialStateConsumed={() => setNavigationState(null)} destinos={destinos || []} setDestinos={setDestinos} locations={locations || []} setLocations={setLocations} />;
       case 'destinos': return <Destinos destinations={destinos} setDestinations={setDestinos} onCacheClear={clearCache} />;
       case 'reports': return <Reports onNavigate={navigateTo} />;
       case 'contacts': return <Contacts role={role} initialState={navigationState} onInitialStateConsumed={() => setNavigationState(null)} />;
       case 'categories': return <CategoryManagement role={role} categories={categories} setCategories={setCategories} onCacheClear={clearCache} />;
       case 'locations': return <LocationManagement role={role} locations={locations} setLocations={setLocations} onCacheClear={clearCache} />;
-      case 'users': return role === 'ADMIN' ? <UsersPage /> : <Dashboard onNavigate={navigateTo} stats={stats} alertProducts={alertProducts} />;
-      case 'audit': return role === 'ADMIN' ? <AuditPage /> : <Dashboard onNavigate={navigateTo} stats={stats} alertProducts={alertProducts} />;
-      default: return <Dashboard onNavigate={navigateTo} stats={stats} alertProducts={alertProducts} />;
+      case 'users': return role === 'ADMIN' ? <UsersPage /> : <Dashboard onNavigate={navigateTo} />;
+      case 'audit': return role === 'ADMIN' ? <AuditPage /> : <Dashboard onNavigate={navigateTo} />;
+      default: return <Dashboard onNavigate={navigateTo} />;
     }
   };
 
   return (
     <div className="flex h-screen overflow-hidden bg-slate-50 font-inter animate-in fade-in duration-300">
-      <Sidebar currentPage={currentPage} onNavigate={(p) => navigateTo(p, { push: true })} isOpen={isSidebarOpen} setIsOpen={setIsSidebarOpen} role={role} stats={stats} />
+      <Sidebar currentPage={currentPage} onNavigate={(p) => navigateTo(p, { push: true })} isOpen={isSidebarOpen} setIsOpen={setIsSidebarOpen} role={role} />
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden relative">
-        <Navbar onMenuClick={() => setIsSidebarOpen(true)} role={role} userEmail={session.user?.email} />
+        <Navbar onMenuClick={() => setIsSidebarOpen(true)} role={role} userEmail={session.user?.email} onLogout={handleLogout} />
         <main className="flex-1 overflow-y-auto p-3 sm:p-6 no-scrollbar"><div className="max-w-7xl mx-auto">{renderContent()}</div></main>
       </div>
       <CommandPalette isOpen={isCommandPaletteOpen} onClose={() => setIsCommandPaletteOpen(false)} onNavigate={navigateTo} />

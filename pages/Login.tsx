@@ -4,7 +4,11 @@ import { supabase, isSupabaseConfigured } from '../supabaseClient.ts';
 import { LogIn, Lock, Mail, Loader2, AlertCircle, ArrowRight, ShieldCheck } from 'https://esm.sh/lucide-react@0.475.0?external=react,react-dom';
 import * as api from '../services/supabaseService.ts';
 
-export const Login: React.FC = () => {
+interface LoginProps {
+  onLoginSuccess: (session: any) => void;
+}
+
+export const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -21,7 +25,7 @@ export const Login: React.FC = () => {
         const userEmail = email || 'admin@local.com';
         const fakeSession = { user: { email: userEmail, id: 'local-id' } };
         localStorage.setItem('kardex_local_session', JSON.stringify(fakeSession));
-        window.location.reload(); 
+        onLoginSuccess(fakeSession);
       }, 800);
       return;
     }
@@ -36,8 +40,9 @@ export const Login: React.FC = () => {
         setError("Cuenta creada. Verifique su correo para confirmar.");
         setIsRegistering(false);
       } else {
-        const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
+        const { data, error: signInError } = await supabase.auth.signInWithPassword({ email, password });
         if (signInError) throw signInError;
+        if (data.session) onLoginSuccess(data.session);
       }
     } catch (err: any) {
       setError(err.message);

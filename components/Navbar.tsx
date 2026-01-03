@@ -5,15 +5,21 @@ import { Role } from '../types.ts';
 import { supabase, isSupabaseConfigured } from '../supabaseClient.ts';
 import { CustomDialog } from './CustomDialog.tsx';
 
-export const Navbar: React.FC<{ onMenuClick: () => void; role: Role; userEmail?: string }> = ({ onMenuClick, role, userEmail }) => {
+interface NavbarProps {
+  onMenuClick: () => void;
+  role: Role;
+  userEmail?: string;
+  onLogout: () => Promise<void>;
+}
+
+export const Navbar: React.FC<NavbarProps> = ({ onMenuClick, role, userEmail, onLogout }) => {
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
 
   const handleLogout = async () => {
     setIsLoggingOut(true);
-    if (isSupabaseConfigured) await supabase.auth.signOut();
-    localStorage.removeItem('kardex_local_session');
-    window.location.reload();
+    await onLogout();
+    // No reload needed, App component will handle re-render
   };
 
   return (
