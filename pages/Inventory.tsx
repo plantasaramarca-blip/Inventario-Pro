@@ -39,7 +39,7 @@ export const Inventory: React.FC<InventoryProps> = ({ role, onNavigate, initialS
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [imageInfo, setImageInfo] = useState<{ size: string; status: string } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [formData, setFormData] = useState<any>({});
+  const [formData, setFormData] = useState<Partial<Product>>({});
   const [isScannerOpen, setIsScannerOpen] = useState(false);
   const [productToDelete, setProductToDelete] = useState<Product | null>(null);
   const { addNotification } = useNotification();
@@ -88,7 +88,7 @@ export const Inventory: React.FC<InventoryProps> = ({ role, onNavigate, initialS
     if (product) { setEditingProduct(product); setFormData({ ...product }); }
     else {
       setEditingProduct(null);
-      setFormData({ id: crypto.randomUUID(), code: `SKU-${String(products.length + 1).padStart(4, '0')}`, name: '', brand: '', size: '', model: '', category: '', location: '', stock: 0, minStock: 30, criticalStock: 10, purchasePrice: 0, salePrice: 0, currency: 'PEN', unit: 'PAR', imageUrl: '' });
+      setFormData({ id: crypto.randomUUID(), code: '', name: '', brand: '', size: '', model: '', category: '', location: '', stock: 0, minStock: 30, criticalStock: 10, purchasePrice: 0, salePrice: 0, currency: 'PEN', unit: 'PAR', imageUrl: '' });
     }
     setIsModalOpen(true);
   };
@@ -111,20 +111,28 @@ export const Inventory: React.FC<InventoryProps> = ({ role, onNavigate, initialS
     e.preventDefault(); 
     const codeToCheck = formData.code?.trim().toLowerCase();
     
-    // Validar si el código ya existe SOLO al crear un nuevo producto
-    if (!editingProduct && products.some(p => p.code.trim().toLowerCase() === codeToCheck)) {
-      addNotification(`El código SKU "${formData.code}" ya existe.`, 'error');
+    if (!codeToCheck || !formData.name) {
+      addNotification('El código y el nombre son obligatorios.', 'error');
       return;
     }
-    // Si estamos editando, nos aseguramos que no colisione con OTRO producto
-    if (editingProduct && products.some(p => p.code.trim().toLowerCase() === codeToCheck && p.id !== editingProduct.id)) {
-      addNotification(`El código SKU "${formData.code}" ya pertenece a otro producto.`, 'error');
-      return;
+
+    if (editingProduct) { // Estamos editando
+      if (products.some(p => p.code.trim().toLowerCase() === codeToCheck && p.id !== editingProduct.id)) {
+        addNotification(`El código SKU "${formData.code}" ya pertenece a otro producto.`, 'error');
+        return;
+      }
+    } else { // Estamos creando
+      if (products.some(p => p.code.trim().toLowerCase() === codeToCheck)) {
+        addNotification(`El código SKU "${formData.code}" ya existe.`, 'error');
+        return;
+      }
     }
     
     setSaving(true);
     try { 
-      await api.saveProduct(formData); setIsModalOpen(false); await loadData();
+      await api.saveProduct(formData as Product);
+      setIsModalOpen(false);
+      await loadData();
       addNotification(`"${formData.name}" guardado con éxito.`, 'success');
     } catch (err) { addNotification("Error al guardar producto.", 'error');
     } finally { setSaving(false); }
@@ -171,31 +179,77 @@ export const Inventory: React.FC<InventoryProps> = ({ role, onNavigate, initialS
       </div>
       
        {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-in fade-in duration-300">
           <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm"></div>
-          <form onSubmit={handleSubmit} className="relative bg-white rounded-[2.5rem] p-8 w-full max-w-4xl shadow-2xl animate-in zoom-in-95">
-             <div className="flex justify-between items-center mb-6">
-                <h3 className="text-xl font-black text-slate-800 uppercase tracking-tight">{editingProduct ? 'Editar Producto' : 'Nuevo Producto'}</h3>
-                <button type="button" onClick={() => setIsModalOpen(false)} className="p-2 hover:bg-slate-100 rounded-xl"><X className="text-slate-400 w-5 h-5" /></button>
-             </div>
-             <div className="grid grid-cols-1 md:grid-cols-3 gap-x-6 gap-y-4">
-                <div className="md:col-span-1 space-y-1">
-                   <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-2">SKU / Código</label>
-                   <input onBlur={checkExistingCode} type="text" required value={formData.code || ''} onChange={e => setFormData({...formData, code: e.target.value})} className="w-full p-3 bg-slate-100 rounded-xl outline-none font-bold text-sm uppercase" />
+          <div className="relative bg-white rounded-[2.5rem] w-full max-w-4xl shadow-2xl animate-in zoom-in-95">
+            <form onSubmit={handleSubmit}>
+              <div className="p-8">
+                <div className="flex justify-between items-start mb-6">
+                  <div>
+                    <h3 className="text-2xl font-black text-slate-800 uppercase tracking-tighter">NUEVO PRODUCTO</h3>
+                    <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-1">CONTROL DE INVENTARIO ESPECIALIZADO</p>
+                  </div>
+                  <button type="button" onClick={() => setIsModalOpen(false)} className="p-2 text-slate-400 hover:bg-slate-100 rounded-xl"><X className="w-5 h-5" /></button>
                 </div>
-                 <div className="md:col-span-2 space-y-1">
-                   <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-2">Nombre del Producto</label>
-                   <input type="text" required value={formData.name || ''} onChange={e => setFormData({...formData, name: e.target.value})} className="w-full p-3 bg-slate-100 rounded-xl outline-none font-bold text-sm uppercase" />
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  <div className="md:col-span-1 flex flex-col items-center">
+                     <div className="w-full aspect-square bg-slate-50 rounded-3xl border-2 border-dashed flex items-center justify-center mb-4">
+                        <ImageIcon className="text-slate-300 w-16 h-16" />
+                     </div>
+                  </div>
+                  <div className="md:col-span-2 grid grid-cols-2 gap-x-4 gap-y-5">
+                    <div className="col-span-2">
+                      <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2 block">Nombre del Producto *</label>
+                      <input type="text" required value={formData.name || ''} onChange={e => setFormData({...formData, name: e.target.value})} className="w-full px-4 py-3 bg-slate-100 rounded-xl outline-none font-semibold text-sm text-slate-700" placeholder="EJ: ZAPATILLAS DEPORTIVAS" />
+                    </div>
+                    <div>
+                       <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2 block">Código SKU / QR</label>
+                       <input onBlur={checkExistingCode} type="text" required value={formData.code || ''} onChange={e => setFormData({...formData, code: e.target.value.toUpperCase()})} className="w-full px-4 py-3 bg-slate-100 rounded-xl outline-none font-semibold text-sm text-slate-700" placeholder="8-97359803-0" />
+                    </div>
+                    <div>
+                       <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2 block">Marca</label>
+                       <input type="text" value={formData.brand || ''} onChange={e => setFormData({...formData, brand: e.target.value})} className="w-full px-4 py-3 bg-slate-100 rounded-xl outline-none font-semibold text-sm text-slate-700" placeholder="MARCA..." />
+                    </div>
+                     <div>
+                       <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2 block">Modelo</label>
+                       <input type="text" value={formData.model || ''} onChange={e => setFormData({...formData, model: e.target.value})} className="w-full px-4 py-3 bg-slate-100 rounded-xl outline-none font-semibold text-sm text-slate-700" placeholder="MODELO..." />
+                    </div>
+                    <div>
+                       <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2 block">Unidad</label>
+                       <select value={formData.unit || 'PAR'} onChange={e => setFormData({...formData, unit: e.target.value})} className="w-full px-4 py-3 bg-slate-100 rounded-xl outline-none font-semibold text-sm text-slate-700 appearance-none">
+                         <option>PAR</option><option>UND</option><option>CAJA</option><option>SET</option>
+                       </select>
+                    </div>
+                    <div>
+                       <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2 block">Almacén</label>
+                       <select value={formData.location || ''} onChange={e => setFormData({...formData, location: e.target.value})} className="w-full px-4 py-3 bg-slate-100 rounded-xl outline-none font-semibold text-sm text-slate-700 appearance-none">
+                          <option value="">SELECCIONE...</option>
+                          {locations.map(l => <option key={l.id} value={l.name}>{l.name}</option>)}
+                       </select>
+                    </div>
+                     <div>
+                       <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2 block">Categoría</label>
+                       <select value={formData.category || ''} onChange={e => setFormData({...formData, category: e.target.value})} className="w-full px-4 py-3 bg-slate-100 rounded-xl outline-none font-semibold text-sm text-slate-700 appearance-none">
+                         <option value="">SELECCIONE...</option>
+                         {categories.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
+                       </select>
+                    </div>
+                    <div>
+                       <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2 block">Talla / Medida</label>
+                       <input type="text" value={formData.size || ''} onChange={e => setFormData({...formData, size: e.target.value})} className="w-full px-4 py-3 bg-slate-100 rounded-xl outline-none font-semibold text-sm text-slate-700" />
+                    </div>
+                  </div>
                 </div>
-                {/* ... (resto del formulario sin cambios) ... */}
-                <div className="md:col-span-3 flex justify-end gap-3 pt-4 border-t mt-2">
-                   <button type="button" onClick={() => setIsModalOpen(false)} className="px-8 py-3 text-[10px] font-black uppercase text-slate-400">Cancelar</button>
-                   <button type="submit" disabled={saving} className="px-8 py-3 bg-indigo-600 text-white rounded-2xl text-[10px] font-black uppercase shadow-xl flex items-center gap-2">
-                     {saving ? <Loader2 className="animate-spin w-4 h-4" /> : <Save className="w-4 h-4" />} {editingProduct ? 'Actualizar' : 'Guardar'}
-                   </button>
-                </div>
-             </div>
-          </form>
+              </div>
+              <div className="p-6 bg-slate-50 border-t flex justify-end items-center gap-4">
+                 <button type="button" onClick={() => setIsModalOpen(false)} className="px-8 py-3 text-[10px] font-black uppercase text-slate-500 hover:text-slate-800">CANCELAR</button>
+                 <button type="submit" disabled={saving} className="px-8 py-4 bg-indigo-600 text-white rounded-xl text-[10px] font-black uppercase shadow-lg shadow-indigo-100 flex items-center gap-2 hover:bg-indigo-700 transition-all active:scale-95">
+                   {saving ? <Loader2 className="animate-spin w-4 h-4" /> : <Save className="w-4 h-4" />} CONFIRMAR CAMBIOS
+                 </button>
+              </div>
+            </form>
+          </div>
         </div>
       )}
 
