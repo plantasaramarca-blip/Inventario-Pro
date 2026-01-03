@@ -83,31 +83,48 @@ export default function App() {
     setInstallPrompt(null);
   };
 
-  // Carga inicial ultraligera: solo datos del dashboard y maestros.
+  // Carga inicial: Solo datos críticos para el Dashboard.
   const loadInitialData = async () => {
     setLoadingData(true);
     setDataError(false);
     try {
-      const [statsData, alertProdsData, destinosData, catsData, locsData] = await Promise.all([
-        api.getStats(),
-        api.getAlertProducts(6),
-        api.getDestinos(), 
-        api.getCategoriesMaster(), 
-        api.getLocationsMaster(),
-      ]);
+      // 1. Cargar estadísticas (crítico para el dashboard)
+      const statsData = await api.getStats();
       setStats(statsData);
+      
+      // 2. Cargar productos en alerta (crítico para el dashboard)
+      const alertProdsData = await api.getAlertProducts(6);
       setAlertProducts(alertProdsData || []);
-      setDestinos(destinosData || []);
-      setCategories(catsData || []); 
-      setLocations(locsData || []);
+
+      // Marcamos que los datos críticos están listos
       dataLoadedRef.current = true;
     } catch (e) {
-      console.error("Failed to load initial data", e);
-      setDataError(true);
+      console.error("Failed to load critical initial data", e);
+      setDataError(true); // Si los datos críticos fallan, es un error de bloqueo
     } finally {
+      // Dejamos de bloquear la UI, el dashboard ya puede renderizar
       setLoadingData(false);
     }
   };
+
+  // Carga en segundo plano: Datos maestros que no bloquean la UI inicial.
+  const loadMasterDataInBackground = async () => {
+    try {
+      // Se cargan secuencialmente para no saturar la conexión
+      const destinosData = await api.getDestinos();
+      setDestinos(destinosData || []);
+      
+      const catsData = await api.getCategoriesMaster();
+      setCategories(catsData || []);
+      
+      const locsData = await api.getLocationsMaster();
+      setLocations(locsData || []);
+    } catch (e) {
+      // Para errores de datos maestros, no bloqueamos la app.
+      console.error("Failed to load master data in background", e);
+    }
+  };
+
 
   const fetchRole = async (email: string) => {
     try {
@@ -171,7 +188,9 @@ export default function App() {
   useEffect(() => {
     if (session && !dataLoadedRef.current) {
       fetchRole(session.user.email!);
-      loadInitialData();
+      loadInitialData().then(() => {
+        loadMasterDataInBackground();
+      });
     }
   }, [session]);
   
