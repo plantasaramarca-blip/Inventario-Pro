@@ -166,7 +166,7 @@ export const Inventory: React.FC<InventoryProps> = ({ role, onNavigate, initialS
       
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
         <div className="relative group md:col-span-1">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300 group-focus-within:text-indigo-500 transition-colors" />
+          <Search className="absolute left-4 top-1/2 -translate-y-1.2 w-4 h-4 text-slate-300 group-focus-within:text-indigo-500 transition-colors" />
           <input type="text" className="w-full pl-12 pr-12 py-4 bg-white border border-slate-100 rounded-2xl text-xs outline-none shadow-sm focus:ring-2 focus:ring-indigo-500 transition-all font-bold" placeholder="Buscar por nombre, SKU o marca..." value={search} onChange={e => setSearch(e.target.value)} />
           {search && <button onClick={() => setSearch('')} className="absolute right-4 top-1/2 -translate-y-1/2 p-1 hover:bg-slate-100 rounded-full"><X className="w-3 h-3 text-slate-400" /></button>}
         </div>
@@ -181,7 +181,7 @@ export const Inventory: React.FC<InventoryProps> = ({ role, onNavigate, initialS
        {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-in fade-in duration-300">
           <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm"></div>
-          <div className="relative bg-white rounded-[2.5rem] w-full max-w-4xl shadow-2xl animate-in zoom-in-95">
+          <div className="relative bg-white rounded-[2.5rem] w-full max-w-4xl shadow-2xl animate-in zoom-in-95" onClick={e => e.stopPropagation()}>
             <form onSubmit={handleSubmit}>
               <div className="p-8">
                 <div className="flex justify-between items-start mb-6">
