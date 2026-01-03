@@ -165,7 +165,7 @@ export const Inventory: React.FC<InventoryProps> = ({ role, userEmail, onNavigat
       </div>
       
        {isModalOpen && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 animate-in fade-in duration-300" onClick={() => setIsModalOpen(false)}>
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 animate-in fade-in duration-300">
           <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm"></div>
           <div className="relative bg-white rounded-[2.5rem] w-full max-w-4xl shadow-2xl animate-in zoom-in-95" onClick={e => e.stopPropagation()}>
             <form onSubmit={handleSubmit}>
@@ -183,9 +183,41 @@ export const Inventory: React.FC<InventoryProps> = ({ role, userEmail, onNavigat
                      </div>
                   </div>
                   <div className="md:col-span-2 grid grid-cols-2 gap-x-4 gap-y-5">
-                    <div className="col-span-2"><label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2 block">Nombre del Producto *</label><input type="text" required value={formData.name || ''} onChange={e => setFormData({...formData, name: e.target.value})} className="w-full px-4 py-3 bg-slate-100 rounded-xl outline-none font-semibold text-sm text-slate-700" placeholder="EJ: ZAPATILLAS DEPORTIVAS" /></div>
-                    <div><label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2 block">Código SKU / QR</label><input onBlur={checkExistingCode} type="text" required value={formData.code || ''} onChange={e => setFormData({...formData, code: e.target.value.toUpperCase()})} className="w-full px-4 py-3 bg-slate-100 rounded-xl outline-none font-semibold text-sm text-slate-700" placeholder="8-97359803-0" /></div>
-                    {!editingProduct && (<div><label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2 block flex items-center gap-2"><PackagePlus className="w-3 h-3"/> Stock Inicial</label><input type="number" min="0" value={formData.stock || ''} onChange={e => setFormData({...formData, stock: parseInt(e.target.value)})} className="w-full px-4 py-3 bg-slate-100 rounded-xl outline-none font-semibold text-sm text-slate-700" placeholder="0" /></div>)}
+                    
+                    <div className={editingProduct ? 'col-span-2' : 'col-span-1'}>
+                      <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2 block">Código SKU / QR *</label>
+                      <input 
+                        onBlur={checkExistingCode} 
+                        type="text" 
+                        required 
+                        value={formData.code || ''} 
+                        onChange={e => setFormData({...formData, code: e.target.value.toUpperCase()})}
+                        readOnly={!!editingProduct}
+                        className={`w-full px-4 py-3 bg-slate-100 rounded-xl outline-none font-semibold text-sm text-slate-700 ${!!editingProduct ? 'opacity-70 cursor-not-allowed' : ''}`}
+                        placeholder="INGRESE O ESCANEE"
+                      />
+                    </div>
+                    
+                    {!editingProduct && (
+                      <div>
+                        <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2 block flex items-center gap-2"><PackagePlus className="w-3 h-3"/> Stock Inicial</label>
+                        <input type="number" min="0" value={formData.stock || ''} onChange={e => setFormData({...formData, stock: parseInt(e.target.value) || 0})} className="w-full px-4 py-3 bg-slate-100 rounded-xl outline-none font-semibold text-sm text-slate-700" placeholder="0" />
+                      </div>
+                    )}
+
+                    <div className="col-span-2">
+                      <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2 block">Nombre del Producto *</label>
+                      <input 
+                        type="text" 
+                        required 
+                        value={formData.name || ''} 
+                        onChange={e => setFormData({...formData, name: e.target.value})} 
+                        readOnly={!!editingProduct}
+                        className={`w-full px-4 py-3 bg-slate-100 rounded-xl outline-none font-semibold text-sm text-slate-700 ${!!editingProduct ? 'opacity-70 cursor-not-allowed' : ''}`}
+                        placeholder="EJ: ZAPATILLAS DEPORTIVAS"
+                      />
+                    </div>
+
                     <div><label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2 block">Marca</label><input type="text" value={formData.brand || ''} onChange={e => setFormData({...formData, brand: e.target.value})} className="w-full px-4 py-3 bg-slate-100 rounded-xl outline-none font-semibold text-sm text-slate-700" placeholder="MARCA..." /></div>
                     <div><label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2 block">Modelo</label><input type="text" value={formData.model || ''} onChange={e => setFormData({...formData, model: e.target.value})} className="w-full px-4 py-3 bg-slate-100 rounded-xl outline-none font-semibold text-sm text-slate-700" placeholder="MODELO..." /></div>
                     <div><label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2 block">Unidad</label><select value={formData.unit || 'PAR'} onChange={e => setFormData({...formData, unit: e.target.value})} className="w-full px-4 py-3 bg-slate-100 rounded-xl outline-none font-semibold text-sm text-slate-700 appearance-none"><option>PAR</option><option>UND</option><option>CAJA</option><option>SET</option></select></div>
