@@ -38,6 +38,8 @@ export interface Contact {
   phone?: string;
   email?: string;
   taxId?: string;
+  address?: string; // Nuevo: Dirección
+  notes?: string;   // Nuevo: Notas
 }
 
 export interface Product {
@@ -72,7 +74,7 @@ export interface Movement {
   dispatcher: string;
   reason: string;
   balanceAfter: number;
-  contactId?: string;
+  contactId?: string;    // ID del Contacto (Cliente/Proveedor)
   contactName?: string;
   supplierName?: string; // Nuevo: Nombre del proveedor en ingresos
   carriedBy?: string;    // Nuevo: Quién llevó la mercadería en salidas

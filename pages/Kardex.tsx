@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { Movement, Product, TransactionType, Destination, Role, LocationMaster } from '../types.ts';
+import { Movement, Product, TransactionType, Destination, Role, LocationMaster, Contact } from '../types.ts';
 import * as api from '../services/supabaseService.ts';
 import { useNotification } from '../contexts/NotificationContext.tsx';
 import { DispatchNote } from '../components/DispatchNote.tsx';
@@ -23,6 +23,7 @@ interface KardexProps {
 export const Kardex: React.FC<KardexProps> = ({ role, userEmail, initialState, onInitialStateConsumed, destinos, locations }) => {
   const [movements, setMovements] = useState<Movement[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
+  const [contacts, setContacts] = useState<Contact[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(0);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -32,8 +33,8 @@ export const Kardex: React.FC<KardexProps> = ({ role, userEmail, initialState, o
   const [cartItems, setCartItems] = useState<any[]>([]);
   const [selectedDestinoId, setSelectedDestinoId] = useState('');
   const [selectedLocationId, setSelectedLocationId] = useState('');
+  const [selectedSupplierId, setSelectedSupplierId] = useState('');
   const [carriedBy, setCarriedBy] = useState('');
-  const [supplierName, setSupplierName] = useState('');
   const [reason, setReason] = useState('');
   const { addNotification } = useNotification();
   const [dispatchNoteData, setDispatchNoteData] = useState<any>(null);
@@ -43,9 +44,10 @@ export const Kardex: React.FC<KardexProps> = ({ role, userEmail, initialState, o
   const loadData = async () => {
     setLoading(true);
     try {
-      const [movs, prods] = await Promise.all([api.getMovements(), api.getProducts()]);
+      const [movs, prods, conts] = await Promise.all([api.getMovements(), api.getProducts(), api.getContacts()]);
       setMovements(movs || []);
       setProducts(prods || []);
+      setContacts(conts || []);
     } catch (e) {
       addNotification('Error al cargar datos de kardex.', 'error');
     } finally {
@@ -62,6 +64,8 @@ export const Kardex: React.FC<KardexProps> = ({ role, userEmail, initialState, o
       onInitialStateConsumed();
     }
   }, [initialState]);
+  
+  const suppliers = useMemo(() => contacts.filter(c => c.type === 'PROVEEDOR'), [contacts]);
 
   const totalPages = Math.ceil(movements.length / ITEMS_PER_PAGE);
   const paginatedMovements = movements.slice(currentPage * ITEMS_PER_PAGE, (currentPage + 1) * ITEMS_PER_PAGE);
@@ -98,8 +102,22 @@ export const Kardex: React.FC<KardexProps> = ({ role, userEmail, initialState, o
     setSaving(true);
     try {
       const destinoObj = type === 'SALIDA' ? destinos.find(d => d.id === selectedDestinoId) : null;
+      const supplierObj = type === 'INGRESO' ? suppliers.find(s => s.id === selectedSupplierId) : null;
       const locationObj = type === 'INGRESO' ? locations.find(l => l.name === selectedLocationId) : null;
-      const batchPayload = cartItems.map(item => ({ productId: item.productId, name: item.name, type, quantity: item.quantity, dispatcher: userEmail, reason: type === 'SALIDA' ? `${reason} (Transp: ${carriedBy})` : `${reason} (Prov: ${supplierName})`, destinationName: type === 'SALIDA' ? destinoObj?.name : locationObj?.name }));
+      
+      const batchPayload = cartItems.map(item => ({ 
+          productId: item.productId, 
+          name: item.name, 
+          type, 
+          quantity: item.quantity, 
+          dispatcher: userEmail, 
+          reason,
+          destinationName: type === 'SALIDA' ? destinoObj?.name : null,
+          locationName: type === 'INGRESO' ? locationObj?.name : null,
+          contactId: type === 'INGRESO' ? supplierObj?.id : null,
+          supplierName: type === 'INGRESO' ? supplierObj?.name : null
+      }));
+      
       await api.registerBatchMovements(batchPayload); 
       
       if (type === 'SALIDA') { setDispatchNoteData({ items: cartItems, destination: destinoObj, transportista: carriedBy, observaciones: reason, responsable: userEmail, }); }
@@ -136,6 +154,18 @@ export const Kardex: React.FC<KardexProps> = ({ role, userEmail, initialState, o
           <form onSubmit={handleSubmit} onClick={e => e.stopPropagation()} className="relative bg-white rounded-3xl w-full max-w-4xl shadow-2xl animate-in zoom-in-95 flex flex-col h-[85vh]">
             {/* ... Modal content ... */}
             <div className="relative">
+              {type === 'INGRESO' && (
+                <div className="grid grid-cols-2 gap-3 mb-3">
+                  <select required value={selectedLocationId} onChange={e => setSelectedLocationId(e.target.value)} className="w-full p-3 bg-slate-100 rounded-xl font-bold text-sm uppercase">
+                    <option value="">Almacén de Ingreso...</option>
+                    {locations.map(l => <option key={l.id} value={l.name}>{l.name}</option>)}
+                  </select>
+                  <select required value={selectedSupplierId} onChange={e => setSelectedSupplierId(e.target.value)} className="w-full p-3 bg-slate-100 rounded-xl font-bold text-sm uppercase">
+                    <option value="">Seleccionar Proveedor...</option>
+                    {suppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                  </select>
+                </div>
+              )}
               <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300 pointer-events-none" />
               <input
                 ref={productSearchInputRef}
