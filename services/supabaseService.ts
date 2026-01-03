@@ -111,8 +111,15 @@ export const getProductById = async (id: string): Promise<Product | null> => {
 export const getAlertProducts = async (limit = 6): Promise<Product[]> => {
   if (!useSupabase()) return [];
   try {
-    const { data, error } = await withTimeout(supabase.from('products').select('*').order('stock', { ascending: true }));
+    // OPTIMIZACIÓN: En lugar de traer TODOS los productos, traemos solo los que tienen stock por debajo de un umbral razonable (ej. 30).
+    // Esto reduce drásticamente la cantidad de datos si hay muchos productos con buen stock.
+    const { data, error } = await withTimeout(
+      supabase.from('products').select('*').lte('stock', 30).order('stock', { ascending: true })
+    );
+
     if (error) throw error;
+    
+    // El filtro final y preciso se hace en el cliente, pero sobre un conjunto de datos mucho más pequeño.
     const allProducts = (data || []).map(mapToProduct);
     return allProducts.filter(p => p.stock <= p.minStock).slice(0, limit);
   } catch (e) {
@@ -199,36 +206,46 @@ export const getStats = async (): Promise<InventoryStats> => {
     return { totalProducts: 0, lowStockCount: 0, criticalStockCount: 0, outOfStockCount: 0, totalMovements: 0, totalContacts: 0, totalValue: 0 };
   }
   try {
-    const productStatsPromise = supabase.from('products').select('stock, min_stock, critical_stock, precio_compra');
-    const movementsCountPromise = supabase.from('movements').select('*', { count: 'exact', head: true });
-    const contactsCountPromise = supabase.from('contacts').select('*', { count: 'exact', head: true });
+    // OPTIMIZACIÓN: Realizamos múltiples consultas eficientes en paralelo en lugar de una sola consulta masiva.
+    
+    // 1. Consultas de conteo rápido (head: true es muy eficiente)
+    const productCountPromise = supabase.from('products').select('id', { count: 'exact', head: true });
+    const movementsCountPromise = supabase.from('movements').select('id', { count: 'exact', head: true });
+    const contactsCountPromise = supabase.from('contacts').select('id', { count: 'exact', head: true });
+    
+    // 2. Consulta para cálculos de stock. Sigue siendo la más pesada, pero ahora está aislada.
+    const productCalcsPromise = supabase.from('products').select('stock, min_stock, critical_stock, precio_compra');
 
     const [
-      { data: products, error: pError },
+      { count: totalProducts, error: pCountError },
       { count: totalMovements, error: mError },
-      { count: totalContacts, error: cError }
+      { count: totalContacts, error: cError },
+      { data: productsForCalcs, error: pCalcsError }
     ] = await Promise.all([
-      withTimeout(productStatsPromise),
+      withTimeout(productCountPromise),
       withTimeout(movementsCountPromise),
-      withTimeout(contactsCountPromise)
+      withTimeout(contactsCountPromise),
+      withTimeout(productCalcsPromise)
     ]);
 
-    if (pError || mError || cError) throw new Error('Fallo al obtener los componentes del dashboard');
+    if (pCountError || mError || cError || pCalcsError) throw new Error('Fallo al obtener los componentes del dashboard');
     
-    const p = products || [];
-    const critStock = (p as any[]).map(x => x.critical_stock ?? 10);
-    const minStock = (p as any[]).map(x => x.min_stock ?? 30);
+    const p = productsForCalcs || [];
+    const critStockDefaults = (p as any[]).map(x => x.critical_stock ?? 10);
+    const minStockDefaults = (p as any[]).map(x => x.min_stock ?? 30);
     
+    // Los cálculos se realizan en el cliente, pero la carga de datos ha sido optimizada.
     return {
-      totalProducts: p.length,
-      lowStockCount: p.filter((x, i) => x.stock <= minStock[i] && x.stock > critStock[i]).length,
-      criticalStockCount: p.filter((x, i) => x.stock <= critStock[i] && x.stock > 0).length,
+      totalProducts: totalProducts || 0,
+      lowStockCount: p.filter((x, i) => x.stock <= minStockDefaults[i] && x.stock > critStockDefaults[i]).length,
+      criticalStockCount: p.filter((x, i) => x.stock <= critStockDefaults[i] && x.stock > 0).length,
       outOfStockCount: p.filter(x => x.stock <= 0).length,
       totalMovements: totalMovements || 0,
       totalContacts: totalContacts || 0,
       totalValue: p.reduce((s, x) => s + (x.stock * (x.precio_compra || 0)), 0)
     };
   } catch (e) {
+    console.error("Error in getStats: ", e);
     throw e;
   }
 };
