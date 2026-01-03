@@ -32,24 +32,10 @@ const NotificationContainer = () => {
   );
 };
 
-const FullScreenError: React.FC<{ onRetry: () => void }> = ({ onRetry }) => (
-  <div className="h-screen flex items-center justify-center bg-slate-50">
-    <div className="text-center animate-in zoom-in-95 bg-white p-10 rounded-[3rem] border border-slate-100 shadow-2xl">
-      <RefreshCcw className="h-12 w-12 text-rose-500 mx-auto mb-4" />
-      <h3 className="text-sm font-black text-slate-800 uppercase mb-2">Error de Conexión</h3>
-      <p className="text-[10px] font-bold text-slate-400 uppercase mb-6">No se pudo sincronizar con la base de datos. Verifica tu internet.</p>
-      <button onClick={onRetry} className="bg-indigo-600 text-white px-8 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-xl shadow-indigo-100 hover:bg-indigo-700 active:scale-95 transition-all">
-        Reintentar Carga
-      </button>
-    </div>
-  </div>
-);
-
 export default function App() {
   const [session, setSession] = useState<any>(null);
   const [loadingSession, setLoadingSession] = useState(true);
   const [loadingData, setLoadingData] = useState(false);
-  const [dataError, setDataError] = useState(false);
   
   const [currentPage, setCurrentPage] = useState('dashboard');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -64,6 +50,7 @@ export default function App() {
   
   const [installPrompt, setInstallPrompt] = useState<any>(null);
   const dataLoadedRef = useRef(false);
+  const { addNotification } = useNotification();
 
   useEffect(() => {
     const handleBeforeInstallPrompt = (e: Event) => { e.preventDefault(); setInstallPrompt(e); };
@@ -88,24 +75,16 @@ export default function App() {
     } catch (e) {
       console.warn("Error de red al sincronizar el rol. Usando la versión local.");
       setRole(localStorage.getItem('kardex_user_role') as Role || 'VIEWER');
-      throw e;
+      addNotification('Error de red al sincronizar rol. Usando datos locales.', 'error');
     }
   };
 
   const loadInitialData = async (currentSession: any) => {
-    if (!currentSession?.user?.email) return;
-    if (dataLoadedRef.current) return;
+    if (!currentSession?.user?.email || dataLoadedRef.current) return;
     setLoadingData(true);
-    setDataError(false);
-    try {
-      await fetchRole(currentSession.user.email);
-      dataLoadedRef.current = true;
-    } catch (e) {
-      console.error("Failed to load user profile", e);
-      setDataError(true);
-    } finally {
-      setLoadingData(false);
-    }
+    await fetchRole(currentSession.user.email);
+    dataLoadedRef.current = true;
+    setLoadingData(false);
   };
   
   const navigateTo = (page: string, options: { push?: boolean; state?: any } = {}) => {
@@ -190,7 +169,6 @@ export default function App() {
 
   if (loadingSession || (session && loadingData)) return <div className="h-screen flex items-center justify-center bg-slate-50"><Loader2 className="animate-spin w-10 h-10 text-indigo-600" /></div>;
   if (!session) return <Login onLoginSuccess={handleLoginSuccess} />;
-  if (dataError) return <FullScreenError onRetry={() => loadInitialData(session)} />;
 
   const renderContent = () => {
     switch (currentPage) {
