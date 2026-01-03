@@ -76,7 +76,7 @@ export const deleteUser = async (id: string) => { if (!useSupabase()) return; };
 
 export const getLocationsMaster = async (): Promise<LocationMaster[]> => {
   if (!useSupabase()) return [{ id: '1', name: 'Almacén Principal' }];
-  const { data, error } = await withTimeout(supabase.from('locations_master').select('*').order('name'));
+  const { data, error } = await withTimeout(supabase.from('locations_master').select('id, name').order('name'));
   if (error) throw error;
   return data || [];
 };
@@ -86,7 +86,7 @@ export const deleteLocationMaster = async (id: string) => { if (!useSupabase()) 
 
 export const getCategoriesMaster = async (): Promise<CategoryMaster[]> => {
   if (!useSupabase()) return [{ id: '1', name: 'General' }];
-  const { data, error } = await withTimeout(supabase.from('categories_master').select('*').order('name'));
+  const { data, error } = await withTimeout(supabase.from('categories_master').select('id, name').order('name'));
   if (error) throw error;
   return data || [];
 };
@@ -96,13 +96,16 @@ export const deleteCategoryMaster = async (id: string) => { if (!useSupabase()) 
 
 export const getProducts = async (): Promise<Product[]> => {
   if (!useSupabase()) return [];
-  const { data, error } = await withTimeout(supabase.from('products').select('*').order('updated_at', { ascending: false }));
+  // OPTIMIZED: Select only columns needed for the inventory list view.
+  const query = 'id, name, code, stock, precio_compra, precio_venta, min_stock, critical_stock, unit';
+  const { data, error } = await withTimeout(supabase.from('products').select(query).order('updated_at', { ascending: false }));
   if (error) throw error;
   return (data || []).map(mapToProduct);
 };
 
 export const getProductById = async (id: string): Promise<Product | null> => {
   if (!useSupabase()) return null;
+  // Keep select('*') here as we need all details for the detail page.
   const { data, error } = await withTimeout(supabase.from('products').select('*').eq('id', id).single());
   if (error) throw error;
   return data ? mapToProduct(data) : null;
@@ -111,8 +114,10 @@ export const getProductById = async (id: string): Promise<Product | null> => {
 export const getAlertProducts = async (limit = 6): Promise<Product[]> => {
   if (!useSupabase()) return [];
   try {
+    // OPTIMIZED: Select only columns needed for the dashboard alert table.
+    const query = 'id, name, code, stock, min_stock, critical_stock, location, unit';
     const { data, error } = await withTimeout(
-      supabase.from('products').select('*').lte('stock', 30).order('stock', { ascending: true })
+      supabase.from('products').select(query).lte('stock', 30).order('stock', { ascending: true })
     );
 
     if (error) throw error;
@@ -129,16 +134,20 @@ export const deleteProduct = async (id: string) => { if (!useSupabase()) return;
 
 export const getMovements = async (): Promise<Movement[]> => {
   if (!useSupabase()) return [];
-  const { data, error } = await withTimeout(supabase.from('movements').select('*').order('date', { ascending: false }));
+  // OPTIMIZED: Select only columns needed for the Kardex list view.
+  const query = 'id, product_id, product_name, type, quantity, date, dispatcher, destino_nombre, balance_after';
+  const { data, error } = await withTimeout(supabase.from('movements').select(query).order('date', { ascending: false }));
   if (error) throw error;
-  return (data || []).map(m => ({ id: m.id, productId: m.product_id, productName: m.product_name, type: m.type, quantity: Number(m.quantity) || 0, date: m.date, dispatcher: m.dispatcher, reason: m.reason, balanceAfter: Number(m.balance_after) || 0, destinationName: m.destino_nombre }));
+  return (data || []).map(m => ({ id: m.id, productId: m.product_id, productName: m.product_name, type: m.type, quantity: Number(m.quantity) || 0, date: m.date, dispatcher: m.dispatcher, reason: '', balanceAfter: Number(m.balance_after) || 0, destinationName: m.destino_nombre }));
 };
 
 export const getMovementsByProductId = async (productId: string): Promise<Movement[]> => {
   if (!useSupabase()) return [];
-  const { data, error } = await withTimeout(supabase.from('movements').select('*').eq('product_id', productId).order('date', { ascending: false }).limit(10));
+   // OPTIMIZED: Select only columns needed for the Product Detail history.
+  const query = 'id, product_id, product_name, type, quantity, date, dispatcher, destino_nombre, balance_after';
+  const { data, error } = await withTimeout(supabase.from('movements').select(query).eq('product_id', productId).order('date', { ascending: false }).limit(10));
   if (error) throw error;
-  return (data || []).map(m => ({ id: m.id, productId: m.product_id, productName: m.product_name, type: m.type, quantity: Number(m.quantity) || 0, date: m.date, dispatcher: m.dispatcher, reason: m.reason, balanceAfter: Number(m.balance_after) || 0, destinationName: m.destino_nombre }));
+  return (data || []).map(m => ({ id: m.id, productId: m.product_id, productName: m.product_name, type: m.type, quantity: Number(m.quantity) || 0, date: m.date, dispatcher: m.dispatcher, reason: '', balanceAfter: Number(m.balance_after) || 0, destinationName: m.destino_nombre }));
 };
 
 export const registerBatchMovements = async (items: any[]) => {
@@ -174,7 +183,9 @@ export const registerBatchMovements = async (items: any[]) => {
 
 export const getContacts = async (): Promise<Contact[]> => {
   if (!useSupabase()) return [];
-  const { data, error } = await withTimeout(supabase.from('contacts').select('*').order('name'));
+  // OPTIMIZED: Select only columns needed for the CRM contact card view.
+  const query = 'id, name, type, phone, email';
+  const { data, error } = await withTimeout(supabase.from('contacts').select(query).order('name'));
   if (error) throw error;
   return (data || []).map(c => ({ id: c.id, name: c.name, type: c.type, phone: c.phone, email: c.email, taxId: c.tax_id, address: c.address, notes: c.notes }));
 };
@@ -242,7 +253,7 @@ export const getStats = async (): Promise<InventoryStats> => {
 
 export const getDestinos = async (): Promise<Destination[]> => {
   if (!useSupabase()) return [];
-  const { data, error } = await withTimeout(supabase.from('destinos').select('*').order('name'));
+  const { data, error } = await withTimeout(supabase.from('destinos').select('id, name, type, description, active, created_at').order('name'));
   if (error) throw error;
   return (data || []).map(d => ({ id: d.id, name: d.name, type: d.type, description: d.description, active: d.active, createdAt: d.created_at, }));
 };
