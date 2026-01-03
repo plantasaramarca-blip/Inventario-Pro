@@ -61,6 +61,8 @@ export default function App() {
   const [destinos, setDestinos] = useState<Destination[] | null>(null);
   const [categories, setCategories] = useState<CategoryMaster[] | null>(null);
   const [locations, setLocations] = useState<LocationMaster[] | null>(null);
+  
+  // Dashboard-specific state
   const [stats, setStats] = useState<InventoryStats | null>(null);
   const [alertProducts, setAlertProducts] = useState<Product[]>([]);
   
@@ -81,7 +83,8 @@ export default function App() {
     setInstallPrompt(null);
   };
 
-  const loadGlobalData = async () => {
+  // Carga inicial ultraligera: solo datos del dashboard y maestros.
+  const loadInitialData = async () => {
     setLoadingData(true);
     setDataError(false);
     try {
@@ -99,7 +102,7 @@ export default function App() {
       setLocations(locsData || []);
       dataLoadedRef.current = true;
     } catch (e) {
-      console.error("Failed to load global data", e);
+      console.error("Failed to load initial data", e);
       setDataError(true);
     } finally {
       setLoadingData(false);
@@ -168,7 +171,7 @@ export default function App() {
   useEffect(() => {
     if (session && !dataLoadedRef.current) {
       fetchRole(session.user.email!);
-      loadGlobalData();
+      loadInitialData();
     }
   }, [session]);
   
@@ -182,7 +185,7 @@ export default function App() {
 
   if (loadingSession) return <div className="h-screen flex items-center justify-center bg-slate-50"><Loader2 className="animate-spin w-10 h-10 text-indigo-600" /></div>;
   if (!session) return <Login />;
-  if (dataError) return <FullScreenError onRetry={loadGlobalData} />;
+  if (dataError) return <FullScreenError onRetry={loadInitialData} />;
 
   const renderContent = () => {
     if (loadingData) return <div className="h-full flex items-center justify-center"><Loader2 className="animate-spin w-10 h-10 text-indigo-600" /></div>;
