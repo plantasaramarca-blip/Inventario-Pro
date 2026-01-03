@@ -232,7 +232,67 @@ export const Inventory: React.FC<InventoryProps> = ({ role, userEmail, onNavigat
           </div>
         </div>
       )}
-      {/* ... (resto del JSX es idéntico) ... */}
+      <div className="bg-white rounded-[2.5rem] shadow-sm border border-slate-100 overflow-hidden">
+        <div className="overflow-x-auto no-scrollbar">
+          <table className="w-full min-w-[1000px]">
+            <thead className="text-[9px] font-black uppercase text-slate-400 tracking-widest bg-slate-50/50">
+              <tr>
+                <th className="px-6 py-4 w-10 text-center"><button onClick={toggleSelectAll}>{selectedIds.length === filteredProducts.length ? <CheckSquare className="w-5 h-5 mx-auto text-indigo-600" /> : <Square className="w-5 h-5 mx-auto text-slate-300" />}</button></th>
+                <th className="px-6 py-4 text-left">Producto</th>
+                <th className="px-6 py-4 text-center">Stock</th>
+                <th className="px-6 py-4 text-left">Almacén</th>
+                <th className="px-6 py-4 text-center">Estado</th>
+                <th className="px-6 py-4 text-right">Valor Compra</th>
+                <th className="px-6 py-4 w-32 text-center">Acciones</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-50">
+              {paginatedProducts.map(p => (
+                <tr key={p.id} className="hover:bg-indigo-50/30 transition-colors group">
+                  <td className="px-6 py-3 text-center"><button onClick={() => toggleSelect(p.id)}>{selectedIds.includes(p.id) ? <CheckSquare className="w-5 h-5 mx-auto text-indigo-600" /> : <Square className="w-5 h-5 mx-auto text-slate-200 group-hover:text-slate-400" />}</button></td>
+                  <td className="px-6 py-3"><p className="text-sm font-bold text-slate-800 uppercase">{p.name}</p><p className="text-[9px] text-slate-400 font-black uppercase tracking-tighter">{p.code}</p></td>
+                  <td className="px-6 py-3 text-center"><p className="text-sm font-black text-slate-800">{p.stock} <span className="text-[9px] text-slate-400 font-bold uppercase">{p.unit}</span></p></td>
+                  <td className="px-6 py-3"><p className="text-[10px] text-slate-500 font-black uppercase tracking-widest">{p.location}</p></td>
+                  <td className="px-6 py-3 text-center"><StockBadge stock={p.stock} minStock={p.minStock} criticalStock={p.criticalStock} /></td>
+                  <td className="px-6 py-3 text-right"><p className="text-sm font-bold text-slate-500">{formatCurrency(p.purchasePrice * p.stock, p.currency)}</p><p className="text-[9px] font-bold text-slate-400">({formatCurrency(p.purchasePrice, p.currency)} c/u)</p></td>
+                  <td className="px-6 py-3 text-center">
+                    <div className="flex justify-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <button onClick={() => onNavigate('productDetail', { push: true, state: { productId: p.id } })} className="p-2 text-slate-300 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl"><Info className="w-4 h-4" /></button>
+                      <button onClick={() => setSelectedQRProduct(p)} className="p-2 text-slate-300 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl"><QrCode className="w-4 h-4" /></button>
+                      {role !== 'VIEWER' && <><button onClick={() => handleOpenModal(p)} className="p-2 text-slate-300 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl"><Edit2 className="w-4 h-4" /></button><button onClick={() => setProductToDelete(p)} className="p-2 text-slate-300 hover:text-rose-600 hover:bg-rose-50 rounded-xl"><Trash2 className="w-4 h-4" /></button></>}
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        
+        <div className="p-4 flex flex-col sm:flex-row justify-between items-center gap-4 text-[10px] font-black uppercase text-slate-500 border-t">
+          <div className="flex items-center gap-2">
+            <button onClick={() => setIsMultiQRModalOpen(true)} disabled={selectedIds.length === 0} className="px-4 py-2 bg-slate-800 text-white rounded-lg disabled:opacity-30 disabled:cursor-not-allowed flex items-center gap-1.5"><Printer className="w-3.5 h-3.5" /> IMPRIMIR QR ({selectedIds.length})</button>
+            <p className="hidden sm:block">({selectedIds.length} de {products.length} seleccionados)</p>
+          </div>
+          <div className="flex items-center gap-2">
+            <button onClick={() => setCurrentPage(p => Math.max(0, p - 1))} disabled={currentPage === 0} className="px-3 py-2 hover:bg-slate-100 rounded-lg disabled:opacity-30 flex items-center gap-1.5"><ChevronLeft className="w-3.5 h-3.5" /> Ant</button>
+            <span>Página {currentPage + 1} de {totalPages}</span>
+            <button onClick={() => setCurrentPage(p => Math.min(totalPages - 1, p + 1))} disabled={currentPage >= totalPages - 1} className="px-3 py-2 hover:bg-slate-100 rounded-lg disabled:opacity-30 flex items-center gap-1.5">Sig <ChevronRight className="w-3.5 h-3.5" /></button>
+          </div>
+        </div>
+      </div>
+      
+      {selectedQRProduct && <ProductQRCode product={selectedQRProduct} onClose={() => setSelectedQRProduct(null)} />}
+      {isMultiQRModalOpen && <MultiQRCode products={products.filter(p => selectedIds.includes(p.id))} onClose={() => setIsMultiQRModalOpen(false)} />}
+
+      <CustomDialog
+        isOpen={!!productToDelete}
+        title="Confirmar Eliminación"
+        message={`¿Eliminar "${productToDelete?.name}"? Esta acción es irreversible.`}
+        type="error"
+        onConfirm={handleConfirmDelete}
+        onCancel={() => setProductToDelete(null)}
+        confirmText="Sí, Eliminar"
+      />
     </div>
   );
 };
