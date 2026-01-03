@@ -18,7 +18,7 @@ import { ProductDetail } from './pages/ProductDetail.tsx';
 import { CommandPalette } from './components/CommandPalette.tsx';
 import { Role, Product, Destination, CategoryMaster, LocationMaster, InventoryStats } from './types.ts';
 import * as api from './services/supabaseService.ts';
-import { Loader2, RefreshCcw, DownloadCloud } from 'https://esm.sh/lucide-react@0.475.0?external=react,react-dom';
+import { Loader2 } from 'https://esm.sh/lucide-react@0.475.0?external=react,react-dom';
 import { CustomDialog } from './components/CustomDialog.tsx';
 import { useNotification } from './contexts/NotificationContext.tsx';
 import { Toast } from './components/Toast.tsx';
@@ -48,23 +48,8 @@ export default function App() {
   const [categories, setCategories] = useState<CategoryMaster[] | null>(null);
   const [locations, setLocations] = useState<LocationMaster[] | null>(null);
   
-  const [installPrompt, setInstallPrompt] = useState<any>(null);
   const dataLoadedRef = useRef(false);
   const { addNotification } = useNotification();
-
-  useEffect(() => {
-    const handleBeforeInstallPrompt = (e: Event) => { e.preventDefault(); setInstallPrompt(e); };
-    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
-    return () => { window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt); };
-  }, []);
-
-  const handleInstallClick = async () => {
-    if (!installPrompt) return;
-    installPrompt.prompt();
-    const { outcome } = await installPrompt.userChoice;
-    console.log(`User response: ${outcome}`);
-    setInstallPrompt(null);
-  };
   
   const fetchRole = async (email: string) => {
     try {
@@ -195,13 +180,6 @@ export default function App() {
       </div>
       <CommandPalette isOpen={isCommandPaletteOpen} onClose={() => setIsCommandPaletteOpen(false)} onNavigate={navigateTo} />
       <NotificationContainer />
-      {installPrompt && (
-        <div className="fixed bottom-8 right-8 z-[100] animate-in slide-in-from-bottom-10">
-          <button onClick={handleInstallClick} className="bg-indigo-600 text-white px-6 py-4 rounded-full text-sm font-black uppercase tracking-widest flex items-center gap-3 shadow-2xl hover:bg-indigo-700 active:scale-95 ring-4 ring-white/20">
-            <DownloadCloud className="w-5 h-5" /> Instalar App
-          </button>
-        </div>
-      )}
     </div>
   );
 }
