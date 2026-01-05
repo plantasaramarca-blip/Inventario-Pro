@@ -285,7 +285,6 @@ export const saveContact = async (contact: Partial<Contact>) => {
   });
 };
 export const deleteContact = async (id: string) => { if (!useSupabase()) return; };
-
 export const getStats = async (): Promise<InventoryStats> => {
     if (!useSupabase()) return { totalProducts: 0, lowStockCount: 0, criticalStockCount: 0, outOfStockCount: 0, totalMovements: 0, totalContacts: 0, totalValue: 0 };
     
@@ -301,20 +300,17 @@ export const getStats = async (): Promise<InventoryStats> => {
             supabase.from('contacts').select('id', { count: 'exact', head: true })
         ]);
         
-        // Devolver solo los contadores básicos
-        // Los demás valores en 0 para evitar queries adicionales
         return {
             totalProducts: totalProducts || 0,
-            lowStockCount: 0, // Desactivado temporalmente
-            criticalStockCount: 0, // Desactivado temporalmente
-            outOfStockCount: 0, // Desactivado temporalmente
+            lowStockCount: 0,
+            criticalStockCount: 0,
+            outOfStockCount: 0,
             totalMovements: totalMovements || 0,
             totalContacts: totalContacts || 0,
-            totalValue: 0 // Desactivado temporalmente
+            totalValue: 0
         };
     } catch (error) {
         console.error('Error en getStats:', error);
-        // En caso de error, devolver valores por defecto
         return {
             totalProducts: 0,
             lowStockCount: 0,
@@ -326,18 +322,6 @@ export const getStats = async (): Promise<InventoryStats> => {
         };
     }
 };
-
-export const getDestinos = async (): Promise<Destination[]> => {
-  if (!useSupabase()) return [];
-  return fetchWithRetry(async () => {
-    const { data, error } = await supabase.from('destinos').select('id, name, type, description, active, created_at').order('name');
-    if (error) throw error;
-    return (data || []).map(d => ({ id: d.id, name: d.name, type: d.type, description: d.description, active: d.active, createdAt: d.created_at, }));
-  });
-};
-
-export const saveDestino = async (d: Partial<Destination>) => { if (!useSupabase()) return; };
-export const deleteDestino = async (id: string) => { if (!useSupabase()) return; };
 
 export const getAuditLogs = async (p = 0, l = 50): Promise<{ data: AuditLog[], count: number | null }> => {
   if (!useSupabase()) return { data: [], count: 0 };
