@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { supabase, isSupabaseConfigured } from './supabaseClient.ts';
 import { Navbar } from './components/Navbar.tsx';
@@ -51,6 +50,56 @@ export default function App() {
   const dataLoadedRef = useRef(false);
   const { addNotification } = useNotification();
   
+  // ===== DESREGISTRO AGRESIVO DE SERVICE WORKERS =====
+  useEffect(() => {
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.getRegistrations().then(registrations => {
+        registrations.forEach(registration => {
+          console.log('🧹 Desregistrando service worker:', registration.scope);
+          registration.unregister();
+        });
+      });
+      
+      if ('caches' in window) {
+        caches.keys().then(cacheNames => {
+          cacheNames.forEach(cacheName => {
+            console.log('🧹 Eliminando cache:', cacheName);
+            caches.delete(cacheName);
+          });
+        });
+      }
+    }
+  }, []);
+  
+  // ===== MANEJO DE VISIBILITY CHANGE =====
+  useEffect(() => {
+    function handleVisibilityChange() {
+      if (document.visibilityState === 'visible' && session) {
+        console.log('👁️ Usuario regresó a la app, verificando sesión...');
+        
+        if (isSupabaseConfigured) {
+          supabase.auth.getSession().then(({ data: { session: currentSession } }) => {
+            if (!currentSession) {
+              console.log('❌ Sesión expirada, redirigiendo a login');
+              setSession(null);
+              addNotification('Sesión expirada. Por favor, inicia sesión nuevamente.', 'warning');
+            } else {
+              console.log('✅ Sesión válida');
+            }
+          }).catch(error => {
+            console.error('Error al verificar sesión:', error);
+          });
+        }
+      }
+    }
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [session]);
+  
   const fetchRole = async (email: string) => {
     try {
       const profile = await api.getCurrentUserProfile(email);
@@ -67,9 +116,15 @@ export default function App() {
   const loadInitialData = async (currentSession: any) => {
     if (!currentSession?.user?.email || dataLoadedRef.current) return;
     setLoadingData(true);
-    await fetchRole(currentSession.user.email);
-    dataLoadedRef.current = true;
-    setLoadingData(false);
+    try {
+      await fetchRole(currentSession.user.email);
+      dataLoadedRef.current = true;
+    } catch (error) {
+      console.error('Error en carga inicial:', error);
+      addNotification('Error al cargar datos iniciales', 'error');
+    } finally {
+      setLoadingData(false);
+    }
   };
   
   const navigateTo = useCallback((page: string, options: { push?: boolean; state?: any } = {}) => {
