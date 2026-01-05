@@ -289,22 +289,55 @@ export const deleteContact = async (id: string) => { if (!useSupabase()) return;
 export const getStats = async (): Promise<InventoryStats> => {
     if (!useSupabase()) return { totalProducts: 0, lowStockCount: 0, criticalStockCount: 0, outOfStockCount: 0, totalMovements: 0, totalContacts: 0, totalValue: 0 };
     return fetchWithRetry(async () => {
+        // Solo traer stock, min_stock, critical_stock y precio para cálculos
+        const productsQuery = supabase
+            .from('products')
+            .select('stock, min_stock, critical_stock, precio_compra');
+        
         const productCountPromise = supabase.from('products').select('id', { count: 'exact', head: true });
         const movementsCountPromise = supabase.from('movements').select('id', { count: 'exact', head: true });
         const contactsCountPromise = supabase.from('contacts').select('id', { count: 'exact', head: true });
-        const { products } = await getProducts({ fetchAll: true });
 
-        const [{ count: totalProducts, error: pCountError }, { count: totalMovements, error: mError }, { count: totalContacts, error: cError }] = await Promise.all([productCountPromise, movementsCountPromise, contactsCountPromise]);
-        if (pCountError || mError || cError) throw new Error('Fallo al obtener los componentes del dashboard');
+        const [
+            { data: products, error: productsError },
+            { count: totalProducts, error: pCountError },
+            { count: totalMovements, error: mError },
+            { count: totalContacts, error: cError }
+        ] = await Promise.all([
+            productsQuery,
+            productCountPromise,
+            movementsCountPromise,
+            contactsCountPromise
+        ]);
+        
+        if (productsError || pCountError || mError || cError) {
+            throw new Error('Fallo al obtener estadísticas del dashboard');
+        }
+        
+        // Calcular stats con los datos mínimos
+        const prods = products || [];
+        const lowStockCount = prods.filter(p => 
+            p.stock > (p.critical_stock || 10) && p.stock <= (p.min_stock || 30)
+        ).length;
+        
+        const criticalStockCount = prods.filter(p => 
+            p.stock > 0 && p.stock <= (p.critical_stock || 10)
+        ).length;
+        
+        const outOfStockCount = prods.filter(p => p.stock <= 0).length;
+        
+        const totalValue = prods.reduce((sum, p) => {
+            return sum + ((p.stock || 0) * (p.precio_compra || 0));
+        }, 0);
         
         return {
             totalProducts: totalProducts || 0,
-            lowStockCount: products.filter(p => p.stock > p.criticalStock && p.stock <= p.minStock).length,
-            criticalStockCount: products.filter(p => p.stock > 0 && p.stock <= p.criticalStock).length,
-            outOfStockCount: products.filter(p => p.stock <= 0).length,
+            lowStockCount,
+            criticalStockCount,
+            outOfStockCount,
             totalMovements: totalMovements || 0,
             totalContacts: totalContacts || 0,
-            totalValue: products.reduce((s, p) => s + (p.stock * p.purchasePrice), 0)
+            totalValue
         };
     });
 };
