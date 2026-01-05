@@ -4,7 +4,7 @@ import { Product, Movement, InventoryStats, CategoryMaster, LocationMaster, User
 
 const useSupabase = () => isSupabaseConfigured;
 
-const fetchWithRetry = async (fetchFn: () => Promise<any>, maxRetries = 3, delay = 500) => {
+const fetchWithRetry = async (fetchFn: () => Promise<any>, maxRetries = 5, delay = 1000) => {
   let lastError;
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
@@ -288,58 +288,43 @@ export const deleteContact = async (id: string) => { if (!useSupabase()) return;
 
 export const getStats = async (): Promise<InventoryStats> => {
     if (!useSupabase()) return { totalProducts: 0, lowStockCount: 0, criticalStockCount: 0, outOfStockCount: 0, totalMovements: 0, totalContacts: 0, totalValue: 0 };
-    return fetchWithRetry(async () => {
-        // Solo traer stock, min_stock, critical_stock y precio para cálculos
-        const productsQuery = supabase
-            .from('products')
-            .select('stock, min_stock, critical_stock, precio_compra');
-        
-        const productCountPromise = supabase.from('products').select('id', { count: 'exact', head: true });
-        const movementsCountPromise = supabase.from('movements').select('id', { count: 'exact', head: true });
-        const contactsCountPromise = supabase.from('contacts').select('id', { count: 'exact', head: true });
-
+    
+    try {
+        // SOLO contadores - NO traemos datos
         const [
-            { data: products, error: productsError },
-            { count: totalProducts, error: pCountError },
-            { count: totalMovements, error: mError },
-            { count: totalContacts, error: cError }
+            { count: totalProducts },
+            { count: totalMovements },
+            { count: totalContacts }
         ] = await Promise.all([
-            productsQuery,
-            productCountPromise,
-            movementsCountPromise,
-            contactsCountPromise
+            supabase.from('products').select('id', { count: 'exact', head: true }),
+            supabase.from('movements').select('id', { count: 'exact', head: true }),
+            supabase.from('contacts').select('id', { count: 'exact', head: true })
         ]);
         
-        if (productsError || pCountError || mError || cError) {
-            throw new Error('Fallo al obtener estadísticas del dashboard');
-        }
-        
-        // Calcular stats con los datos mínimos
-        const prods = products || [];
-        const lowStockCount = prods.filter(p => 
-            p.stock > (p.critical_stock || 10) && p.stock <= (p.min_stock || 30)
-        ).length;
-        
-        const criticalStockCount = prods.filter(p => 
-            p.stock > 0 && p.stock <= (p.critical_stock || 10)
-        ).length;
-        
-        const outOfStockCount = prods.filter(p => p.stock <= 0).length;
-        
-        const totalValue = prods.reduce((sum, p) => {
-            return sum + ((p.stock || 0) * (p.precio_compra || 0));
-        }, 0);
-        
+        // Devolver solo los contadores básicos
+        // Los demás valores en 0 para evitar queries adicionales
         return {
             totalProducts: totalProducts || 0,
-            lowStockCount,
-            criticalStockCount,
-            outOfStockCount,
+            lowStockCount: 0, // Desactivado temporalmente
+            criticalStockCount: 0, // Desactivado temporalmente
+            outOfStockCount: 0, // Desactivado temporalmente
             totalMovements: totalMovements || 0,
             totalContacts: totalContacts || 0,
-            totalValue
+            totalValue: 0 // Desactivado temporalmente
         };
-    });
+    } catch (error) {
+        console.error('Error en getStats:', error);
+        // En caso de error, devolver valores por defecto
+        return {
+            totalProducts: 0,
+            lowStockCount: 0,
+            criticalStockCount: 0,
+            outOfStockCount: 0,
+            totalMovements: 0,
+            totalContacts: 0,
+            totalValue: 0
+        };
+    }
 };
 
 export const getDestinos = async (): Promise<Destination[]> => {
