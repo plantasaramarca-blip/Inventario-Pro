@@ -57,6 +57,28 @@
   </head>
   <body>
     <div id="root"></div>
+    </head>
+  <body>
+    <div id="root"></div>
+    
+    <!-- AGREGAR ESTO AQUÍ (nueva línea 48) -->
+    <script>
+      // Bloqueo ultra-temprano de Service Workers
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.getRegistrations().then(regs => {
+          regs.forEach(r => r.unregister());
+        });
+        
+        // Sobrescribir el método register
+        const originalRegister = navigator.serviceWorker.register;
+        navigator.serviceWorker.register = function() {
+          console.log('🚫 SW bloqueado en index.html');
+          return Promise.reject(new Error('SW deshabilitado'));
+        };
+      }
+    </script>
+    <!-- FIN DEL CÓDIGO NUEVO -->
+    
     <script type="module" src="index.tsx"></script>
   </body>
 </html>

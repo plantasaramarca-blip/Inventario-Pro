@@ -50,26 +50,37 @@ export default function App() {
   const dataLoadedRef = useRef(false);
   const { addNotification } = useNotification();
   
-  // ===== DESREGISTRO AGRESIVO DE SERVICE WORKERS =====
-  useEffect(() => {
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.getRegistrations().then(registrations => {
-        registrations.forEach(registration => {
-          console.log('🧹 Desregistrando service worker:', registration.scope);
-          registration.unregister();
+ // ===== BLOQUEO PERMANENTE DE SERVICE WORKERS =====
+useEffect(() => {
+  // Desregistrar existentes
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.getRegistrations().then(registrations => {
+      registrations.forEach(registration => {
+        console.log('🧹 Desregistrando SW:', registration.scope);
+        registration.unregister();
+      });
+    });
+    
+    // Limpiar cachés
+    if ('caches' in window) {
+      caches.keys().then(cacheNames => {
+        cacheNames.forEach(cacheName => {
+          console.log('🧹 Eliminando cache:', cacheName);
+          caches.delete(cacheName);
         });
       });
-      
-      if ('caches' in window) {
-        caches.keys().then(cacheNames => {
-          cacheNames.forEach(cacheName => {
-            console.log('🧹 Eliminando cache:', cacheName);
-            caches.delete(cacheName);
-          });
-        });
-      }
     }
-  }, []);
+    
+    // BLOQUEAR cualquier intento futuro de registro
+    const originalRegister = navigator.serviceWorker.register;
+    navigator.serviceWorker.register = function() {
+      console.log('🚫 Service Worker registration BLOCKED permanently');
+      return Promise.reject(new Error('Service Worker deshabilitado'));
+    };
+    
+    console.log('✅ Service Worker bloqueado permanentemente');
+  }
+}, []); // Solo una vez al montar
   
   // ===== MANEJO DE VISIBILITY CHANGE =====
   useEffect(() => {
