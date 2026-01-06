@@ -162,12 +162,47 @@ export const getProductById = async (id: string): Promise<Product | null> => {
 
 export const getAlertProducts = async (limit = 6): Promise<Product[]> => {
     if (!useSupabase()) return [];
+    
     return fetchWithRetry(async () => {
-        const { products } = await getProducts({ fetchAll: true });
-        return products
-            .filter(p => p.stock <= p.minStock)
-            .sort((a, b) => a.stock - b.stock)
+        // Query DIRECTA - filtra, ordena y limita EN LA BASE DE DATOS
+        const { data, error } = await supabase
+            .from('products')
+            .select(`
+                id, code, name, category, location, 
+                stock, min_stock, critical_stock, 
+                unit, precio_compra, precio_venta
+            `)
+            .order('stock', { ascending: true })
+            .limit(limit * 3); // Trae 18 en vez de 350+
+        
+        if (error) throw error;
+        
+        // Filtrado MÍNIMO en memoria (solo 18 productos)
+        const filtered = (data || [])
+            .filter(p => p.stock <= p.min_stock)
             .slice(0, limit);
+        
+        // Mapeo a Product type
+        return filtered.map(p => ({
+            id: p.id,
+            code: p.code,
+            name: p.name,
+            category: p.category,
+            location: p.location,
+            stock: p.stock,
+            minStock: p.min_stock,
+            criticalStock: p.critical_stock,
+            unit: p.unit,
+            purchasePrice: p.precio_compra,
+            salePrice: p.precio_venta,
+            imageUrl: '',
+            brand: '',
+            model: '',
+            size: '',
+            qrCode: '',
+            qrData: null,
+            updatedAt: new Date()
+        }));
     });
 };
 
