@@ -82,11 +82,12 @@ useEffect(() => {
   }
 }, []); // Solo una vez al montar
   
-  // ===== MANEJO DE VISIBILITY CHANGE =====
-  useEffect(() => {
+  // ===== MANEJO DE VISIBILITY CHANGE ====
+  /*
+ useEffect(() => {
     function handleVisibilityChange() {
       if (document.visibilityState === 'visible' && session) {
-        console.log('👁️ Usuario regresó a la app, verificando sesión...');
+       console.log('👁️ Usuario regresó a la app, verificando sesión...');
         
         if (isSupabaseConfigured) {
           supabase.auth.getSession().then(({ data: { session: currentSession } }) => {
@@ -102,7 +103,7 @@ useEffect(() => {
           });
         }
       }
-    }
+*/   }
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
     
@@ -175,7 +176,7 @@ useEffect(() => {
     return () => window.removeEventListener('popstate', handlePopState);
   }, [navigateTo]);
 
-  useEffect(() => {
+/*  useEffect(() => {
     if (isSupabaseConfigured) {
       supabase.auth.getSession().then(({ data: { session: currentSession } }) => {
         setSession(currentSession);
@@ -192,6 +193,44 @@ useEffect(() => {
           setLocations(null);
         }
       });
+*/
+
+useEffect(() => {
+  if (isSupabaseConfigured) {
+    console.log('🔵 Iniciando suscripción a Supabase Auth');
+    
+    supabase.auth.getSession().then(({ data: { session: currentSession } }) => {
+      console.log('🔵 Sesión inicial obtenida:', currentSession ? 'Existe' : 'No existe');
+      setSession(currentSession);
+      setLoadingSession(false);
+      if(currentSession) loadInitialData(currentSession);
+    });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, newSession) => {
+      console.log('🔴 onAuthStateChange triggereado:', event, newSession ? 'Con sesión' : 'Sin sesión');
+      setSession(newSession);
+      if (event === 'SIGNED_OUT') {
+        console.log('🔴 Usuario cerró sesión');
+        dataLoadedRef.current = false;
+        setDestinos(null);
+        setCategories(null);
+        setLocations(null);
+      }
+    });
+
+    return () => {
+      console.log('🔵 Desuscribiendo de Supabase Auth');
+      subscription.unsubscribe();
+    };
+  } else {
+    console.log('🟡 Modo local (sin Supabase)');
+    const localSession = localStorage.getItem('kardex_local_session');
+    const currentSession = localSession ? JSON.parse(localSession) : null;
+    setSession(currentSession);
+    setLoadingSession(false);
+    if (currentSession) loadInitialData(currentSession);
+  }
+}, []);
 
       return () => subscription.unsubscribe();
     } else {
