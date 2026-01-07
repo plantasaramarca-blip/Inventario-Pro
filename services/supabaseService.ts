@@ -15,13 +15,73 @@ const fetchWithRetry = async (fetchFn: () => Promise<any>, maxRetries = 5, delay
         console.error(`Final attempt failed: ${attempt}/${maxRetries}`, error);
         throw error;
       }
-      const waitTime = delay * Math.pow(2, attempt - 1); // Exponential backoff
+      const waitTime = delay * Math.pow(2, attempt - 1);
       console.warn(`Attempt ${attempt}/${maxRetries} failed. Retrying in ${waitTime}ms...`);
       await new Promise(resolve => setTimeout(resolve, waitTime));
     }
   }
   throw lastError;
 };
+
+// ============= SISTEMA DE CACHÉ AGRESIVO =============
+const CACHE_DURATION = 10 * 60 * 1000; // 10 minutos
+
+const getCached = (key: string) => {
+  try {
+    const cached = localStorage.getItem(`kardex_cache_${key}`);
+    if (!cached) return null;
+    
+    const { data, timestamp } = JSON.parse(cached);
+    const age = Date.now() - timestamp;
+    
+    if (age > CACHE_DURATION) {
+      localStorage.removeItem(`kardex_cache_${key}`);
+      return null;
+    }
+    
+    console.log(`✅ Usando ${key} desde caché (${Math.floor(age/1000)}s antiguo)`);
+    return data;
+  } catch (error) {
+    console.error('Error al leer caché:', error);
+    return null;
+  }
+};
+
+const setCache = (key: string, data: any) => {
+  try {
+    localStorage.setItem(`kardex_cache_${key}`, JSON.stringify({
+      data,
+      timestamp: Date.now()
+    }));
+    console.log(`💾 ${key} guardado en caché`);
+  } catch (error) {
+    console.error('Error al guardar caché:', error);
+  }
+};
+
+const getExpiredCache = (key: string) => {
+  try {
+    const cached = localStorage.getItem(`kardex_cache_${key}`);
+    if (!cached) return null;
+    const { data } = JSON.parse(cached);
+    console.log(`⚠️ Usando ${key} desde caché EXPIRADO como fallback`);
+    return data;
+  } catch (error) {
+    return null;
+  }
+};
+
+const clearCache = (key?: string) => {
+  if (key) {
+    localStorage.removeItem(`kardex_cache_${key}`);
+    console.log(`🧹 Caché de ${key} limpiado`);
+  } else {
+    const keys = Object.keys(localStorage).filter(k => k.startsWith('kardex_cache_'));
+    keys.forEach(k => localStorage.removeItem(k));
+    console.log('🧹 Todo el caché limpiado');
+  }
+};
+// ============= FIN SISTEMA DE CACHÉ =============
 
 const getChangedFields = (oldV: any, newV: any): string[] => {
   if (!oldV || !newV) return [];
@@ -163,8 +223,11 @@ export const getProductById = async (id: string): Promise<Product | null> => {
 export const getAlertProducts = async (limit = 6): Promise<Product[]> => {
     if (!useSupabase()) return [];
     
-    return fetchWithRetry(async () => {
-        // Query DIRECTA - filtra, ordena y limita EN LA BASE DE DATOS
+    // Intentar caché primero
+    const cached = getCached('alertProducts');
+    if (cached) return cached;
+    
+    try {
         const { data, error } = await supabase
             .from('products')
             .select(`
@@ -173,17 +236,15 @@ export const getAlertProducts = async (limit = 6): Promise<Product[]> => {
                 unit, precio_compra, precio_venta
             `)
             .order('stock', { ascending: true })
-            .limit(limit * 3); // Trae 18 en vez de 350+
+            .limit(limit * 3);
         
         if (error) throw error;
         
-        // Filtrado MÍNIMO en memoria (solo 18 productos)
         const filtered = (data || [])
             .filter(p => p.stock <= p.min_stock)
             .slice(0, limit);
         
-        // Mapeo a Product type
-        return filtered.map(p => ({
+        const result = filtered.map(p => ({
             id: p.id,
             code: p.code,
             name: p.name,
@@ -203,7 +264,17 @@ export const getAlertProducts = async (limit = 6): Promise<Product[]> => {
             qrData: null,
             updatedAt: new Date()
         }));
-    });
+        
+        setCache('alertProducts', result);
+        return result;
+    } catch (error) {
+        console.error('Error en getAlertProducts:', error);
+        
+        const expiredCache = getExpiredCache('alertProducts');
+        if (expiredCache) return expiredCache;
+        
+        return [];
+    }
 };
 
 export const saveProduct = async (product: Partial<Product>): Promise<Product> => {
@@ -226,6 +297,11 @@ export const saveProduct = async (product: Partial<Product>): Promise<Product> =
         savedData = data;
         saveAuditLog({ action: 'CREATE', table_name: 'products', record_id: data.id, record_name: data.name }, null, payload);
     }
+    
+    // Limpiar caché después de guardar
+    clearCache('stats');
+    clearCache('alertProducts');
+    
     return mapToProduct(savedData);
   });
 };
@@ -253,22 +329,31 @@ export const deleteProduct = async (id: string) => {
       const { error } = await supabase.from('products').delete().eq('id', id);
       if (error) throw error;
       if (oldData) saveAuditLog({ action: 'DELETE', table_name: 'products', record_id: id, record_name: oldData.name }, oldData, null);
+      
+      // Limpiar caché después de eliminar
+      clearCache('stats');
+      clearCache('alertProducts');
     });
 };
 
 export const getMovements = async (limit = 100): Promise<Movement[]> => {
   if (!useSupabase()) return [];
-  return fetchWithRetry(async () => {
+  
+  // Intentar caché primero
+  const cached = getCached('movements');
+  if (cached) return cached;
+  
+  try {
     const query = 'id, product_id, product_name, type, quantity, date, dispatcher, destino_nombre, balance_after';
     const { data, error } = await supabase
       .from('movements')
       .select(query)
       .order('date', { ascending: false })
-      .limit(limit); // ✅ AGREGADO - Solo trae últimos 100
+      .limit(limit);
     
     if (error) throw error;
     
-    return (data || []).map(m => ({
+    const result = (data || []).map(m => ({
       id: m.id,
       productId: m.product_id,
       productName: m.product_name,
@@ -280,7 +365,17 @@ export const getMovements = async (limit = 100): Promise<Movement[]> => {
       balanceAfter: Number(m.balance_after) || 0,
       destinationName: m.destino_nombre
     }));
-  });
+    
+    setCache('movements', result);
+    return result;
+  } catch (error) {
+    console.error('Error en getMovements:', error);
+    
+    const expiredCache = getExpiredCache('movements');
+    if (expiredCache) return expiredCache;
+    
+    return [];
+  }
 };
 
 export const getMovementsByProductId = async (productId: string): Promise<Movement[]> => {
@@ -306,6 +401,10 @@ export const registerBatchMovements = async (items: any[]) => {
     for (const mov of insertedMovements) {
       saveAuditLog({ action: 'CREATE', table_name: 'movements', record_id: mov.id, record_name: mov.product_name }, null, mov);
     }
+    
+    // Limpiar caché después de registrar movimientos
+    clearCache('movements');
+    clearCache('stats');
   });
 };
 
@@ -336,12 +435,20 @@ export const saveContact = async (contact: Partial<Contact>) => {
     }
   });
 };
+
 export const deleteContact = async (id: string) => { if (!useSupabase()) return; };
+
 export const getStats = async (): Promise<InventoryStats> => {
-    if (!useSupabase()) return { totalProducts: 0, lowStockCount: 0, criticalStockCount: 0, outOfStockCount: 0, totalMovements: 0, totalContacts: 0, totalValue: 0 };
+    if (!useSupabase()) return { 
+        totalProducts: 0, lowStockCount: 0, criticalStockCount: 0, 
+        outOfStockCount: 0, totalMovements: 0, totalContacts: 0, totalValue: 0 
+    };
+    
+    // Intentar caché primero
+    const cached = getCached('stats');
+    if (cached) return cached;
     
     try {
-        // SOLO contadores - NO traemos datos
         const [
             { count: totalProducts },
             { count: totalMovements },
@@ -352,7 +459,7 @@ export const getStats = async (): Promise<InventoryStats> => {
             supabase.from('contacts').select('id', { count: 'exact', head: true })
         ]);
         
-        return {
+        const result = {
             totalProducts: totalProducts || 0,
             lowStockCount: 0,
             criticalStockCount: 0,
@@ -361,16 +468,19 @@ export const getStats = async (): Promise<InventoryStats> => {
             totalContacts: totalContacts || 0,
             totalValue: 0
         };
+        
+        setCache('stats', result);
+        return result;
     } catch (error) {
         console.error('Error en getStats:', error);
-        return {
-            totalProducts: 0,
-            lowStockCount: 0,
-            criticalStockCount: 0,
-            outOfStockCount: 0,
-            totalMovements: 0,
-            totalContacts: 0,
-            totalValue: 0
+        
+        // Fallback a caché expirado
+        const expiredCache = getExpiredCache('stats');
+        if (expiredCache) return expiredCache;
+        
+        return { 
+            totalProducts: 0, lowStockCount: 0, criticalStockCount: 0, 
+            outOfStockCount: 0, totalMovements: 0, totalContacts: 0, totalValue: 0 
         };
     }
 };

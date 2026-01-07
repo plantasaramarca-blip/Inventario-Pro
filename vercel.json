@@ -34,3 +34,16 @@
     }
   ]
 }
+
+{
+  "rewrites": [
+    {
+      "source": "/favicon.ico",
+      "destination": "/404"
+    },
+    {
+      "source": "/icon-192.svg",
+      "destination": "/404"
+    }
+  ]
+}
