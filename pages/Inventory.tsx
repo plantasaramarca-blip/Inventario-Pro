@@ -89,215 +89,309 @@ export const Inventory: React.FC<InventoryProps> = ({ role, userEmail, onNavigat
     }
   }, [initialState, currentPage, debouncedSearch, filters]);
 
-  const handleLoadCategories = async () => { if (!categories || categories.length === 0) { try { const catsData = await api.getCategoriesMaster(); setCategories(catsData || []); } catch (e) { addNotification('Error al cargar categorías.', 'error'); } } };
-  const handleLoadLocations = async () => { if (!locations || locations.length === 0) { try { const locsData = await api.getLocationsMaster(); setLocations(locsData || []); } catch (e) { addNotification('Error al cargar almacenes.', 'error'); } } };
+  const handleLoadCategories = async () => { 
+    if (!categories || categories.length === 0) { 
+      try { 
+        const catsData = await api.getCategoriesMaster(); 
+        setCategories(catsData || []); 
+      } catch (e) { 
+        addNotification('Error al cargar categorías.', 'error'); 
+      } 
+    } 
+  };
+  
+  const handleLoadLocations = async () => { 
+    if (!locations || locations.length === 0) { 
+      try { 
+        const locsData = await api.getLocationsMaster(); 
+        setLocations(locsData || []); 
+      } catch (e) { 
+        addNotification('Error al cargar almacenes.', 'error'); 
+      } 
+    } 
+  };
 
-  const handleScanSuccess = (decodedText: string) => { /* ... */ };
-  const handleExportPDF = () => { /* ... */ };
-  const toggleSelectAll = () => { /* ... */ };
-  const toggleSelect = (id: string) => setSelectedIds(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]);
+  const handleScanSuccess = (decodedText: string) => {
+    setIsScannerOpen(false);
+    const foundProduct = products.find(p => p.code === decodedText || p.qrData === decodedText);
+    if (foundProduct) {
+      onNavigate('productDetail', { push: true, state: { productId: foundProduct.id } });
+    } else {
+      addNotification('Producto no encontrado', 'error');
+    }
+  };
+
+  const handleExportPDF = () => {
+    if (products.length === 0) {
+      addNotification('Sin datos para exportar', 'error');
+      return;
+    }
+    try {
+      const timestamp = new Date().toISOString().split('T')[0];
+      exportToPDF(products, `Inventario_${timestamp}`);
+      addNotification('PDF generado exitosamente', 'success');
+    } catch (err) {
+      addNotification('Error al generar PDF', 'error');
+    }
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedIds.length === products.length) {
+      setSelectedIds([]);
+    } else {
+      setSelectedIds(products.map(p => p.id));
+    }
+  };
+
+  const toggleSelect = (id: string) => {
+    setSelectedIds(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]);
+  };
 
   const handleOpenModal = (product?: Product) => {
-    if (product) { setEditingProduct(product); setFormData({ ...product }); }
-    else { setEditingProduct(null); setFormData({ code: '', name: '', brand: '', size: '', model: '', category: '', location: '', stock: 0, minStock: 30, criticalStock: 10, purchasePrice: 0, salePrice: 0, currency: 'PEN', unit: 'PAR', imageUrl: '' }); }
+    if (product) { 
+      setEditingProduct(product); 
+      setFormData({ ...product }); 
+    } else { 
+      setEditingProduct(null); 
+      setFormData({ 
+        code: '', name: '', brand: '', size: '', model: '', category: '', location: '', 
+        stock: 0, minStock: 30, criticalStock: 10, purchasePrice: 0, salePrice: 0, 
+        currency: 'PEN', unit: 'UND', imageUrl: '' 
+      }); 
+    }
     setIsModalOpen(true);
   };
   
-  const checkExistingCode = () => {
+  const checkExistingCode = async () => {
     const codeToCheck = formData.code?.trim().toLowerCase();
-    if (!codeToCheck || (editingProduct && editingProduct.code.trim().toLowerCase() === codeToCheck)) return;
+    if (!codeToCheck || editingProduct) return;
     
-    const existingProduct = products.find(p => p.code.trim().toLowerCase() === codeToCheck);
-    if (existingProduct) {
-      setFormData(existingProduct);
-      setEditingProduct(existingProduct);
-      addNotification('Código existente. Cargando datos del producto para edición.', 'info');
+    try {
+      const existing = await api.getProductByCode(codeToCheck);
+      if (existing) {
+        addNotification(`SKU "${formData.code}" ya existe: ${existing.name}`, 'warning');
+      }
+    } catch (err) {
+      // Ignore error
     }
+  };
+
+  const handleStockInputChange = (field: 'minStock' | 'criticalStock', value: string) => {
+    const numValue = parseInt(value) || 0;
+    setFormData(prev => ({ ...prev, [field]: numValue }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault(); 
-    const codeToCheck = formData.code?.trim().toLowerCase();
-    
-    if (!codeToCheck || !formData.name) {
-      addNotification('El código y el nombre son obligatorios.', 'error'); return;
+    e.preventDefault();
+    if (!formData.code || !formData.name) {
+      addNotification('Código y nombre son requeridos', 'error');
+      return;
     }
-
+    
     setSaving(true);
     try {
-      if (editingProduct) {
-        await api.saveProduct(formData as Product);
-      } else {
-        const initialStock = formData.stock || 0;
-        const newProductPayload = { ...formData, stock: initialStock };
-        await api.saveProductAndInitialMovement(newProductPayload as Product, initialStock, userEmail);
-      }
-
+      await api.saveProduct(formData as Product, userEmail);
       setIsModalOpen(false);
-      setFormData({}); 
-      // Force reload of current page
-      const { products: prods, count } = await api.getProducts({ page: currentPage, pageSize: ITEMS_PER_PAGE, searchTerm: debouncedSearch, filters });
+      
+      const { products: prods, count } = await api.getProducts({ 
+        page: currentPage, 
+        pageSize: ITEMS_PER_PAGE,
+        searchTerm: debouncedSearch,
+        filters
+      });
       setProducts(prods || []);
       setTotalCount(count || 0);
-      addNotification(`"${formData.name}" guardado con éxito.`, 'success');
-    } catch (err) { addNotification("Error al guardar producto.", 'error');
-    } finally { setSaving(false); }
+      
+      addNotification(`Producto ${editingProduct ? 'actualizado' : 'creado'} exitosamente`, 'success');
+    } catch (err: any) {
+      addNotification(err.message || 'Error al guardar producto', 'error');
+    } finally {
+      setSaving(false);
+    }
   };
 
-  const handleConfirmDelete = async () => { if (!productToDelete) return; try { await api.deleteProduct(productToDelete.id); const { products: prods, count } = await api.getProducts({ page: currentPage, pageSize: ITEMS_PER_PAGE, searchTerm: debouncedSearch, filters }); setProducts(prods || []); setTotalCount(count || 0); addNotification(`Producto "${productToDelete.name}" eliminado.`, 'success'); } catch (err) { addNotification('Error al eliminar el producto.', 'error'); } finally { setProductToDelete(null); } };
-  
-  const handleStockInputChange = (field: 'minStock' | 'criticalStock', value: string) => {
-    const numValue = parseInt(value, 10);
-    setFormData(prev => ({ ...prev, [field]: isNaN(numValue) ? 0 : numValue }));
+  const handleConfirmDelete = async () => {
+    if (!productToDelete) return;
+    
+    try {
+      await api.deleteProduct(productToDelete.id, userEmail);
+      setProducts(prev => prev.filter(p => p.id !== productToDelete.id));
+      setTotalCount(prev => prev - 1);
+      addNotification('Producto eliminado exitosamente', 'success');
+    } catch (err: any) {
+      addNotification(err.message || 'Error al eliminar producto', 'error');
+    } finally {
+      setProductToDelete(null);
+    }
   };
 
-  if (loading && products.length === 0) return <div className="h-[70vh] flex items-center justify-center"><Loader2 className="animate-spin w-8 h-8 text-indigo-500" /></div>;
+  if (loading) {
+    return (
+      <div className="h-[70vh] flex items-center justify-center">
+        <Loader2 className="animate-spin w-8 h-8 text-indigo-500" />
+      </div>
+    );
+  }
 
   return (
-    <div className="space-y-4 animate-in fade-in pb-24">
+    <div className="space-y-6 animate-in fade-in duration-500 pb-20">
       {isScannerOpen && <QRScanner onScanSuccess={handleScanSuccess} onClose={() => setIsScannerOpen(false)} />}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-4">
-        <div><h1 className="text-2xl font-black text-slate-900 uppercase tracking-tight">PRODUCTOS</h1><p className="text-[9px] text-slate-500 font-black uppercase tracking-widest mt-0.5">Inventario Maestro</p></div>
-        <div className="flex items-center gap-2 w-full sm:w-auto">
-          <div className="bg-white border border-slate-200 rounded-2xl flex overflow-hidden shadow-sm flex-1 sm:flex-none">
-             <button onClick={() => setIsScannerOpen(true)} className="px-4 py-3 text-slate-600 text-[9px] font-black uppercase flex items-center justify-center gap-1.5 hover:bg-slate-50 transition-all border-r border-slate-100"><ScanLine className="w-3.5 h-3.5" /> SCAN</button>
-             <button onClick={handleExportPDF} className="px-4 py-3 text-rose-600 text-[9px] font-black uppercase flex items-center justify-center gap-1.5 hover:bg-rose-50 transition-all border-r border-slate-100"><FileText className="w-3.5 h-3.5" /> PDF</button>
-             <button onClick={() => exportToExcel(products, "Inventario", "Stock")} className="px-4 py-3 text-emerald-600 text-[9px] font-black uppercase flex items-center justify-center gap-1.5 hover:bg-emerald-50 transition-all"><FileSpreadsheet className="w-3.5 h-3.5" /> EXCEL</button>
+      
+      <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-6">
+        <div>
+          <h1 className="text-2xl font-black text-slate-900 uppercase tracking-tight">Inventario de Productos</h1>
+          <p className="text-[9px] text-slate-500 font-black uppercase tracking-widest mt-0.5">Gestión Completa de Stock</p>
+        </div>
+        
+        <div className="flex flex-wrap gap-3">
+          <div className="flex gap-2">
+            <button onClick={handleExportPDF} className="px-4 py-3 text-rose-600 text-[9px] font-black uppercase flex items-center justify-center gap-1.5 hover:bg-rose-50 transition-all"><FileText className="w-3.5 h-3.5" /> PDF</button>
+            <button 
+              onClick={() => {
+                const timestamp = new Date().toISOString().split('T')[0];
+                exportToExcel(products, `Inventario_${timestamp}`, "Stock");
+              }} 
+              className="px-4 py-3 text-emerald-600 text-[9px] font-black uppercase flex items-center justify-center gap-1.5 hover:bg-emerald-50 transition-all"
+            >
+              <FileSpreadsheet className="w-3.5 h-3.5" /> EXCEL
+            </button>
           </div>
-          {role !== 'VIEWER' && <button onClick={() => handleOpenModal()} className="bg-red-600 text-white px-6 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2 shadow-xl shadow-red-100 hover:bg-red-700 active:scale-95 transition-all"><Plus className="w-4 h-4" /> NUEVO</button>}
+          {role !== 'VIEWER' && (
+            <button 
+              onClick={() => handleOpenModal()} 
+              className="bg-indigo-600 text-white px-6 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2 shadow-xl shadow-indigo-100 hover:bg-indigo-700 active:scale-95 transition-all"
+            >
+              <Plus className="w-4 h-4" /> NUEVO PRODUCTO
+            </button>
+          )}
         </div>
       </div>
-      
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-        <div className="relative group md:col-span-1"><Search className="absolute left-4 top-1/2 -translate-y-1.2 w-4 h-4 text-slate-300 group-focus-within:text-indigo-500 transition-colors" /><input type="text" className="w-full pl-12 pr-12 py-4 bg-white border border-slate-100 rounded-2xl text-xs outline-none shadow-sm focus:ring-2 focus:ring-indigo-500 transition-all font-bold" placeholder="Buscar por nombre, SKU o marca..." value={search} onChange={e => setSearch(e.target.value)} />{search && <button onClick={() => setSearch('')} className="absolute right-4 top-1/2 -translate-y-1/2 p-1 hover:bg-slate-100 rounded-full"><X className="w-3 h-3 text-slate-400" /></button>}</div>
-        <select onFocus={handleLoadLocations} onChange={(e) => setFilters(f => ({ ...f, location: e.target.value }))} className="w-full p-4 bg-white border border-slate-100 rounded-2xl text-xs outline-none shadow-sm focus:ring-2 focus:ring-indigo-500 font-bold uppercase"><option value="ALL">TODOS LOS ALMACENES</option>{locations.map(l => <option key={l.id} value={l.name}>{l.name}</option>)}</select>
-        <select onFocus={handleLoadCategories} onChange={(e) => setFilters(f => ({ ...f, category: e.target.value }))} className="w-full p-4 bg-white border border-slate-100 rounded-2xl text-xs outline-none shadow-sm focus:ring-2 focus:ring-indigo-500 font-bold uppercase"><option value="ALL">TODAS LAS CATEGORÍAS</option>{categories.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}</select>
+
+      {/* Búsqueda y filtros */}
+      <div className="flex flex-col lg:flex-row gap-4">
+        <div className="flex-1 relative group">
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300 group-focus-within:text-indigo-500 transition-colors pointer-events-none" />
+          <input 
+            type="text" 
+            placeholder="Buscar por nombre, código o marca..." 
+            className="w-full pl-12 pr-12 py-4 bg-white border border-slate-100 rounded-2xl text-xs outline-none shadow-sm focus:ring-2 focus:ring-indigo-500 transition-all font-bold"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+          {search && (
+            <button 
+              onClick={() => setSearch('')} 
+              className="absolute right-4 top-1/2 -translate-y-1/2 p-1 hover:bg-slate-100 rounded-full"
+            >
+              <X className="w-3 h-3 text-slate-400" />
+            </button>
+          )}
+          <button
+            onClick={() => setIsScannerOpen(true)}
+            className="absolute right-12 top-1/2 -translate-y-1/2 p-2 hover:bg-slate-100 rounded-lg"
+          >
+            <ScanLine className="w-4 h-4 text-slate-400" />
+          </button>
+        </div>
+        
+        <div className="flex gap-3">
+          <select 
+            value={filters.category} 
+            onChange={(e) => setFilters(prev => ({ ...prev, category: e.target.value }))}
+            onFocus={handleLoadCategories}
+            className="px-4 py-4 bg-white border border-slate-100 rounded-2xl text-xs outline-none font-bold shadow-sm appearance-none"
+          >
+            <option value="ALL">Todas las Categorías</option>
+            {categories.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
+          </select>
+          
+          <select 
+            value={filters.location} 
+            onChange={(e) => setFilters(prev => ({ ...prev, location: e.target.value }))}
+            onFocus={handleLoadLocations}
+            className="px-4 py-4 bg-white border border-slate-100 rounded-2xl text-xs outline-none font-bold shadow-sm appearance-none"
+          >
+            <option value="ALL">Todos los Almacenes</option>
+            {locations.map(l => <option key={l.id} value={l.name}>{l.name}</option>)}
+          </select>
+        </div>
       </div>
-      
-       {isModalOpen && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 animate-in fade-in duration-300">
+
+      {/* Modal de producto */}
+      {isModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={() => setIsModalOpen(false)}>
           <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm"></div>
           <div className="relative bg-white rounded-[2.5rem] w-full max-w-4xl shadow-2xl animate-in zoom-in-95" onClick={e => e.stopPropagation()}>
             <form onSubmit={handleSubmit}>
               <div className="p-8">
-                <div className="flex justify-between items-start mb-6"><h3 className="text-2xl font-black text-slate-800 uppercase tracking-tighter">{editingProduct ? 'Editar Producto' : 'Nuevo Producto'}</h3><button type="button" onClick={() => setIsModalOpen(false)} className="p-2 text-slate-400 hover:bg-slate-100 rounded-xl"><X className="w-5 h-5" /></button></div>
+                <div className="flex justify-between items-start mb-6">
+                  <h3 className="text-2xl font-black text-slate-800 uppercase tracking-tighter">
+                    {editingProduct ? 'Editar Producto' : 'Nuevo Producto'}
+                  </h3>
+                  <button type="button" onClick={() => setIsModalOpen(false)} className="p-2 text-slate-400 hover:bg-slate-100 rounded-xl">
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+                
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  {/* Columna izquierda: Imagen y alertas */}
                   <div className="md:col-span-1 flex flex-col items-center">
-                     <div className="w-full aspect-square bg-slate-50 rounded-3xl border-2 border-dashed flex items-center justify-center mb-4 relative overflow-hidden group cursor-pointer">
-  {formData.imageUrl ? (
-    <img src={formData.imageUrl} alt="Producto" className="w-full h-full object-cover" />
-  ) : (
-    <ImageIcon className="text-slate-300 w-16 h-16" />
-  )}
-  <input 
-    type="file" 
-    accept="image/*" 
-    capture="environment"
-    onChange={handleImageUpload}
-   <div className="col-span-1">
-  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2 block">Código SKU / QR *</label>
-  <input 
-    onBlur={handleSKUBlur}
-    type="text" 
-    required 
-    value={formData.code || ''} 
-    onChange={e => handleSKUChange(e.target.value)}
-    readOnly={!!editingProduct}
-    className={`w-full px-4 py-3 bg-slate-100 rounded-xl outline-none font-semibold text-sm text-slate-700 ${!!editingProduct ? 'opacity-70 cursor-not-allowed' : ''}`}
-    placeholder="INGRESE O ESCANEE"
-  />
-  {existingProductMatch && (
-    <p className="text-[8px] text-amber-600 font-bold mt-1">
- {!editingProduct && (
-  <div>
-    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2 block flex items-center gap-2">
-      <PackagePlus className="w-3 h-3"/> Stock Inicial
-    </label>
-    <input type="number" min="0" value={formData.stock || ''} onChange={e => setFormData({...formData, stock: parseInt(e.target.value) || 0})} className="w-full px-4 py-3 bg-slate-100 rounded-xl outline-none font-semibold text-sm text-slate-700" placeholder="0" />
-  </div>
-)}
-{/* Fila 1: MARCA y MODELO */}
-<div>
-  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2 block">Marca</label>
-  <input 
-    type="text" 
-    value={formData.brand || ''} 
-    onChange={e => setFormData({...formData, brand: e.target.value})} 
-    className="w-full px-4 py-3 bg-slate-100 rounded-xl outline-none font-semibold text-sm text-slate-700" 
-    placeholder="MARCA..." 
-  />
-</div>
-
-<div>
-  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2 block">Modelo</label>
-  <input 
-    type="text" 
-    value={formData.model || ''} 
-    onChange={e => setFormData({...formData, model: e.target.value})} 
-    className="w-full px-4 py-3 bg-slate-100 rounded-xl outline-none font-semibold text-sm text-slate-700" 
-    placeholder="MODELO..." 
-  />
-</div>
-
-{/* Fila 2: UNIDAD y TALLA */}
-<div>
-  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2 block">Unidad</label>
-  <select 
-    value={formData.unit || 'UND'} 
-    onChange={e => setFormData({...formData, unit: e.target.value})} 
-    className="w-full px-4 py-3 bg-slate-100 rounded-xl outline-none font-semibold text-sm text-slate-700 appearance-none"
-  >
-    <option>UND</option>
-    <option>PAR</option>
-    <option>CAJA</option>
-    <option>SET</option>
-  </select>
-</div>
-
-<div>
-  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2 block">Talla / Medida</label>
-  <input 
-    type="text" 
-    value={formData.size || ''} 
-    onChange={e => setFormData({...formData, size: e.target.value})} 
-    className="w-full px-4 py-3 bg-slate-100 rounded-xl outline-none font-semibold text-sm text-slate-700" 
-    placeholder="S, M, L, XL..." 
-  />
-</div>
-
-{/* Fila 3: CATEGORÍA y ALMACÉN */}
-<div>
-  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2 block">Categoría</label>
-  <select 
-    onFocus={handleLoadCategories} 
-    value={formData.category || ''} 
-    onChange={e => setFormData({...formData, category: e.target.value})} 
-    className="w-full px-4 py-3 bg-slate-100 rounded-xl outline-none font-semibold text-sm text-slate-700 appearance-none"
-  >
-    <option value="">SELECCIONE...</option>
-    {categories.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
-  </select>
-</div>
-
-<div>
-  <div className="flex justify-between items-center py-4 px-8 border-b border-slate-100">
-  <h3 className="text-xl font-black text-slate-800 uppercase tracking-tight">
-    {editingProduct ? 'Editar Producto' : 'Nuevo Producto'}
-  </h3>
-  <button type="button" onClick={() => setIsModalOpen(false)} className="p-2 text-slate-400 hover:bg-slate-100 rounded-xl">
-    <X className="w-5 h-5" />
-  </button>
-</div>
-  <select 
-    onFocus={handleLoadLocations} 
-    value={formData.location || ''} 
-    onChange={e => setFormData({...formData, location: e.target.value})} 
-    className="w-full px-4 py-3 bg-slate-100 rounded-xl outline-none font-semibold text-sm text-slate-700 appearance-none"
-  >
-    <option value="">SELECCIONE...</option>
-    {locations.map(l => <option key={l.id} value={l.name}>{l.name}</option>)}
-  </select>
-</div>
+                    <div className="w-full aspect-square bg-slate-50 rounded-3xl border-2 border-dashed flex items-center justify-center mb-4">
+                      {formData.imageUrl ? (
+                        <img src={formData.imageUrl} alt="Producto" className="w-full h-full object-cover rounded-3xl" />
+                      ) : (
+                        <ImageIcon className="text-slate-300 w-16 h-16" />
+                      )}
+                    </div>
+                    
+                    <div className="w-full p-4 bg-amber-50 border-2 border-dashed border-amber-200 rounded-2xl text-center">
+                      <AlertTriangle className="w-6 h-6 text-amber-500 mx-auto mb-2"/>
+                      <p className="text-[9px] font-black text-amber-800 uppercase tracking-widest">Alertas de Stock</p>
+                      <div className="flex gap-2 mt-2">
+                        <div>
+                          <label className="text-[8px] font-bold text-slate-500 uppercase tracking-wider block">Mínimo</label>
+                          <input 
+                            type="number" 
+                            min="0" 
+                            value={formData.minStock ?? ''} 
+                            onChange={e => handleStockInputChange('minStock', e.target.value)} 
+                            className="w-full px-2 py-2 bg-white rounded-lg outline-none font-semibold text-sm text-center" 
+                          />
+                        </div>
+                        <div>
+                          <label className="text-[8px] font-bold text-slate-500 uppercase tracking-wider block">Crítico</label>
+                          <input 
+                            type="number" 
+                            min="0" 
+                            value={formData.criticalStock ?? ''} 
+                            onChange={e => handleStockInputChange('criticalStock', e.target.value)} 
+                            className="w-full px-2 py-2 bg-white rounded-lg outline-none font-semibold text-sm text-center" 
+                          />
+                        </div>
+                      </div>
+                      
+                      {!editingProduct && (
+                        <div className="mt-3">
+                          <label className="text-[8px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Stock Inicial</label>
+                          <input 
+                            type="number" 
+                            min="0" 
+                            value={formData.stock || ''} 
+                            onChange={e => setFormData({...formData, stock: parseInt(e.target.value) || 0})} 
+                            className="w-full px-2 py-2 bg-white rounded-lg outline-none font-semibold text-sm text-center" 
+                            placeholder="0"
+                          />
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  
+                  {/* Columna derecha: Campos del formulario */}
+                  <div className="md:col-span-2 grid grid-cols-2 gap-x-4 gap-y-5">
+                    <div className={editingProduct ? 'col-span-2' : 'col-span-1'}>
+                      <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2 block">Código SKU / QR *</label>
+                      <input 
+                        onBlur={checkExistingCode} 
                         type="text" 
                         required 
                         value={formData.code || ''} 
@@ -308,14 +402,7 @@ export const Inventory: React.FC<InventoryProps> = ({ role, userEmail, onNavigat
                       />
                     </div>
                     
-                    {!editingProduct && (
-                      <div>
-                        <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2 block flex items-center gap-2"><PackagePlus className="w-3 h-3"/> Stock Inicial</label>
-                        <input type="number" min="0" value={formData.stock || ''} onChange={e => setFormData({...formData, stock: parseInt(e.target.value) || 0})} className="w-full px-4 py-3 bg-slate-100 rounded-xl outline-none font-semibold text-sm text-slate-700" placeholder="0" />
-                      </div>
-                    )}
-
-                    <div className="col-span-2">
+                    <div className={editingProduct ? 'col-span-2' : 'col-span-1'}>
                       <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2 block">Nombre del Producto *</label>
                       <input 
                         type="text" 
@@ -328,26 +415,119 @@ export const Inventory: React.FC<InventoryProps> = ({ role, userEmail, onNavigat
                       />
                     </div>
 
-                    <div><label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2 block">Marca</label><input type="text" value={formData.brand || ''} onChange={e => setFormData({...formData, brand: e.target.value})} className="w-full px-4 py-3 bg-slate-100 rounded-xl outline-none font-semibold text-sm text-slate-700" placeholder="MARCA..." /></div>
-                    <div><label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2 block">Modelo</label><input type="text" value={formData.model || ''} onChange={e => setFormData({...formData, model: e.target.value})} className="w-full px-4 py-3 bg-slate-100 rounded-xl outline-none font-semibold text-sm text-slate-700" placeholder="MODELO..." /></div>
-                    <div><label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2 block">Unidad</label><select value={formData.unit || 'PAR'} onChange={e => setFormData({...formData, unit: e.target.value})} className="w-full px-4 py-3 bg-slate-100 rounded-xl outline-none font-semibold text-sm text-slate-700 appearance-none"><option>PAR</option><option>UND</option><option>CAJA</option><option>SET</option></select></div>
-                    <div><label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2 block">Almacén</label><select onFocus={handleLoadLocations} value={formData.location || ''} onChange={e => setFormData({...formData, location: e.target.value})} className="w-full px-4 py-3 bg-slate-100 rounded-xl outline-none font-semibold text-sm text-slate-700 appearance-none"><option value="">SELECCIONE...</option>{locations.map(l => <option key={l.id} value={l.name}>{l.name}</option>)}</select></div>
-                    <div><label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2 block">Categoría</label><select onFocus={handleLoadCategories} value={formData.category || ''} onChange={e => setFormData({...formData, category: e.target.value})} className="w-full px-4 py-3 bg-slate-100 rounded-xl outline-none font-semibold text-sm text-slate-700 appearance-none"><option value="">SELECCIONE...</option>{categories.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}</select></div>
-                    <div><label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2 block">Talla / Medida</label><input type="text" value={formData.size || ''} onChange={e => setFormData({...formData, size: e.target.value})} className="w-full px-4 py-3 bg-slate-100 rounded-xl outline-none font-semibold text-sm text-slate-700" /></div>
+                    <div>
+                      <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2 block">Marca</label>
+                      <input 
+                        type="text" 
+                        value={formData.brand || ''} 
+                        onChange={e => setFormData({...formData, brand: e.target.value})} 
+                        className="w-full px-4 py-3 bg-slate-100 rounded-xl outline-none font-semibold text-sm text-slate-700" 
+                        placeholder="MARCA..." 
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2 block">Modelo</label>
+                      <input 
+                        type="text" 
+                        value={formData.model || ''} 
+                        onChange={e => setFormData({...formData, model: e.target.value})} 
+                        className="w-full px-4 py-3 bg-slate-100 rounded-xl outline-none font-semibold text-sm text-slate-700" 
+                        placeholder="MODELO..." 
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2 block">Unidad</label>
+                      <select 
+                        value={formData.unit || 'UND'} 
+                        onChange={e => setFormData({...formData, unit: e.target.value})} 
+                        className="w-full px-4 py-3 bg-slate-100 rounded-xl outline-none font-semibold text-sm text-slate-700 appearance-none"
+                      >
+                        <option>UND</option>
+                        <option>PAR</option>
+                        <option>CAJA</option>
+                        <option>SET</option>
+                      </select>
+                    </div>
+                    
+                    <div>
+                      <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2 block">Talla / Medida</label>
+                      <input 
+                        type="text" 
+                        value={formData.size || ''} 
+                        onChange={e => setFormData({...formData, size: e.target.value})} 
+                        className="w-full px-4 py-3 bg-slate-100 rounded-xl outline-none font-semibold text-sm text-slate-700" 
+                        placeholder="S, M, L, XL..."
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2 block">Categoría</label>
+                      <select 
+                        onFocus={handleLoadCategories} 
+                        value={formData.category || ''} 
+                        onChange={e => setFormData({...formData, category: e.target.value})} 
+                        className="w-full px-4 py-3 bg-slate-100 rounded-xl outline-none font-semibold text-sm text-slate-700 appearance-none"
+                      >
+                        <option value="">SELECCIONE...</option>
+                        {categories.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
+                      </select>
+                    </div>
+                    
+                    <div>
+                      <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2 block">Almacén</label>
+                      <select 
+                        onFocus={handleLoadLocations} 
+                        value={formData.location || ''} 
+                        onChange={e => setFormData({...formData, location: e.target.value})} 
+                        className="w-full px-4 py-3 bg-slate-100 rounded-xl outline-none font-semibold text-sm text-slate-700 appearance-none"
+                      >
+                        <option value="">SELECCIONE...</option>
+                        {locations.map(l => <option key={l.id} value={l.name}>{l.name}</option>)}
+                      </select>
+                    </div>
                   </div>
                 </div>
               </div>
-              <div className="p-6 bg-slate-50 border-t flex justify-end items-center gap-4"><button type="button" onClick={() => setIsModalOpen(false)} className="px-8 py-3 text-[10px] font-black uppercase text-slate-500 hover:text-slate-800">CANCELAR</button><button type="submit" disabled={saving} className="px-8 py-4 bg-indigo-600 text-white rounded-xl text-[10px] font-black uppercase shadow-lg shadow-indigo-100 flex items-center gap-2 hover:bg-indigo-700 transition-all active:scale-95">{saving ? <Loader2 className="animate-spin w-4 h-4" /> : <Save className="w-4 h-4" />} CONFIRMAR CAMBIOS</button></div>
+              
+              <div className="p-6 bg-slate-50 border-t flex justify-end items-center gap-4">
+                <button 
+                  type="button" 
+                  onClick={() => setIsModalOpen(false)} 
+                  className="px-8 py-3 text-[10px] font-black uppercase text-slate-500 hover:text-slate-800"
+                >
+                  CANCELAR
+                </button>
+                <button 
+                  type="submit" 
+                  disabled={saving} 
+                  className="px-8 py-4 bg-indigo-600 text-white rounded-xl text-[10px] font-black uppercase shadow-lg shadow-indigo-100 flex items-center gap-2 hover:bg-indigo-700 transition-all active:scale-95"
+                >
+                  {saving ? <Loader2 className="animate-spin w-4 h-4" /> : <Save className="w-4 h-4" />}
+                  CONFIRMAR CAMBIOS
+                </button>
+              </div>
             </form>
           </div>
         </div>
       )}
+
+      {/* Tabla de productos */}
       <div className="bg-white rounded-[2.5rem] shadow-sm border border-slate-100 overflow-hidden">
         <div className="overflow-x-auto no-scrollbar">
           <table className="w-full min-w-[1000px]">
             <thead className="text-[9px] font-black uppercase text-slate-400 tracking-widest bg-slate-50/50">
               <tr>
-                <th className="px-6 py-4 w-10 text-center"><button onClick={toggleSelectAll}>{selectedIds.length === totalCount ? <CheckSquare className="w-5 h-5 mx-auto text-indigo-600" /> : <Square className="w-5 h-5 mx-auto text-slate-300" />}</button></th>
+                <th className="px-6 py-4 w-10 text-center">
+                  <button onClick={toggleSelectAll}>
+                    {selectedIds.length === products.length && products.length > 0 ? (
+                      <CheckSquare className="w-5 h-5 mx-auto text-indigo-600" />
+                    ) : (
+                      <Square className="w-5 h-5 mx-auto text-slate-300" />
+                    )}
+                  </button>
+                </th>
                 <th className="px-6 py-4 text-left">Producto</th>
                 <th className="px-6 py-4 text-center">Stock</th>
                 <th className="px-6 py-4 text-left">Almacén</th>
@@ -359,17 +539,64 @@ export const Inventory: React.FC<InventoryProps> = ({ role, userEmail, onNavigat
             <tbody className="divide-y divide-slate-50">
               {products.map(p => (
                 <tr key={p.id} className="hover:bg-indigo-50/30 transition-colors group">
-                  <td className="px-6 py-3 text-center"><button onClick={() => toggleSelect(p.id)}>{selectedIds.includes(p.id) ? <CheckSquare className="w-5 h-5 mx-auto text-indigo-600" /> : <Square className="w-5 h-5 mx-auto text-slate-200 group-hover:text-slate-400" />}</button></td>
-                  <td className="px-6 py-3"><p className="text-sm font-bold text-slate-800 uppercase">{p.name}</p><p className="text-[9px] text-slate-400 font-black uppercase tracking-tighter">{p.code}</p></td>
-                  <td className="px-6 py-3 text-center"><p className="text-sm font-black text-slate-800">{p.stock} <span className="text-[9px] text-slate-400 font-bold uppercase">{p.unit}</span></p></td>
-                  <td className="px-6 py-3"><p className="text-[10px] text-slate-500 font-black uppercase tracking-widest">{p.location}</p></td>
-                  <td className="px-6 py-3 text-center"><StockBadge stock={p.stock} minStock={p.minStock} criticalStock={p.criticalStock} /></td>
-                  <td className="px-6 py-3 text-right"><p className="text-sm font-bold text-slate-500">{formatCurrency(p.purchasePrice * p.stock, p.currency)}</p><p className="text-[9px] font-bold text-slate-400">({formatCurrency(p.purchasePrice, p.currency)} c/u)</p></td>
+                  <td className="px-6 py-3 text-center">
+                    <button onClick={() => toggleSelect(p.id)}>
+                      {selectedIds.includes(p.id) ? (
+                        <CheckSquare className="w-5 h-5 mx-auto text-indigo-600" />
+                      ) : (
+                        <Square className="w-5 h-5 mx-auto text-slate-200 group-hover:text-slate-400" />
+                      )}
+                    </button>
+                  </td>
+                  <td className="px-6 py-3">
+                    <p className="text-sm font-bold text-slate-800 uppercase">{p.name}</p>
+                    <p className="text-[9px] text-slate-400 font-black uppercase tracking-tighter">{p.code}</p>
+                  </td>
+                  <td className="px-6 py-3 text-center">
+                    <p className="text-sm font-black text-slate-800">
+                      {p.stock} <span className="text-[9px] text-slate-400 font-bold uppercase">{p.unit}</span>
+                    </p>
+                  </td>
+                  <td className="px-6 py-3">
+                    <p className="text-[10px] text-slate-500 font-black uppercase tracking-widest">{p.location}</p>
+                  </td>
+                  <td className="px-6 py-3 text-center">
+                    <StockBadge stock={p.stock} minStock={p.minStock} criticalStock={p.criticalStock} />
+                  </td>
+                  <td className="px-6 py-3 text-right">
+                    <p className="text-sm font-bold text-slate-500">{formatCurrency(p.purchasePrice * p.stock, p.currency)}</p>
+                    <p className="text-[9px] font-bold text-slate-400">({formatCurrency(p.purchasePrice, p.currency)} c/u)</p>
+                  </td>
                   <td className="px-6 py-3 text-center">
                     <div className="flex justify-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <button onClick={() => onNavigate('productDetail', { push: true, state: { productId: p.id } })} className="p-2 text-slate-300 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl"><Info className="w-4 h-4" /></button>
-                      <button onClick={() => setSelectedQRProduct(p)} className="p-2 text-slate-300 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl"><QrCode className="w-4 h-4" /></button>
-                      {role !== 'VIEWER' && <><button onClick={() => handleOpenModal(p)} className="p-2 text-slate-300 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl"><Edit2 className="w-4 h-4" /></button><button onClick={() => setProductToDelete(p)} className="p-2 text-slate-300 hover:text-rose-600 hover:bg-rose-50 rounded-xl"><Trash2 className="w-4 h-4" /></button></>}
+                      <button 
+                        onClick={() => onNavigate('productDetail', { push: true, state: { productId: p.id } })} 
+                        className="p-2 text-slate-300 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl"
+                      >
+                        <Info className="w-4 h-4" />
+                      </button>
+                      <button 
+                        onClick={() => setSelectedQRProduct(p)} 
+                        className="p-2 text-slate-300 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl"
+                      >
+                        <QrCode className="w-4 h-4" />
+                      </button>
+                      {role !== 'VIEWER' && (
+                        <>
+                          <button 
+                            onClick={() => handleOpenModal(p)} 
+                            className="p-2 text-slate-300 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl"
+                          >
+                            <Edit2 className="w-4 h-4" />
+                          </button>
+                          <button 
+                            onClick={() => setProductToDelete(p)} 
+                            className="p-2 text-slate-300 hover:text-rose-600 hover:bg-rose-50 rounded-xl"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </>
+                      )}
                     </div>
                   </td>
                 </tr>
@@ -378,15 +605,34 @@ export const Inventory: React.FC<InventoryProps> = ({ role, userEmail, onNavigat
           </table>
         </div>
         
+        {/* Footer con paginación */}
         <div className="p-4 flex flex-col sm:flex-row justify-between items-center gap-4 text-[10px] font-black uppercase text-slate-500 border-t">
           <div className="flex items-center gap-2">
-            <button onClick={() => setIsMultiQRModalOpen(true)} disabled={selectedIds.length === 0} className="px-4 py-2 bg-slate-800 text-white rounded-lg disabled:opacity-30 disabled:cursor-not-allowed flex items-center gap-1.5"><Printer className="w-3.5 h-3.5" /> IMPRIMIR QR ({selectedIds.length})</button>
+            <button 
+              onClick={() => setIsMultiQRModalOpen(true)} 
+              disabled={selectedIds.length === 0} 
+              className="px-4 py-2 bg-slate-800 text-white rounded-lg disabled:opacity-30 disabled:cursor-not-allowed flex items-center gap-1.5"
+            >
+              <Printer className="w-3.5 h-3.5" /> IMPRIMIR QR ({selectedIds.length})
+            </button>
             <p className="hidden sm:block">({selectedIds.length} de {totalCount} seleccionados)</p>
           </div>
           <div className="flex items-center gap-2">
-            <button onClick={() => setCurrentPage(p => Math.max(0, p - 1))} disabled={currentPage === 0 || loading} className="px-3 py-2 hover:bg-slate-100 rounded-lg disabled:opacity-30 flex items-center gap-1.5"><ChevronLeft className="w-3.5 h-3.5" /> Ant</button>
+            <button 
+              onClick={() => setCurrentPage(p => Math.max(0, p - 1))} 
+              disabled={currentPage === 0 || loading} 
+              className="px-3 py-2 hover:bg-slate-100 rounded-lg disabled:opacity-30 flex items-center gap-1.5"
+            >
+              <ChevronLeft className="w-3.5 h-3.5" /> Ant
+            </button>
             <span>Página {currentPage + 1} de {totalPages}</span>
-            <button onClick={() => setCurrentPage(p => Math.min(totalPages - 1, p + 1))} disabled={currentPage >= totalPages - 1 || loading} className="px-3 py-2 hover:bg-slate-100 rounded-lg disabled:opacity-30 flex items-center gap-1.5">Sig <ChevronRight className="w-3.5 h-3.5" /></button>
+            <button 
+              onClick={() => setCurrentPage(p => Math.min(totalPages - 1, p + 1))} 
+              disabled={currentPage >= totalPages - 1 || loading} 
+              className="px-3 py-2 hover:bg-slate-100 rounded-lg disabled:opacity-30 flex items-center gap-1.5"
+            >
+              Sig <ChevronRight className="w-3.5 h-3.5" />
+            </button>
           </div>
         </div>
       </div>

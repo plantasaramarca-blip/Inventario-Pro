@@ -281,6 +281,11 @@ export const Kardex: React.FC<KardexProps> = ({ role, userEmail, initialState, o
                 <p className="text-[9px] text-slate-500 font-bold uppercase tracking-widest mt-1">
                   {type === 'SALIDA' ? 'Registrar salida de productos' : 'Registrar ingreso de productos'}
                 </p>
+                {userEmail && (
+                  <p className="text-[8px] text-indigo-600 font-bold uppercase mt-1">
+                    👤 Responsable: {userEmail}
+                  </p>
+                )}
               </div>
               <button 
                 type="button" 
