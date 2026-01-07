@@ -256,13 +256,30 @@ export const deleteProduct = async (id: string) => {
     });
 };
 
-export const getMovements = async (): Promise<Movement[]> => {
+export const getMovements = async (limit = 100): Promise<Movement[]> => {
   if (!useSupabase()) return [];
   return fetchWithRetry(async () => {
     const query = 'id, product_id, product_name, type, quantity, date, dispatcher, destino_nombre, balance_after';
-    const { data, error } = await supabase.from('movements').select(query).order('date', { ascending: false });
+    const { data, error } = await supabase
+      .from('movements')
+      .select(query)
+      .order('date', { ascending: false })
+      .limit(limit); // ✅ AGREGADO - Solo trae últimos 100
+    
     if (error) throw error;
-    return (data || []).map(m => ({ id: m.id, productId: m.product_id, productName: m.product_name, type: m.type, quantity: Number(m.quantity) || 0, date: m.date, dispatcher: m.dispatcher, reason: '', balanceAfter: Number(m.balance_after) || 0, destinationName: m.destino_nombre }));
+    
+    return (data || []).map(m => ({
+      id: m.id,
+      productId: m.product_id,
+      productName: m.product_name,
+      type: m.type,
+      quantity: Number(m.quantity) || 0,
+      date: m.date,
+      dispatcher: m.dispatcher,
+      reason: '',
+      balanceAfter: Number(m.balance_after) || 0,
+      destinationName: m.destino_nombre
+    }));
   });
 };
 
