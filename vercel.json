@@ -31,12 +31,7 @@
     {
       "source": "/service-worker.js",
       "destination": "/404"
-    }
-  ]
-}
-
-{
-  "rewrites": [
+    },
     {
       "source": "/favicon.ico",
       "destination": "/404"
