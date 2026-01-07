@@ -112,31 +112,39 @@ useEffect(() => {
   }, [session]);
   
   const fetchRole = async (email: string) => {
-    try {
-      const profile = await api.getCurrentUserProfile(email);
-      const userRole = profile ? profile.role : 'VIEWER';
+  // Primero usar localStorage
+  const cachedRole = localStorage.getItem('kardex_user_role') as Role;
+  if (cachedRole) {
+    setRole(cachedRole);
+    console.log('✅ Rol cargado desde localStorage:', cachedRole);
+  }
+  
+  // Intentar actualizar desde Supabase en background (sin bloquear)
+  try {
+    const profile = await api.getCurrentUserProfile(email);
+    const userRole = profile ? profile.role : 'VIEWER';
+    
+    // Solo actualizar si cambió
+    if (userRole !== cachedRole) {
       setRole(userRole);
       localStorage.setItem('kardex_user_role', userRole);
-    } catch (e) {
-      console.warn("Error de red al sincronizar el rol. Usando la versión local.");
-      setRole(localStorage.getItem('kardex_user_role') as Role || 'VIEWER');
-      addNotification('Error de red al sincronizar rol. Usando datos locales.', 'error');
+      console.log('✅ Rol actualizado desde Supabase:', userRole);
     }
-  };
+  } catch (e) {
+    // Si falla, NO importa, ya tenemos el rol en localStorage
+    console.log('⚠️ No se pudo sincronizar rol (usando localStorage)');
+  }
+};
 
-  const loadInitialData = async (currentSession: any) => {
-    if (!currentSession?.user?.email || dataLoadedRef.current) return;
-    setLoadingData(true);
-    try {
-      await fetchRole(currentSession.user.email);
-      dataLoadedRef.current = true;
-    } catch (error) {
-      console.error('Error en carga inicial:', error);
-      addNotification('Error al cargar datos iniciales', 'error');
-    } finally {
-      setLoadingData(false);
-    }
-  };
+ const loadInitialData = async (currentSession: any) => {
+  if (!currentSession?.user?.email || dataLoadedRef.current) return;
+  
+  // NO bloquear la UI esperando el rol
+  fetchRole(currentSession.user.email); // Sin await
+  
+  dataLoadedRef.current = true;
+  setLoadingData(false); // Liberar UI inmediatamente
+};
   
   const navigateTo = useCallback((page: string, options: { push?: boolean; state?: any } = {}) => {
     const { push = true, state = null } = options;
