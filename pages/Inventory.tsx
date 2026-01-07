@@ -183,21 +183,121 @@ export const Inventory: React.FC<InventoryProps> = ({ role, userEmail, onNavigat
                 <div className="flex justify-between items-start mb-6"><h3 className="text-2xl font-black text-slate-800 uppercase tracking-tighter">{editingProduct ? 'Editar Producto' : 'Nuevo Producto'}</h3><button type="button" onClick={() => setIsModalOpen(false)} className="p-2 text-slate-400 hover:bg-slate-100 rounded-xl"><X className="w-5 h-5" /></button></div>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                   <div className="md:col-span-1 flex flex-col items-center">
-                     <div className="w-full aspect-square bg-slate-50 rounded-3xl border-2 border-dashed flex items-center justify-center mb-4"><ImageIcon className="text-slate-300 w-16 h-16" /></div>
-                     <div className="w-full p-4 bg-amber-50 border-2 border-dashed border-amber-200 rounded-2xl text-center">
-                        <AlertTriangle className="w-6 h-6 text-amber-500 mx-auto mb-2"/><p className="text-[9px] font-black text-amber-800 uppercase tracking-widest">Alertas de Stock</p>
-                        <div className="flex gap-2 mt-2">
-                           <div><label className="text-[8px] font-bold text-slate-500 uppercase tracking-wider block">Mínimo</label><input type="number" min="0" value={formData.minStock ?? ''} onChange={e => handleStockInputChange('minStock', e.target.value)} className="w-full px-2 py-2 bg-white rounded-lg outline-none font-semibold text-sm text-center" /></div>
-                           <div><label className="text-[8px] font-bold text-slate-500 uppercase tracking-wider block">Crítico</label><input type="number" min="0" value={formData.criticalStock ?? ''} onChange={e => handleStockInputChange('criticalStock', e.target.value)} className="w-full px-2 py-2 bg-white rounded-lg outline-none font-semibold text-sm text-center" /></div>
-                        </div>
-                     </div>
-                  </div>
-                  <div className="md:col-span-2 grid grid-cols-2 gap-x-4 gap-y-5">
-                    
-                    <div className={editingProduct ? 'col-span-2' : 'col-span-1'}>
-                      <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2 block">Código SKU / QR *</label>
-                      <input 
-                        onBlur={checkExistingCode} 
+                     <div className="w-full aspect-square bg-slate-50 rounded-3xl border-2 border-dashed flex items-center justify-center mb-4 relative overflow-hidden group cursor-pointer">
+  {formData.imageUrl ? (
+    <img src={formData.imageUrl} alt="Producto" className="w-full h-full object-cover" />
+  ) : (
+    <ImageIcon className="text-slate-300 w-16 h-16" />
+  )}
+  <input 
+    type="file" 
+    accept="image/*" 
+    capture="environment"
+    onChange={handleImageUpload}
+   <div className="col-span-1">
+  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2 block">Código SKU / QR *</label>
+  <input 
+    onBlur={handleSKUBlur}
+    type="text" 
+    required 
+    value={formData.code || ''} 
+    onChange={e => handleSKUChange(e.target.value)}
+    readOnly={!!editingProduct}
+    className={`w-full px-4 py-3 bg-slate-100 rounded-xl outline-none font-semibold text-sm text-slate-700 ${!!editingProduct ? 'opacity-70 cursor-not-allowed' : ''}`}
+    placeholder="INGRESE O ESCANEE"
+  />
+  {existingProductMatch && (
+    <p className="text-[8px] text-amber-600 font-bold mt-1">
+ {!editingProduct && (
+  <div>
+    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2 block flex items-center gap-2">
+      <PackagePlus className="w-3 h-3"/> Stock Inicial
+    </label>
+    <input type="number" min="0" value={formData.stock || ''} onChange={e => setFormData({...formData, stock: parseInt(e.target.value) || 0})} className="w-full px-4 py-3 bg-slate-100 rounded-xl outline-none font-semibold text-sm text-slate-700" placeholder="0" />
+  </div>
+)}
+{/* Fila 1: MARCA y MODELO */}
+<div>
+  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2 block">Marca</label>
+  <input 
+    type="text" 
+    value={formData.brand || ''} 
+    onChange={e => setFormData({...formData, brand: e.target.value})} 
+    className="w-full px-4 py-3 bg-slate-100 rounded-xl outline-none font-semibold text-sm text-slate-700" 
+    placeholder="MARCA..." 
+  />
+</div>
+
+<div>
+  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2 block">Modelo</label>
+  <input 
+    type="text" 
+    value={formData.model || ''} 
+    onChange={e => setFormData({...formData, model: e.target.value})} 
+    className="w-full px-4 py-3 bg-slate-100 rounded-xl outline-none font-semibold text-sm text-slate-700" 
+    placeholder="MODELO..." 
+  />
+</div>
+
+{/* Fila 2: UNIDAD y TALLA */}
+<div>
+  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2 block">Unidad</label>
+  <select 
+    value={formData.unit || 'UND'} 
+    onChange={e => setFormData({...formData, unit: e.target.value})} 
+    className="w-full px-4 py-3 bg-slate-100 rounded-xl outline-none font-semibold text-sm text-slate-700 appearance-none"
+  >
+    <option>UND</option>
+    <option>PAR</option>
+    <option>CAJA</option>
+    <option>SET</option>
+  </select>
+</div>
+
+<div>
+  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2 block">Talla / Medida</label>
+  <input 
+    type="text" 
+    value={formData.size || ''} 
+    onChange={e => setFormData({...formData, size: e.target.value})} 
+    className="w-full px-4 py-3 bg-slate-100 rounded-xl outline-none font-semibold text-sm text-slate-700" 
+    placeholder="S, M, L, XL..." 
+  />
+</div>
+
+{/* Fila 3: CATEGORÍA y ALMACÉN */}
+<div>
+  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2 block">Categoría</label>
+  <select 
+    onFocus={handleLoadCategories} 
+    value={formData.category || ''} 
+    onChange={e => setFormData({...formData, category: e.target.value})} 
+    className="w-full px-4 py-3 bg-slate-100 rounded-xl outline-none font-semibold text-sm text-slate-700 appearance-none"
+  >
+    <option value="">SELECCIONE...</option>
+    {categories.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
+  </select>
+</div>
+
+<div>
+  <div className="flex justify-between items-center py-4 px-8 border-b border-slate-100">
+  <h3 className="text-xl font-black text-slate-800 uppercase tracking-tight">
+    {editingProduct ? 'Editar Producto' : 'Nuevo Producto'}
+  </h3>
+  <button type="button" onClick={() => setIsModalOpen(false)} className="p-2 text-slate-400 hover:bg-slate-100 rounded-xl">
+    <X className="w-5 h-5" />
+  </button>
+</div>
+  <select 
+    onFocus={handleLoadLocations} 
+    value={formData.location || ''} 
+    onChange={e => setFormData({...formData, location: e.target.value})} 
+    className="w-full px-4 py-3 bg-slate-100 rounded-xl outline-none font-semibold text-sm text-slate-700 appearance-none"
+  >
+    <option value="">SELECCIONE...</option>
+    {locations.map(l => <option key={l.id} value={l.name}>{l.name}</option>)}
+  </select>
+</div>
                         type="text" 
                         required 
                         value={formData.code || ''} 
