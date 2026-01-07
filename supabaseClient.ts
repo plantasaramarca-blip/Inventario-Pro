@@ -21,7 +21,34 @@ export const supabaseAnonKey = getEnv('VITE_SUPABASE_ANON_KEY');
 
 export const isSupabaseConfigured = !!(supabaseUrl && supabaseAnonKey);
 
+// Cliente con TIMEOUT AUMENTADO
 export const supabase = createClient(
   supabaseUrl || 'https://placeholder-url.supabase.co', 
-  supabaseAnonKey || 'placeholder-key'
+  supabaseAnonKey || 'placeholder-key',
+  {
+    auth: {
+      autoRefreshToken: true,
+      persistSession: true,
+      detectSessionInUrl: true,
+      flowType: 'implicit'
+    },
+    global: {
+      headers: {
+        'x-client-info': 'kardex-pro'
+      },
+      fetch: (url, options = {}) => {
+        // Timeout de 60 segundos (antes era ~10)
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 60000);
+        
+        return fetch(url, {
+          ...options,
+          signal: controller.signal
+        }).finally(() => clearTimeout(timeoutId));
+      }
+    },
+    db: {
+      schema: 'public'
+    }
+  }
 );
