@@ -485,6 +485,38 @@ export const getStats = async (): Promise<InventoryStats> => {
     }
 };
 
+// ============= DESTINOS =============
+export const getDestinos = async (): Promise<Destination[]> => {
+  if (!useSupabase()) return [];
+  return fetchWithRetry(async () => {
+    const { data, error } = await supabase.from('destinos').select('*').order('nombre');
+    if (error) throw error;
+    return (data || []).map(d => ({ id: d.id, nombre: d.nombre, tipo: d.tipo, activo: d.activo, descripcion: d.descripcion }));
+  });
+};
+
+export const saveDestino = async (destino: Partial<Destination>) => {
+  if (!useSupabase()) return;
+  return fetchWithRetry(async () => {
+    const { id, ...rest } = destino;
+    if (id) {
+      const { error } = await supabase.from('destinos').update(rest).eq('id', id);
+      if (error) throw error;
+    } else {
+      const { error } = await supabase.from('destinos').insert([rest]);
+      if (error) throw error;
+    }
+  });
+};
+
+export const deleteDestino = async (id: string) => {
+  if (!useSupabase()) return;
+  return fetchWithRetry(async () => {
+    const { error } = await supabase.from('destinos').delete().eq('id', id);
+    if (error) throw error;
+  });
+};
+
 export const getAuditLogs = async (p = 0, l = 50): Promise<{ data: AuditLog[], count: number | null }> => {
   if (!useSupabase()) return { data: [], count: 0 };
   return fetchWithRetry(async () => {
