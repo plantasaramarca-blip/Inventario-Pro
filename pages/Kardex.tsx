@@ -161,6 +161,21 @@ export const Kardex: React.FC<KardexProps> = ({ role, userEmail, initialState, o
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault(); 
     if (cartItems.length === 0) return;
+    
+    // VALIDAR STOCK INSUFICIENTE EN DESPACHO
+    if (type === 'SALIDA') {
+      for (const item of cartItems) {
+        const product = products.find(p => p.id === item.productId);
+        if (product && product.stock < item.quantity) {
+          addNotification(
+            `⚠️ Stock insuficiente para "${product.name}". Solo hay ${product.stock} unidades disponibles.`,
+            'error'
+          );
+          return; // No permite guardar
+        }
+      }
+    }
+    
     setSaving(true);
     try {
       const destinoObj = type === 'SALIDA' ? destinos.find(d => d.id === selectedDestinoId) : null;

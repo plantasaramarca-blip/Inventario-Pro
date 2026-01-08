@@ -41,6 +41,8 @@ export default function App() {
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
   const [role, setRole] = useState<Role>('VIEWER');
   const [navigationState, setNavigationState] = useState<any>(null);
+  const [navigationStack, setNavigationStack] = useState<string[]>(['dashboard']);
+  const [showLogoutDialog, setShowLogoutDialog] = useState(false);
 
   const [destinos, setDestinos] = useState<Destination[] | null>(null);
   const [categories, setCategories] = useState<CategoryMaster[] | null>(null);
@@ -111,10 +113,13 @@ export default function App() {
   const navigateTo = useCallback((page: string, options: { push?: boolean; state?: any } = {}) => {
     const { push = true, state = null } = options;
     if (page === currentPage && JSON.stringify(state) === JSON.stringify(navigationState)) return;
+    
     setCurrentPage(page);
     setNavigationState(state);
     if (isSidebarOpen) setIsSidebarOpen(false);
+    
     if (push) {
+      setNavigationStack(prev => [...prev, page]);
       const url = new URL(window.location.href);
       url.search = ''; 
       if (page === 'productDetail' && state?.productId) url.searchParams.set('id', state.productId);
@@ -133,14 +138,31 @@ export default function App() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
+  // ===== NAVEGACIÓN INTERNA CON BOTÓN ATRÁS =====
   useEffect(() => {
     const handlePopState = (event: PopStateEvent) => {
-      if (event.state?.page) navigateTo(event.state.page, { push: false, state: event.state.state });
-      else navigateTo('dashboard', { push: false });
+      event.preventDefault();
+      
+      // Si hay más de una página en el stack, volver atrás
+      if (navigationStack.length > 1) {
+        const newStack = [...navigationStack];
+        newStack.pop(); // Quitar la página actual
+        const previousPage = newStack[newStack.length - 1];
+        
+        setNavigationStack(newStack);
+        setCurrentPage(previousPage);
+        setNavigationState(event.state?.state || null);
+      } else {
+        // Si estamos en dashboard (inicio), mostrar diálogo de cerrar sesión
+        setShowLogoutDialog(true);
+        // Mantener la historia para evitar salir accidentalmente
+        window.history.pushState({ page: currentPage, state: navigationState }, "", window.location.href);
+      }
     };
+    
     window.addEventListener('popstate', handlePopState);
     return () => window.removeEventListener('popstate', handlePopState);
-  }, [navigateTo]);
+  }, [navigationStack, currentPage, navigationState]);
 
   useEffect(() => {
     if (isSupabaseConfigured) {
@@ -193,6 +215,8 @@ export default function App() {
     }
     dataLoadedRef.current = false;
     setCurrentPage('dashboard');
+    setNavigationStack(['dashboard']);
+    setShowLogoutDialog(false);
   };
 
   const clearCache = (keys: Array<'destinos' | 'categories' | 'locations'>) => {
@@ -249,6 +273,18 @@ export default function App() {
       </div>
       <CommandPalette isOpen={isCommandPaletteOpen} onClose={() => setIsCommandPaletteOpen(false)} onNavigate={navigateTo} />
       <NotificationContainer />
+      
+      {/* Diálogo de cerrar sesión */}
+      <CustomDialog
+        isOpen={showLogoutDialog}
+        title="¿Cerrar Sesión?"
+        message="¿Estás seguro que deseas cerrar tu sesión?"
+        type="warning"
+        onConfirm={handleLogout}
+        onCancel={() => setShowLogoutDialog(false)}
+        confirmText="Sí, Cerrar Sesión"
+        cancelText="Cancelar"
+      />
     </div>
   );
 }
