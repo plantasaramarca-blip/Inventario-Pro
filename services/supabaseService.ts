@@ -438,72 +438,17 @@ export const saveContact = async (contact: Partial<Contact>) => {
 
 export const deleteContact = async (id: string) => { if (!useSupabase()) return; };
 
-etstats corregido · TS
-Copiar
-
-// ======================================================================
-// FUNCIÓN CORREGIDA PARA supabaseService.ts
-// Reemplaza la función getStats existente (línea ~455)
-// ======================================================================
-
 export const getStats = async (): Promise<InventoryStats> => {
-    if (!useSupabase()) {
-        return { 
-            totalProducts: 0, 
-            lowStockCount: 0, 
-            criticalStockCount: 0, 
-            outOfStockCount: 0, 
-            totalMovements: 0, 
-            totalContacts: 0, 
-            totalValue: 0 
-        };
-    }
+    if (!useSupabase()) return { 
+        totalProducts: 0, lowStockCount: 0, criticalStockCount: 0, 
+        outOfStockCount: 0, totalMovements: 0, totalContacts: 0, totalValue: 0 
+    };
     
+    // Intentar caché primero
     const cached = getCached('stats');
-    if (cached) {
-        console.log('📊 Stats desde caché:', cached);
-        return cached;
-    }
+    if (cached) return cached;
     
     try {
-        console.log('📊 Calculando stats desde BD...');
-        
-        // Traer TODOS los productos para calcular contadores
-        const { data: products, error: productsError } = await supabase
-            .from('products')
-            .select('stock, min_stock, critical_stock');
-        
-        if (productsError) {
-            console.error('❌ Error al obtener productos:', productsError);
-            throw productsError;
-        }
-        
-        // Calcular contadores
-        let lowStockCount = 0;
-        let criticalStockCount = 0;
-        let outOfStockCount = 0;
-        
-        (products || []).forEach(p => {
-            const stock = p.stock || 0;
-            const minStock = p.min_stock || 30;
-            const criticalStock = p.critical_stock || 10;
-            
-            if (stock === 0) {
-                outOfStockCount++;
-            } else if (stock <= criticalStock) {
-                criticalStockCount++;
-            } else if (stock <= minStock) {
-                lowStockCount++;
-            }
-        });
-        
-        console.log('📊 Contadores calculados:', {
-            lowStockCount,
-            criticalStockCount,
-            outOfStockCount
-        });
-        
-        // Counts de otras tablas
         const [
             { count: totalProducts },
             { count: totalMovements },
@@ -514,40 +459,28 @@ export const getStats = async (): Promise<InventoryStats> => {
             supabase.from('contacts').select('id', { count: 'exact', head: true })
         ]);
         
-        const result: InventoryStats = {
+        const result = {
             totalProducts: totalProducts || 0,
-            lowStockCount,
-            criticalStockCount,
-            outOfStockCount,
+            lowStockCount: 0,
+            criticalStockCount: 0,
+            outOfStockCount: 0,
             totalMovements: totalMovements || 0,
             totalContacts: totalContacts || 0,
             totalValue: 0
         };
         
-        console.log('✅ Stats finales:', result);
-        
         setCache('stats', result);
         return result;
-        
     } catch (error) {
-        console.error('❌ Error en getStats:', error);
+        console.error('Error en getStats:', error);
         
-        // Intentar devolver caché expirado
+        // Fallback a caché expirado
         const expiredCache = getExpiredCache('stats');
-        if (expiredCache) {
-            console.log('⚠️ Usando caché expirado');
-            return expiredCache;
-        }
+        if (expiredCache) return expiredCache;
         
-        // Último recurso: valores en 0
         return { 
-            totalProducts: 0, 
-            lowStockCount: 0, 
-            criticalStockCount: 0, 
-            outOfStockCount: 0, 
-            totalMovements: 0, 
-            totalContacts: 0, 
-            totalValue: 0 
+            totalProducts: 0, lowStockCount: 0, criticalStockCount: 0, 
+            outOfStockCount: 0, totalMovements: 0, totalContacts: 0, totalValue: 0 
         };
     }
 };
