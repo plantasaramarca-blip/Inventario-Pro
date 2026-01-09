@@ -10,7 +10,7 @@ import { QRScanner } from '../components/QRScanner.tsx';
 import { useNotification } from '../contexts/NotificationContext.tsx';
 import { CustomDialog } from '../components/CustomDialog.tsx';
 import { supabase } from '../supabaseClient.ts';
-import { 
+import {
   Plus, Search, Edit2, ImageIcon, Loader2, X, Save, Camera, QrCode, Info, Trash2, FileSpreadsheet, CheckSquare, Square, Printer, ChevronLeft, ChevronRight, ScanLine, AlertTriangle, Upload
 } from 'https://esm.sh/lucide-react@0.475.0?external=react,react-dom';
 
@@ -34,11 +34,11 @@ export const Inventory: React.FC<InventoryProps> = ({ role, userEmail, onNavigat
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
-  
+
   const [search, setSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [filters, setFilters] = useState({ category: 'ALL', location: 'ALL' });
-  
+
   const [currentPage, setCurrentPage] = useState(0);
   const [totalCount, setTotalCount] = useState(0);
   const totalPages = Math.ceil(totalCount / ITEMS_PER_PAGE);
@@ -53,13 +53,13 @@ export const Inventory: React.FC<InventoryProps> = ({ role, userEmail, onNavigat
   const [isScannerOpen, setIsScannerOpen] = useState(false);
   const [productToDelete, setProductToDelete] = useState<Product | null>(null);
   const { addNotification } = useNotification();
-  
+
   // Estados para autocomplete
   const [codeSearch, setCodeSearch] = useState('');
   const [nameSearch, setNameSearch] = useState('');
   const [showCodeSuggestions, setShowCodeSuggestions] = useState(false);
   const [showNameSuggestions, setShowNameSuggestions] = useState(false);
-  
+
   useEffect(() => {
     const handler = setTimeout(() => {
       setDebouncedSearch(search);
@@ -76,15 +76,15 @@ export const Inventory: React.FC<InventoryProps> = ({ role, userEmail, onNavigat
     const loadData = async () => {
       setLoading(true);
       try {
-        const { products: prods, count } = await api.getProducts({ 
-          page: currentPage, 
+        const { products: prods, count } = await api.getProducts({
+          page: currentPage,
           pageSize: ITEMS_PER_PAGE,
           searchTerm: debouncedSearch,
           filters
         });
         setProducts(prods || []);
         setTotalCount(count || 0);
-        
+
         // Cargar TODOS los productos para autocomplete
         if (allProducts.length === 0) {
           const { products: allProds } = await api.getProducts({ fetchAll: true });
@@ -103,26 +103,26 @@ export const Inventory: React.FC<InventoryProps> = ({ role, userEmail, onNavigat
     }
   }, [initialState, currentPage, debouncedSearch, filters]);
 
-  const handleLoadCategories = async () => { 
-    if (!categories || categories.length === 0) { 
-      try { 
-        const catsData = await api.getCategoriesMaster(); 
-        setCategories(catsData || []); 
-      } catch (e) { 
-        addNotification('Error al cargar categorías.', 'error'); 
-      } 
-    } 
+  const handleLoadCategories = async () => {
+    if (!categories || categories.length === 0) {
+      try {
+        const catsData = await api.getCategoriesMaster();
+        setCategories(catsData || []);
+      } catch (e) {
+        addNotification('Error al cargar categorías.', 'error');
+      }
+    }
   };
-  
-  const handleLoadLocations = async () => { 
-    if (!locations || locations.length === 0) { 
-      try { 
-        const locsData = await api.getLocationsMaster(); 
-        setLocations(locsData || []); 
-      } catch (e) { 
-        addNotification('Error al cargar almacenes.', 'error'); 
-      } 
-    } 
+
+  const handleLoadLocations = async () => {
+    if (!locations || locations.length === 0) {
+      try {
+        const locsData = await api.getLocationsMaster();
+        setLocations(locsData || []);
+      } catch (e) {
+        addNotification('Error al cargar almacenes.', 'error');
+      }
+    }
   };
 
   const handleScanSuccess = (decodedText: string) => {
@@ -156,7 +156,7 @@ export const Inventory: React.FC<InventoryProps> = ({ role, userEmail, onNavigat
         .filter(code => code.startsWith('SKU-'))
         .map(code => parseInt(code.replace('SKU-', '')))
         .filter(num => !isNaN(num));
-      
+
       const maxNum = skuNumbers.length > 0 ? Math.max(...skuNumbers) : 0;
       const nextNum = maxNum + 1;
       return `SKU-${String(nextNum).padStart(4, '0')}`;
@@ -166,9 +166,9 @@ export const Inventory: React.FC<InventoryProps> = ({ role, userEmail, onNavigat
   };
 
   const handleOpenModal = async (product?: Product) => {
-    if (product) { 
-      setEditingProduct(product); 
-      setFormData({ 
+    if (product) {
+      setEditingProduct(product);
+      setFormData({
         ...product,
         brand: product.brand || '',
         model: product.model || '',
@@ -178,25 +178,25 @@ export const Inventory: React.FC<InventoryProps> = ({ role, userEmail, onNavigat
       });
       setCodeSearch(product.code || '');
       setNameSearch(product.name || '');
-    } else { 
+    } else {
       const nextSKU = await generateNextSKU();
-      setEditingProduct(null); 
-      setFormData({ 
+      setEditingProduct(null);
+      setFormData({
         code: nextSKU,
-        name: '', brand: '', size: '', model: '', category: '', location: '', 
-        stock: 0, minStock: 30, criticalStock: 10, purchasePrice: 0, salePrice: 0, 
-        currency: 'PEN', unit: 'UND', imageUrl: '' 
+        name: '', brand: '', size: '', model: '', category: '', location: '',
+        stock: 0, minStock: 30, criticalStock: 10, purchasePrice: 0, salePrice: 0,
+        currency: 'PEN', unit: 'UND', imageUrl: ''
       });
       setCodeSearch(nextSKU);
       setNameSearch('');
     }
     setIsModalOpen(true);
   };
-  
+
   const checkExistingCode = async () => {
     const codeToCheck = formData.code?.trim().toLowerCase();
     if (!codeToCheck || editingProduct) return;
-    
+
     try {
       const existing = await api.getProductByCode(codeToCheck);
       if (existing) {
@@ -298,14 +298,14 @@ export const Inventory: React.FC<InventoryProps> = ({ role, userEmail, onNavigat
 
     setUploadingImage(true);
     addNotification(`Comprimiendo imagen (${originalSizeMB}MB)...`, 'info');
-    
+
     try {
       // Comprimir imagen
       const compressed = await compressImage(file);
       const compressedSizeMB = (compressed.size / (1024 * 1024)).toFixed(2);
-      
+
       addNotification(`Subiendo (${compressedSizeMB}MB)...`, 'info');
-      
+
       // Generar nombre único
       const fileName = `${Date.now()}_${formData.code || 'temp'}.jpg`;
       const filePath = `products/${fileName}`;
@@ -339,19 +339,19 @@ export const Inventory: React.FC<InventoryProps> = ({ role, userEmail, onNavigat
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
       reader.readAsDataURL(file);
-      
+
       reader.onload = (event: any) => {
         const img = new Image();
         img.src = event.target.result;
-        
+
         img.onload = () => {
           const canvas = document.createElement('canvas');
           const MAX_WIDTH = 800;
           const MAX_HEIGHT = 800;
-          
+
           let width = img.width;
           let height = img.height;
-          
+
           if (width > height) {
             if (width > MAX_WIDTH) {
               height = height * (MAX_WIDTH / width);
@@ -363,13 +363,13 @@ export const Inventory: React.FC<InventoryProps> = ({ role, userEmail, onNavigat
               height = MAX_HEIGHT;
             }
           }
-          
+
           canvas.width = width;
           canvas.height = height;
-          
+
           const ctx = canvas.getContext('2d');
           ctx?.drawImage(img, 0, 0, width, height);
-          
+
           canvas.toBlob((blob) => {
             if (blob) {
               resolve(blob);
@@ -379,7 +379,7 @@ export const Inventory: React.FC<InventoryProps> = ({ role, userEmail, onNavigat
           }, 'image/jpeg', 0.8);
         };
       };
-      
+
       reader.onerror = reject;
     });
   };
@@ -390,7 +390,7 @@ export const Inventory: React.FC<InventoryProps> = ({ role, userEmail, onNavigat
       addNotification('Código y nombre son requeridos', 'error');
       return;
     }
-    
+
     setSaving(true);
     try {
       // CONVERTIR NOMBRE A MAYÚSCULAS ANTES DE GUARDAR
@@ -400,24 +400,24 @@ export const Inventory: React.FC<InventoryProps> = ({ role, userEmail, onNavigat
         brand: formData.brand?.toUpperCase(),
         model: formData.model?.toUpperCase()
       } as Product;
-      
+
       await api.saveProduct(productToSave, userEmail);
       setIsModalOpen(false);
-      
+
       // Recargar productos
-      const { products: prods, count } = await api.getProducts({ 
-        page: currentPage, 
+      const { products: prods, count } = await api.getProducts({
+        page: currentPage,
         pageSize: ITEMS_PER_PAGE,
         searchTerm: debouncedSearch,
         filters
       });
       setProducts(prods || []);
       setTotalCount(count || 0);
-      
+
       // Recargar todos los productos para autocomplete
       const { products: allProds } = await api.getProducts({ fetchAll: true });
       setAllProducts(allProds || []);
-      
+
       addNotification(`Producto ${editingProduct ? 'actualizado' : 'creado'} exitosamente`, 'success');
     } catch (err: any) {
       addNotification(err.message || 'Error al guardar producto', 'error');
@@ -428,7 +428,7 @@ export const Inventory: React.FC<InventoryProps> = ({ role, userEmail, onNavigat
 
   const handleConfirmDelete = async () => {
     if (!productToDelete) return;
-    
+
     try {
       await api.deleteProduct(productToDelete.id, userEmail);
       setProducts(prev => prev.filter(p => p.id !== productToDelete.id));
@@ -452,28 +452,28 @@ export const Inventory: React.FC<InventoryProps> = ({ role, userEmail, onNavigat
   return (
     <div className="space-y-6 animate-in fade-in duration-500 pb-20">
       {isScannerOpen && <QRScanner onScanSuccess={handleScanSuccess} onClose={() => setIsScannerOpen(false)} />}
-      
+
       <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-6">
         <div>
           <h1 className="text-2xl font-black text-slate-900 uppercase tracking-tight">Inventario de Productos</h1>
           <p className="text-[9px] text-slate-500 font-black uppercase tracking-widest mt-0.5">Gestión Completa de Stock</p>
         </div>
-        
+
         <div className="flex flex-wrap gap-3">
           <div className="flex gap-2">
-            <button 
+            <button
               onClick={() => {
                 const timestamp = new Date().toISOString().split('T')[0];
                 exportToExcel(products, `Inventario_${timestamp}`, "Stock");
-              }} 
+              }}
               className="px-4 py-3 text-emerald-600 text-[9px] font-black uppercase flex items-center justify-center gap-1.5 hover:bg-emerald-50 transition-all"
             >
               <FileSpreadsheet className="w-3.5 h-3.5" /> EXCEL
             </button>
           </div>
           {role !== 'VIEWER' && (
-            <button 
-              onClick={() => handleOpenModal()} 
+            <button
+              onClick={() => handleOpenModal()}
               className="bg-indigo-600 text-white px-6 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2 shadow-xl shadow-indigo-100 hover:bg-indigo-700 active:scale-95 transition-all"
             >
               <Plus className="w-4 h-4" /> NUEVO PRODUCTO
@@ -486,16 +486,16 @@ export const Inventory: React.FC<InventoryProps> = ({ role, userEmail, onNavigat
       <div className="flex flex-col lg:flex-row gap-4">
         <div className="flex-1 relative group">
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300 group-focus-within:text-indigo-500 transition-colors pointer-events-none" />
-          <input 
-            type="text" 
-            placeholder="Buscar por nombre, código o marca..." 
+          <input
+            type="text"
+            placeholder="Buscar por nombre, código o marca..."
             className="w-full pl-12 pr-12 py-4 bg-white border border-slate-100 rounded-2xl text-xs outline-none shadow-sm focus:ring-2 focus:ring-indigo-500 transition-all font-bold"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
           {search && (
-            <button 
-              onClick={() => setSearch('')} 
+            <button
+              onClick={() => setSearch('')}
               className="absolute right-4 top-1/2 -translate-y-1/2 p-1 hover:bg-slate-100 rounded-full"
             >
               <X className="w-3 h-3 text-slate-400" />
@@ -508,10 +508,10 @@ export const Inventory: React.FC<InventoryProps> = ({ role, userEmail, onNavigat
             <ScanLine className="w-4 h-4 text-slate-400" />
           </button>
         </div>
-        
+
         <div className="flex gap-3">
-          <select 
-            value={filters.category} 
+          <select
+            value={filters.category}
             onChange={(e) => setFilters(prev => ({ ...prev, category: e.target.value }))}
             onFocus={handleLoadCategories}
             className="px-4 py-4 bg-white border border-slate-100 rounded-2xl text-xs outline-none font-bold shadow-sm appearance-none"
@@ -519,9 +519,9 @@ export const Inventory: React.FC<InventoryProps> = ({ role, userEmail, onNavigat
             <option value="ALL">Todas las Categorías</option>
             {categories.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
           </select>
-          
-          <select 
-            value={filters.location} 
+
+          <select
+            value={filters.location}
             onChange={(e) => setFilters(prev => ({ ...prev, location: e.target.value }))}
             onFocus={handleLoadLocations}
             className="px-4 py-4 bg-white border border-slate-100 rounded-2xl text-xs outline-none font-bold shadow-sm appearance-none"
@@ -536,8 +536,8 @@ export const Inventory: React.FC<InventoryProps> = ({ role, userEmail, onNavigat
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4">
           <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm"></div>
-          //<div className="relative bg-white rounded-3xl w-full max-w-4xl shadow-2xl animate-in zoom-in-95 max-h-[75vh] sm:max-h-[85vh] flex flex-col">*/
-		  <div className="relative bg-white rounded-3xl w-full max-w-4xl shadow-2xl animate-in zoom-in-95 h-[90vh] flex flex-col overflow-hidden">
+
+          <div className="relative bg-white rounded-3xl w-full max-w-4xl shadow-2xl animate-in zoom-in-95 h-[90vh] flex flex-col overflow-hidden">
             <form onSubmit={handleSubmit} className="flex flex-col h-full">
               {/* Header fijo */}
               <div className="p-4 sm:p-6 border-b flex-shrink-0">
@@ -550,15 +550,15 @@ export const Inventory: React.FC<InventoryProps> = ({ role, userEmail, onNavigat
                   </button>
                 </div>
               </div>
-              
+
               {/* Body con scroll */}
-              /*<div className="p-4 sm:p-8 overflow-y-auto flex-1">*/
-			  <div className="p-4 sm:p-6 overflow-y-auto flex-1" style={{WebkitOverflowScrolling: 'touch'}}>
-                //<div className="grid grid-cols-1 md:grid-cols-3 gap-6">//
-				<div className="space-y-4">
+
+              <div className="p-4 sm:p-6 overflow-y-auto flex-1" style={{ WebkitOverflowScrolling: 'touch' }}>
+
+                <div className="space-y-4">
                   {/* Columna izquierda: Imagen y alertas */}
-                  //<div className="md:col-span-1 flex flex-col items-center">//
-				  <div className="flex flex-col items-center w-full">
+
+                  <div className="flex flex-col items-center w-full">
                     <div className="w-full aspect-square bg-slate-50 rounded-3xl border-2 border-dashed flex items-center justify-center mb-4 relative group cursor-pointer overflow-hidden">
                       {uploadingImage ? (
                         <Loader2 className="animate-spin w-8 h-8 text-indigo-600" />
@@ -577,120 +577,80 @@ export const Inventory: React.FC<InventoryProps> = ({ role, userEmail, onNavigat
                           </div>
                         </>
                       )}
-                      <input 
+                      <input
                         ref={fileInputRef}
-                        type="file" 
-                        accept="image/*" 
+                        type="file"
+                        accept="image/*"
                         capture="environment"
                         onChange={handleImageUpload}
                         className="absolute inset-0 opacity-0 cursor-pointer"
                       />
                     </div>
-                    
-/*                    <div className="w-full p-3 sm:p-4 bg-amber-50 border-2 border-dashed border-amber-200 rounded-2xl text-center">
-                      <AlertTriangle className="w-5 h-5 sm:w-6 sm:h-6 text-amber-500 mx-auto mb-2"/>
-                      <p className="text-[8px] sm:text-[9px] font-black text-amber-800 uppercase tracking-widest">Alertas de Stock</p>
-                      <div className="flex gap-2 mt-2">
-                        <div className="flex-1">
-                          <label className="text-[7px] sm:text-[8px] font-bold text-slate-500 uppercase tracking-wider block">Mínimo</label>
-                          <input 
-                            type="number" 
-                            min="0" 
-                            value={formData.minStock ?? ''} 
-                            onChange={e => handleStockInputChange('minStock', e.target.value)} 
-                            className="w-full px-2 py-1.5 sm:py-2 bg-white rounded-lg outline-none font-semibold text-xs sm:text-sm text-center" 
-                          />
-                        </div>
-                        <div className="flex-1">
-                          <label className="text-[7px] sm:text-[8px] font-bold text-slate-500 uppercase tracking-wider block">Crítico</label>
-                          <input 
-                            type="number" 
-                            min="0" 
-                            value={formData.criticalStock ?? ''} 
-                            onChange={e => handleStockInputChange('criticalStock', e.target.value)} 
-                            className="w-full px-2 py-1.5 sm:py-2 bg-white rounded-lg outline-none font-semibold text-xs sm:text-sm text-center" 
-                          />
-                        </div>
+
+                  </div>
+                  <div className="w-full p-4 bg-slate-50 rounded-2xl">
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="text-[9px] font-bold text-slate-600 uppercase mb-1 block">Stock Mínimo</label>
+                        <input
+                          type="number"
+                          min="0"
+                          value={formData.minStock ?? ''}
+                          onChange={e => setFormData({ ...formData, minStock: parseInt(e.target.value) || 0 })}
+                          className="w-full px-3 py-2 bg-white border rounded-lg outline-none text-sm text-center"
+                          placeholder="30"
+                        />
                       </div>
-                      
                       {!editingProduct && (
-                        <div className="mt-2 sm:mt-3">
-                          <label className="text-[7px] sm:text-[8px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Stock Inicial</label>
-                          <input 
-                            type="number" 
-                            min="0" 
-                            value={formData.stock || ''} 
-                            onChange={e => setFormData({...formData, stock: parseInt(e.target.value) || 0})} 
-                            className="w-full px-2 py-1.5 sm:py-2 bg-white rounded-lg outline-none font-semibold text-xs sm:text-sm text-center" 
+                        <div>
+                          <label className="text-[9px] font-bold text-slate-600 uppercase mb-1 block">Stock Inicial</label>
+                          <input
+                            type="number"
+                            min="0"
+                            value={formData.stock || ''}
+                            onChange={e => setFormData({ ...formData, stock: parseInt(e.target.value) || 0 })}
+                            className="w-full px-3 py-2 bg-white border rounded-lg outline-none text-sm text-center"
                             placeholder="0"
                           />
                         </div>
                       )}
+                      <div>
+                        <label className="text-[9px] font-bold text-slate-600 uppercase mb-1 block">Precio Compra</label>
+                        <input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          value={formData.purchasePrice || ''}
+                          onChange={e => setFormData({ ...formData, purchasePrice: parseFloat(e.target.value) || 0 })}
+                          className="w-full px-3 py-2 bg-white border rounded-lg outline-none text-sm text-center"
+                          placeholder="0.00"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[9px] font-bold text-slate-600 uppercase mb-1 block">Precio Venta</label>
+                        <input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          value={formData.salePrice || ''}
+                          onChange={e => setFormData({ ...formData, salePrice: parseFloat(e.target.value) || 0 })}
+                          className="w-full px-3 py-2 bg-white border rounded-lg outline-none text-sm text-center"
+                          placeholder="0.00"
+                        />
+                      </div>
                     </div>
-*/                  </div>
-                    <div className="w-full p-4 bg-slate-50 rounded-2xl">
-  <div className="grid grid-cols-2 gap-3">
-    <div>
-      <label className="text-[9px] font-bold text-slate-600 uppercase mb-1 block">Stock Mínimo</label>
-      <input 
-        type="number" 
-        min="0" 
-        value={formData.minStock ?? ''} 
-        onChange={e => setFormData({...formData, minStock: parseInt(e.target.value) || 0})} 
-        className="w-full px-3 py-2 bg-white border rounded-lg outline-none text-sm text-center" 
-        placeholder="30"
-      />
-    </div>
-    {!editingProduct && (
-      <div>
-        <label className="text-[9px] font-bold text-slate-600 uppercase mb-1 block">Stock Inicial</label>
-        <input 
-          type="number" 
-          min="0" 
-          value={formData.stock || ''} 
-          onChange={e => setFormData({...formData, stock: parseInt(e.target.value) || 0})} 
-          className="w-full px-3 py-2 bg-white border rounded-lg outline-none text-sm text-center" 
-          placeholder="0"
-        />
-      </div>
-    )}
-    <div>
-      <label className="text-[9px] font-bold text-slate-600 uppercase mb-1 block">Precio Compra</label>
-      <input 
-        type="number" 
-        min="0" 
-        step="0.01"
-        value={formData.purchasePrice || ''} 
-        onChange={e => setFormData({...formData, purchasePrice: parseFloat(e.target.value) || 0})} 
-        className="w-full px-3 py-2 bg-white border rounded-lg outline-none text-sm text-center" 
-        placeholder="0.00"
-      />
-    </div>
-    <div>
-      <label className="text-[9px] font-bold text-slate-600 uppercase mb-1 block">Precio Venta</label>
-      <input 
-        type="number" 
-        min="0" 
-        step="0.01"
-        value={formData.salePrice || ''} 
-        onChange={e => setFormData({...formData, salePrice: parseFloat(e.target.value) || 0})} 
-        className="w-full px-3 py-2 bg-white border rounded-lg outline-none text-sm text-center" 
-        placeholder="0.00"
-      />
-    </div>
-  </div>
-</div>
-                  
+                  </div>
+
                   {/* Columna derecha: Campos del formulario */}
-//                  <div className="md:col-span-2 grid grid-cols-2 gap-x-4 gap-y-5">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     {/* Código SKU con autocomplete */}
                     <div className="relative">
                       <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2 block">Código SKU / QR *</label>
-                      <input 
-                        type="text" 
-                        required 
-                        value={codeSearch} 
+                      <input
+                        type="text"
+                        required
+                        value={codeSearch}
                         onChange={e => handleCodeChange(e.target.value)}
                         onFocus={() => setShowCodeSuggestions(codeSearch.length > 0)}
                         onBlur={() => setTimeout(() => setShowCodeSuggestions(false), 200)}
@@ -714,14 +674,14 @@ export const Inventory: React.FC<InventoryProps> = ({ role, userEmail, onNavigat
                         </div>
                       )}
                     </div>
-                    
+
                     {/* Nombre con autocomplete */}
                     <div className="relative">
                       <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2 block">Nombre del Producto *</label>
-                      <input 
-                        type="text" 
-                        required 
-                        value={nameSearch} 
+                      <input
+                        type="text"
+                        required
+                        value={nameSearch}
                         onChange={e => handleNameChange(e.target.value)}
                         onFocus={() => setShowNameSuggestions(nameSearch.length > 0)}
                         onBlur={() => setTimeout(() => setShowNameSuggestions(false), 200)}
@@ -748,31 +708,31 @@ export const Inventory: React.FC<InventoryProps> = ({ role, userEmail, onNavigat
 
                     <div>
                       <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2 block">Marca</label>
-                      <input 
-                        type="text" 
-                        value={formData.brand || ''} 
-                        onChange={e => setFormData({...formData, brand: e.target.value})} 
-                        className="w-full px-4 py-3 bg-slate-100 rounded-xl outline-none font-semibold text-sm text-slate-700" 
-                        placeholder="MARCA..." 
+                      <input
+                        type="text"
+                        value={formData.brand || ''}
+                        onChange={e => setFormData({ ...formData, brand: e.target.value })}
+                        className="w-full px-4 py-3 bg-slate-100 rounded-xl outline-none font-semibold text-sm text-slate-700"
+                        placeholder="MARCA..."
                       />
                     </div>
-                    
+
                     <div>
                       <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2 block">Modelo</label>
-                      <input 
-                        type="text" 
-                        value={formData.model || ''} 
-                        onChange={e => setFormData({...formData, model: e.target.value})} 
-                        className="w-full px-4 py-3 bg-slate-100 rounded-xl outline-none font-semibold text-sm text-slate-700" 
-                        placeholder="MODELO..." 
+                      <input
+                        type="text"
+                        value={formData.model || ''}
+                        onChange={e => setFormData({ ...formData, model: e.target.value })}
+                        className="w-full px-4 py-3 bg-slate-100 rounded-xl outline-none font-semibold text-sm text-slate-700"
+                        placeholder="MODELO..."
                       />
                     </div>
-                    
+
                     <div>
                       <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2 block">Unidad</label>
-                      <select 
-                        value={formData.unit || 'UND'} 
-                        onChange={e => setFormData({...formData, unit: e.target.value})} 
+                      <select
+                        value={formData.unit || 'UND'}
+                        onChange={e => setFormData({ ...formData, unit: e.target.value })}
                         className="w-full px-4 py-3 bg-slate-100 rounded-xl outline-none font-semibold text-sm text-slate-700 appearance-none"
                       >
                         <option>UND</option>
@@ -781,37 +741,37 @@ export const Inventory: React.FC<InventoryProps> = ({ role, userEmail, onNavigat
                         <option>SET</option>
                       </select>
                     </div>
-                    
+
                     <div>
                       <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2 block">Talla / Medida</label>
-                      <input 
-                        type="text" 
-                        value={formData.size || ''} 
-                        onChange={e => setFormData({...formData, size: e.target.value})} 
-                        className="w-full px-4 py-3 bg-slate-100 rounded-xl outline-none font-semibold text-sm text-slate-700" 
+                      <input
+                        type="text"
+                        value={formData.size || ''}
+                        onChange={e => setFormData({ ...formData, size: e.target.value })}
+                        className="w-full px-4 py-3 bg-slate-100 rounded-xl outline-none font-semibold text-sm text-slate-700"
                         placeholder="S, M, L, XL..."
                       />
                     </div>
-                    
+
                     <div>
                       <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2 block">Categoría</label>
-                      <select 
-                        onFocus={handleLoadCategories} 
-                        value={formData.category || ''} 
-                        onChange={e => setFormData({...formData, category: e.target.value})} 
+                      <select
+                        onFocus={handleLoadCategories}
+                        value={formData.category || ''}
+                        onChange={e => setFormData({ ...formData, category: e.target.value })}
                         className="w-full px-4 py-3 bg-slate-100 rounded-xl outline-none font-semibold text-sm text-slate-700 appearance-none"
                       >
                         <option value="">SELECCIONE...</option>
                         {categories.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
                       </select>
                     </div>
-                    
+
                     <div>
                       <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2 block">Almacén</label>
-                      <select 
-                        onFocus={handleLoadLocations} 
-                        value={formData.location || ''} 
-                        onChange={e => setFormData({...formData, location: e.target.value})} 
+                      <select
+                        onFocus={handleLoadLocations}
+                        value={formData.location || ''}
+                        onChange={e => setFormData({ ...formData, location: e.target.value })}
                         className="w-full px-4 py-3 bg-slate-100 rounded-xl outline-none font-semibold text-sm text-slate-700 appearance-none"
                       >
                         <option value="">SELECCIONE...</option>
@@ -821,25 +781,24 @@ export const Inventory: React.FC<InventoryProps> = ({ role, userEmail, onNavigat
                   </div>
                 </div>
               </div>
-              
+
               {/* Footer fijo */}
-//              <div className="p-3 sm:p-6 bg-slate-50 border-t flex justify-end items-center gap-3 sm:gap-4 flex-shrink-0">
-                <div className="p-3 bg-slate-50 border-t flex justify-end items-center gap-2 flex-shrink-0">
-                <button 
-  type="button" 
-  onClick={() => setIsModalOpen(false)} 
-  className="px-4 py-2 text-[10px] font-black uppercase text-slate-500 hover:text-slate-800"
->
-  CANCELAR
-</button>
-<button 
-  type="submit" 
-  disabled={saving} 
-  className="px-6 py-3 bg-indigo-600 text-white rounded-xl text-[10px] font-black uppercase shadow-lg flex items-center gap-2 hover:bg-indigo-700 disabled:opacity-50"
->
-  {saving ? <Loader2 className="animate-spin w-3 h-3" /> : <Save className="w-3 h-3" />}
-  GUARDAR
-</button>
+              <div className="p-3 bg-slate-50 border-t flex justify-end items-center gap-2 flex-shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setIsModalOpen(false)}
+                  className="px-4 py-2 text-[10px] font-black uppercase text-slate-500 hover:text-slate-800"
+                >
+                  CANCELAR
+                </button>
+                <button
+                  type="submit"
+                  disabled={saving}
+                  className="px-6 py-3 bg-indigo-600 text-white rounded-xl text-[10px] font-black uppercase shadow-lg flex items-center gap-2 hover:bg-indigo-700 disabled:opacity-50"
+                >
+                  {saving ? <Loader2 className="animate-spin w-3 h-3" /> : <Save className="w-3 h-3" />}
+                  GUARDAR
+                </button>
               </div>
             </form>
           </div>
@@ -906,28 +865,28 @@ export const Inventory: React.FC<InventoryProps> = ({ role, userEmail, onNavigat
                   </td>
                   <td className="px-6 py-3 text-center">
                     <div className="flex justify-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <button 
-                        onClick={() => onNavigate('productDetail', { push: true, state: { productId: p.id } })} 
+                      <button
+                        onClick={() => onNavigate('productDetail', { push: true, state: { productId: p.id } })}
                         className="p-2 text-slate-300 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl"
                       >
                         <Info className="w-4 h-4" />
                       </button>
-                      <button 
-                        onClick={() => setSelectedQRProduct(p)} 
+                      <button
+                        onClick={() => setSelectedQRProduct(p)}
                         className="p-2 text-slate-300 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl"
                       >
                         <QrCode className="w-4 h-4" />
                       </button>
                       {role !== 'VIEWER' && (
                         <>
-                          <button 
-                            onClick={() => handleOpenModal(p)} 
+                          <button
+                            onClick={() => handleOpenModal(p)}
                             className="p-2 text-slate-300 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl"
                           >
                             <Edit2 className="w-4 h-4" />
                           </button>
-                          <button 
-                            onClick={() => setProductToDelete(p)} 
+                          <button
+                            onClick={() => setProductToDelete(p)}
                             className="p-2 text-slate-300 hover:text-rose-600 hover:bg-rose-50 rounded-xl"
                           >
                             <Trash2 className="w-4 h-4" />
@@ -941,24 +900,24 @@ export const Inventory: React.FC<InventoryProps> = ({ role, userEmail, onNavigat
             </tbody>
           </table>
         </div>
-        
+
         {/* Footer con paginación */}
         <div className="p-4 flex flex-col sm:flex-row justify-between items-center gap-4 text-[10px] font-black uppercase text-slate-500 border-t">
           <div className="flex items-center gap-2">
             <p className="hidden sm:block">({selectedIds.length} de {totalCount} seleccionados)</p>
           </div>
           <div className="flex items-center gap-2">
-            <button 
-              onClick={() => setCurrentPage(p => Math.max(0, p - 1))} 
-              disabled={currentPage === 0 || loading} 
+            <button
+              onClick={() => setCurrentPage(p => Math.max(0, p - 1))}
+              disabled={currentPage === 0 || loading}
               className="px-3 py-2 hover:bg-slate-100 rounded-lg disabled:opacity-30 flex items-center gap-1.5"
             >
               <ChevronLeft className="w-3.5 h-3.5" /> Ant
             </button>
             <span>Página {currentPage + 1} de {totalPages}</span>
-            <button 
-              onClick={() => setCurrentPage(p => Math.min(totalPages - 1, p + 1))} 
-              disabled={currentPage >= totalPages - 1 || loading} 
+            <button
+              onClick={() => setCurrentPage(p => Math.min(totalPages - 1, p + 1))}
+              disabled={currentPage >= totalPages - 1 || loading}
               className="px-3 py-2 hover:bg-slate-100 rounded-lg disabled:opacity-30 flex items-center gap-1.5"
             >
               Sig <ChevronRight className="w-3.5 h-3.5" />
@@ -966,11 +925,11 @@ export const Inventory: React.FC<InventoryProps> = ({ role, userEmail, onNavigat
           </div>
         </div>
       </div>
-      
+
       {/* BOTÓN QR FLOTANTE - CENTRADO ABAJO - SOLO VISIBLE CON SELECCIÓN */}
       {selectedIds.length > 0 && (
         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 animate-in slide-in-from-bottom duration-300">
-          <button 
+          <button
             onClick={() => setIsMultiQRModalOpen(true)}
             className="px-8 py-4 bg-slate-900 text-white rounded-2xl text-xs font-black uppercase shadow-2xl flex items-center gap-3 hover:bg-slate-800 active:scale-95 transition-all"
           >
@@ -979,7 +938,7 @@ export const Inventory: React.FC<InventoryProps> = ({ role, userEmail, onNavigat
           </button>
         </div>
       )}
-      
+
       {selectedQRProduct && <ProductQRCode product={selectedQRProduct} onClose={() => setSelectedQRProduct(null)} />}
       {isMultiQRModalOpen && <MultiQRCode products={products.filter(p => selectedIds.includes(p.id))} onClose={() => setIsMultiQRModalOpen(false)} />}
 
