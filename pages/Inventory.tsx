@@ -536,7 +536,8 @@ export const Inventory: React.FC<InventoryProps> = ({ role, userEmail, onNavigat
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4">
           <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm"></div>
-          <div className="relative bg-white rounded-3xl w-full max-w-4xl shadow-2xl animate-in zoom-in-95 max-h-[75vh] sm:max-h-[85vh] flex flex-col">
+          //<div className="relative bg-white rounded-3xl w-full max-w-4xl shadow-2xl animate-in zoom-in-95 max-h-[75vh] sm:max-h-[85vh] flex flex-col">*/
+		  <div className="relative bg-white rounded-3xl w-full max-w-4xl shadow-2xl animate-in zoom-in-95 h-[90vh] flex flex-col overflow-hidden">
             <form onSubmit={handleSubmit} className="flex flex-col h-full">
               {/* Header fijo */}
               <div className="p-4 sm:p-6 border-b flex-shrink-0">
@@ -551,10 +552,13 @@ export const Inventory: React.FC<InventoryProps> = ({ role, userEmail, onNavigat
               </div>
               
               {/* Body con scroll */}
-              <div className="p-4 sm:p-8 overflow-y-auto flex-1">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              /*<div className="p-4 sm:p-8 overflow-y-auto flex-1">*/
+			  <div className="p-4 sm:p-6 overflow-y-auto flex-1" style={{WebkitOverflowScrolling: 'touch'}}>
+                //<div className="grid grid-cols-1 md:grid-cols-3 gap-6">//
+				<div className="space-y-4">
                   {/* Columna izquierda: Imagen y alertas */}
-                  <div className="md:col-span-1 flex flex-col items-center">
+                  //<div className="md:col-span-1 flex flex-col items-center">//
+				  <div className="flex flex-col items-center w-full">
                     <div className="w-full aspect-square bg-slate-50 rounded-3xl border-2 border-dashed flex items-center justify-center mb-4 relative group cursor-pointer overflow-hidden">
                       {uploadingImage ? (
                         <Loader2 className="animate-spin w-8 h-8 text-indigo-600" />
@@ -583,7 +587,7 @@ export const Inventory: React.FC<InventoryProps> = ({ role, userEmail, onNavigat
                       />
                     </div>
                     
-                    <div className="w-full p-3 sm:p-4 bg-amber-50 border-2 border-dashed border-amber-200 rounded-2xl text-center">
+/*                    <div className="w-full p-3 sm:p-4 bg-amber-50 border-2 border-dashed border-amber-200 rounded-2xl text-center">
                       <AlertTriangle className="w-5 h-5 sm:w-6 sm:h-6 text-amber-500 mx-auto mb-2"/>
                       <p className="text-[8px] sm:text-[9px] font-black text-amber-800 uppercase tracking-widest">Alertas de Stock</p>
                       <div className="flex gap-2 mt-2">
@@ -623,10 +627,63 @@ export const Inventory: React.FC<InventoryProps> = ({ role, userEmail, onNavigat
                         </div>
                       )}
                     </div>
-                  </div>
+*/                  </div>
+                    <div className="w-full p-4 bg-slate-50 rounded-2xl">
+  <div className="grid grid-cols-2 gap-3">
+    <div>
+      <label className="text-[9px] font-bold text-slate-600 uppercase mb-1 block">Stock Mínimo</label>
+      <input 
+        type="number" 
+        min="0" 
+        value={formData.minStock ?? ''} 
+        onChange={e => setFormData({...formData, minStock: parseInt(e.target.value) || 0})} 
+        className="w-full px-3 py-2 bg-white border rounded-lg outline-none text-sm text-center" 
+        placeholder="30"
+      />
+    </div>
+    {!editingProduct && (
+      <div>
+        <label className="text-[9px] font-bold text-slate-600 uppercase mb-1 block">Stock Inicial</label>
+        <input 
+          type="number" 
+          min="0" 
+          value={formData.stock || ''} 
+          onChange={e => setFormData({...formData, stock: parseInt(e.target.value) || 0})} 
+          className="w-full px-3 py-2 bg-white border rounded-lg outline-none text-sm text-center" 
+          placeholder="0"
+        />
+      </div>
+    )}
+    <div>
+      <label className="text-[9px] font-bold text-slate-600 uppercase mb-1 block">Precio Compra</label>
+      <input 
+        type="number" 
+        min="0" 
+        step="0.01"
+        value={formData.purchasePrice || ''} 
+        onChange={e => setFormData({...formData, purchasePrice: parseFloat(e.target.value) || 0})} 
+        className="w-full px-3 py-2 bg-white border rounded-lg outline-none text-sm text-center" 
+        placeholder="0.00"
+      />
+    </div>
+    <div>
+      <label className="text-[9px] font-bold text-slate-600 uppercase mb-1 block">Precio Venta</label>
+      <input 
+        type="number" 
+        min="0" 
+        step="0.01"
+        value={formData.salePrice || ''} 
+        onChange={e => setFormData({...formData, salePrice: parseFloat(e.target.value) || 0})} 
+        className="w-full px-3 py-2 bg-white border rounded-lg outline-none text-sm text-center" 
+        placeholder="0.00"
+      />
+    </div>
+  </div>
+</div>
                   
                   {/* Columna derecha: Campos del formulario */}
-                  <div className="md:col-span-2 grid grid-cols-2 gap-x-4 gap-y-5">
+//                  <div className="md:col-span-2 grid grid-cols-2 gap-x-4 gap-y-5">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     {/* Código SKU con autocomplete */}
                     <div className="relative">
                       <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2 block">Código SKU / QR *</label>
@@ -766,22 +823,23 @@ export const Inventory: React.FC<InventoryProps> = ({ role, userEmail, onNavigat
               </div>
               
               {/* Footer fijo */}
-              <div className="p-3 sm:p-6 bg-slate-50 border-t flex justify-end items-center gap-3 sm:gap-4 flex-shrink-0">
+//              <div className="p-3 sm:p-6 bg-slate-50 border-t flex justify-end items-center gap-3 sm:gap-4 flex-shrink-0">
+                <div className="p-3 bg-slate-50 border-t flex justify-end items-center gap-2 flex-shrink-0">
                 <button 
-                  type="button" 
-                  onClick={() => setIsModalOpen(false)} 
-                  className="px-4 sm:px-8 py-2 sm:py-3 text-[9px] sm:text-[10px] font-black uppercase text-slate-500 hover:text-slate-800"
-                >
-                  CANCELAR
-                </button>
-                <button 
-                  type="submit" 
-                  disabled={saving} 
-                  className="px-4 sm:px-8 py-3 sm:py-4 bg-indigo-600 text-white rounded-xl text-[9px] sm:text-[10px] font-black uppercase shadow-lg shadow-indigo-100 flex items-center gap-2 hover:bg-indigo-700 transition-all active:scale-95 disabled:opacity-50"
-                >
-                  {saving ? <Loader2 className="animate-spin w-4 h-4" /> : <Save className="w-4 h-4" />}
-                  GUARDAR
-                </button>
+  type="button" 
+  onClick={() => setIsModalOpen(false)} 
+  className="px-4 py-2 text-[10px] font-black uppercase text-slate-500 hover:text-slate-800"
+>
+  CANCELAR
+</button>
+<button 
+  type="submit" 
+  disabled={saving} 
+  className="px-6 py-3 bg-indigo-600 text-white rounded-xl text-[10px] font-black uppercase shadow-lg flex items-center gap-2 hover:bg-indigo-700 disabled:opacity-50"
+>
+  {saving ? <Loader2 className="animate-spin w-3 h-3" /> : <Save className="w-3 h-3" />}
+  GUARDAR
+</button>
               </div>
             </form>
           </div>
