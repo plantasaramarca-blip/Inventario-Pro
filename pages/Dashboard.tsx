@@ -2,8 +2,8 @@
 import React, { useState, useEffect } from 'react';
 import { InventoryStats, Product } from '../types.ts';
 import * as api from '../services/supabaseService.ts';
-import { 
-  TrendingUp, AlertTriangle, Package, 
+import {
+  TrendingUp, AlertTriangle, Package,
   AlertCircle, DollarSign, Layers, Users, ChevronRight, Loader2, Ban
 } from 'https://esm.sh/lucide-react@0.475.0?external=react,react-dom';
 import { StockBadge } from '../components/StockBadge.tsx';
@@ -36,18 +36,60 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
     };
     loadDashboardData();
   }, []);
-  
+
   const totalLowStock = (stats?.lowStockCount || 0) + (stats?.criticalStockCount || 0) + (stats?.outOfStockCount || 0);
 
   const cards = [
-    { title: 'Valor Total', value: formatCurrency(stats?.totalValue || 0), icon: DollarSign, color: 'bg-indigo-600', sub: 'Inversión', page: 'inventory' },
-    { title: 'Sin Stock', value: (stats?.outOfStockCount || 0), icon: Ban, color: 'bg-slate-600', sub: 'Agotados', page: 'inventory', state: { prefilter: 'OUTOFSTOCK' } },
-    { title: 'Crítico', value: stats?.criticalStockCount || 0, icon: AlertCircle, color: 'bg-rose-500', sub: 'Reponer ya', page: 'inventory', state: { prefilter: 'CRITICAL' } },
-    { title: 'Stock Bajo', value: stats?.lowStockCount || 0, icon: AlertTriangle, color: 'bg-amber-500', sub: 'En alerta', page: 'inventory', state: { prefilter: 'LOW' } },
-    { title: 'Productos', value: stats?.totalProducts || 0, icon: Layers, color: 'bg-indigo-400', sub: 'Registrados', page: 'inventory' },
-    { title: 'Movimientos', value: stats?.totalMovements || 0, icon: TrendingUp, color: 'bg-purple-600', sub: 'Operaciones', page: 'kardex' },
+    {
+      title: 'Valor Total',
+      value: formatCurrency(stats?.totalValue || 0),
+      icon: DollarSign,
+      color: 'bg-indigo-600',
+      sub: 'Inversión',
+      onClick: () => console.log('Próximamente: Sección de Precios')
+    },
+    {
+      title: 'Sin Stock',
+      value: (stats?.outOfStockCount || 0),
+      icon: Ban,
+      color: 'bg-slate-600',
+      sub: 'Agotados',
+      onClick: () => onNavigate('inventory', { state: { filter: 'outOfStock' } })
+    },
+    {
+      title: 'Crítico',
+      value: stats?.criticalStockCount || 0,
+      icon: AlertCircle,
+      color: 'bg-rose-500',
+      sub: 'Reponer ya',
+      onClick: () => onNavigate('inventory', { state: { filter: 'critical' } })
+    },
+    {
+      title: 'Stock Bajo',
+      value: stats?.lowStockCount || 0,
+      icon: AlertTriangle,
+      color: 'bg-amber-500',
+      sub: 'En alerta',
+      onClick: () => onNavigate('inventory', { state: { filter: 'lowStock' } })
+    },
+    {
+      title: 'Productos',
+      value: stats?.totalProducts || 0,
+      icon: Layers,
+      color: 'bg-indigo-400',
+      sub: 'Registrados',
+      onClick: () => onNavigate('inventory')
+    },
+    {
+      title: 'Movimientos',
+      value: stats?.totalMovements || 0,
+      icon: TrendingUp,
+      color: 'bg-purple-600',
+      sub: 'Operaciones',
+      onClick: () => onNavigate('kardex')
+    },
   ];
-  
+
   if (loading) return <div className="h-[70vh] flex items-center justify-center"><Loader2 className="animate-spin w-8 h-8 text-indigo-500" /></div>;
 
   return (
@@ -56,7 +98,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
         {cards.map((card, idx) => {
           const Icon = card.icon;
           return (
-            <button key={idx} onClick={() => onNavigate(card.page, { push: true, state: card.state })} className="bg-white shadow-sm rounded-xl p-3 border border-slate-100 flex flex-col items-center text-center transition-all hover:border-indigo-200 hover:shadow-lg hover:-translate-y-1 active:scale-95">
+            <button key={idx} onClick={card.onClick} className="bg-white shadow-sm rounded-xl p-3 border border-slate-100 flex flex-col items-center text-center transition-all hover:border-indigo-200 hover:shadow-lg hover:-translate-y-1 active:scale-95">
               <div className={`p-1.5 rounded-lg ${card.color} text-white mb-1.5 shadow-sm`}><Icon className="h-3.5 w-3.5" /></div>
               <h3 className="text-[7px] font-black text-slate-400 uppercase tracking-widest mb-0.5">{card.title}</h3>
               <p className="text-xs font-black text-slate-800 tracking-tighter truncate w-full">{card.value}</p>
@@ -84,8 +126,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
             </thead>
             <tbody className="divide-y divide-slate-50">
               {alertProducts.map(p => (
-                <tr 
-                  key={p.id} 
+                <tr
+                  key={p.id}
                   onClick={() => onNavigate('productDetail', { push: true, state: { productId: p.id } })}
                   className="hover:bg-indigo-50/50 transition-colors cursor-pointer group"
                 >
@@ -99,7 +141,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
                     <span className="text-[8px] text-slate-400 font-bold ml-0.5 uppercase">{p.unit}</span>
                   </td>
                   <td className="py-3 px-2">
-                     <p className="text-[9px] text-slate-500 font-black uppercase tracking-widest">{p.location}</p>
+                    <p className="text-[9px] text-slate-500 font-black uppercase tracking-widest">{p.location}</p>
                   </td>
                   <td className="py-3 px-2 text-center">
                     <StockBadge stock={p.stock} minStock={p.minStock} criticalStock={p.criticalStock} />
