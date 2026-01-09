@@ -589,218 +589,221 @@ export const Inventory: React.FC<InventoryProps> = ({ role, userEmail, onNavigat
                       </div>
 
                     </div>
-                    <div className="w-full p-4 bg-slate-900 rounded-2xl border-4 border-indigo-500 shadow-xl overflow-hidden relative group">
-                      <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
-                        <AlertTriangle className="w-24 h-24 text-white" />
-                      </div>
-                      <div className="relative z-10">
-                        <div className="flex items-center gap-2 mb-4 border-b border-indigo-500/30 pb-3">
-                          <div className="p-1.5 bg-indigo-500 rounded-lg shadow-lg shadow-indigo-500/50 animate-pulse">
-                            <DollarSign className="w-4 h-4 text-white" />
-                          </div>
-                          <h4 className="text-[10px] font-black uppercase tracking-widest text-indigo-100">Control de Valor</h4>
-                        </div>
-                        <div className="grid grid-cols-2 gap-3">
-                          <div className="bg-slate-800/50 p-2.5 rounded-xl border border-slate-700 hover:border-indigo-500/50 transition-colors">
-                            <label className="text-[8px] font-bold text-slate-400 uppercase mb-1 block tracking-wider">Mínimo</label>
-                            <input
-                              type="number"
-                              min="0"
-                              value={formData.minStock ?? ''}
-                              onChange={e => setFormData({ ...formData, minStock: parseInt(e.target.value) || 0 })}
-                              className="w-full bg-transparent text-white font-black text-center text-sm outline-none placeholder:text-slate-600"
-                              placeholder="0"
-                            />
-                          </div>
-                          {!editingProduct && (
-                            <div className="bg-slate-800/50 p-2.5 rounded-xl border border-slate-700 hover:border-emerald-500/50 transition-colors">
-                              <label className="text-[8px] font-bold text-emerald-400 uppercase mb-1 block tracking-wider">Inicial</label>
-                              <input
-                                type="number"
-                                min="0"
-                                value={formData.stock || ''}
-                                onChange={e => setFormData({ ...formData, stock: parseInt(e.target.value) || 0 })}
-                                className="w-full bg-transparent text-white font-black text-center text-sm outline-none placeholder:text-slate-600"
-                                placeholder="0"
-                              />
+
+                    {/* Columna derecha: Campos del formulario */}
+                    <div className="lg:col-span-2 space-y-4">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        {/* Código SKU con autocomplete */}
+                        <div className="relative">
+                          <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2 block">Código SKU / QR *</label>
+                          <input
+                            type="text"
+                            required
+                            value={codeSearch}
+                            onChange={e => handleCodeChange(e.target.value)}
+                            onFocus={() => setShowCodeSuggestions(codeSearch.length > 0)}
+                            onBlur={() => setTimeout(() => setShowCodeSuggestions(false), 200)}
+                            readOnly={!!editingProduct}
+                            className={`w-full px-4 py-3 bg-slate-100 rounded-xl outline-none font-semibold text-sm text-slate-700 ${!!editingProduct ? 'opacity-70 cursor-not-allowed' : ''}`}
+                            placeholder="SKU-0001"
+                          />
+                          {showCodeSuggestions && codeSuggestions.length > 0 && (
+                            <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-slate-200 rounded-xl shadow-lg z-50 max-h-48 overflow-y-auto">
+                              {codeSuggestions.map(p => (
+                                <button
+                                  key={p.id}
+                                  type="button"
+                                  onClick={() => handleCodeSelect(p)}
+                                  className="w-full px-4 py-3 text-left hover:bg-slate-50 border-b last:border-b-0"
+                                >
+                                  <div className="font-bold text-sm">{p.code}</div>
+                                  <div className="text-xs text-slate-500">{p.name}</div>
+                                </button>
+                              ))}
                             </div>
                           )}
-                          <div className="bg-slate-800/50 p-2.5 rounded-xl border border-slate-700 col-span-2 flex items-center justify-between hover:border-indigo-500/50 transition-colors">
-                            <label className="text-[8px] font-bold text-indigo-300 uppercase block tracking-wider">Precio Compra</label>
-                            <div className="flex items-center gap-1">
-                              <span className="text-slate-500 text-[10px]">$</span>
-                              <input
-                                type="number"
-                                step="0.01"
-                                value={formData.purchasePrice || ''}
-                                onChange={e => setFormData({ ...formData, purchasePrice: parseFloat(e.target.value) || 0 })}
-                                className="w-24 bg-transparent text-white font-black text-right text-sm outline-none placeholder:text-slate-600"
-                                placeholder="0.00"
-                              />
+                        </div>
+
+                        {/* Nombre con autocomplete */}
+                        <div className="relative">
+                          <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2 block">Nombre del Producto *</label>
+                          <input
+                            type="text"
+                            required
+                            value={nameSearch}
+                            onChange={e => handleNameChange(e.target.value)}
+                            onFocus={() => setShowNameSuggestions(nameSearch.length > 0)}
+                            onBlur={() => setTimeout(() => setShowNameSuggestions(false), 200)}
+                            readOnly={!!editingProduct}
+                            className={`w-full px-4 py-3 bg-slate-100 rounded-xl outline-none font-semibold text-sm text-slate-700 ${!!editingProduct ? 'opacity-70 cursor-not-allowed' : ''}`}
+                            placeholder="EJ: ZAPATILLAS DEPORTIVAS"
+                          />
+                          {showNameSuggestions && nameSuggestions.length > 0 && (
+                            <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-slate-200 rounded-xl shadow-lg z-50 max-h-48 overflow-y-auto">
+                              {nameSuggestions.map(p => (
+                                <button
+                                  key={p.id}
+                                  type="button"
+                                  onClick={() => handleNameSelect(p)}
+                                  className="w-full px-4 py-3 text-left hover:bg-slate-50 border-b last:border-b-0"
+                                >
+                                  <div className="font-bold text-sm">{p.name}</div>
+                                  <div className="text-xs text-slate-500">{p.code}</div>
+                                </button>
+                              ))}
                             </div>
-                          </div>
-                          <div className="bg-slate-800/50 p-2.5 rounded-xl border border-slate-700 col-span-2 flex items-center justify-between hover:border-indigo-500/50 transition-colors">
-                            <label className="text-[8px] font-bold text-indigo-300 uppercase block tracking-wider">Precio Venta</label>
-                            <div className="flex items-center gap-1">
-                              <span className="text-slate-500 text-[10px]">$</span>
-                              <input
-                                type="number"
-                                step="0.01"
-                                value={formData.salePrice || ''}
-                                onChange={e => setFormData({ ...formData, salePrice: parseFloat(e.target.value) || 0 })}
-                                className="w-24 bg-transparent text-white font-black text-right text-sm outline-none placeholder:text-slate-600"
-                                placeholder="0.00"
-                              />
-                            </div>
-                          </div>
+                          )}
+                        </div>
+
+                        <div>
+                          <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2 block">Marca</label>
+                          <input
+                            type="text"
+                            value={formData.brand || ''}
+                            onChange={e => setFormData({ ...formData, brand: e.target.value })}
+                            className="w-full px-4 py-3 bg-slate-100 rounded-xl outline-none font-semibold text-sm text-slate-700"
+                            placeholder="MARCA..."
+                          />
+                        </div>
+
+                        <div>
+                          <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2 block">Modelo</label>
+                          <input
+                            type="text"
+                            value={formData.model || ''}
+                            onChange={e => setFormData({ ...formData, model: e.target.value })}
+                            className="w-full px-4 py-3 bg-slate-100 rounded-xl outline-none font-semibold text-sm text-slate-700"
+                            placeholder="MODELO..."
+                          />
+                        </div>
+
+                        <div>
+                          <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2 block">Unidad</label>
+                          <select
+                            value={formData.unit || 'UND'}
+                            onChange={e => setFormData({ ...formData, unit: e.target.value })}
+                            className="w-full px-4 py-3 bg-slate-100 rounded-xl outline-none font-semibold text-sm text-slate-700 appearance-none"
+                          >
+                            <option>UND</option>
+                            <option>PAR</option>
+                            <option>CAJA</option>
+                            <option>SET</option>
+                          </select>
+                        </div>
+
+                        <div>
+                          <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2 block">Talla / Medida</label>
+                          <input
+                            type="text"
+                            value={formData.size || ''}
+                            onChange={e => setFormData({ ...formData, size: e.target.value })}
+                            className="w-full px-4 py-3 bg-slate-100 rounded-xl outline-none font-semibold text-sm text-slate-700"
+                            placeholder="S, M, L, XL..."
+                          />
+                        </div>
+
+                        <div>
+                          <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2 block">Categoría</label>
+                          <select
+                            onFocus={handleLoadCategories}
+                            value={formData.category || ''}
+                            onChange={e => setFormData({ ...formData, category: e.target.value })}
+                            className="w-full px-4 py-3 bg-slate-100 rounded-xl outline-none font-semibold text-sm text-slate-700 appearance-none"
+                          >
+                            <option value="">SELECCIONE...</option>
+                            {categories.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
+                          </select>
+                        </div>
+
+                        <div>
+                          <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2 block">Almacén</label>
+                          <select
+                            onFocus={handleLoadLocations}
+                            value={formData.location || ''}
+                            onChange={e => setFormData({ ...formData, location: e.target.value })}
+                            className="w-full px-4 py-3 bg-slate-100 rounded-xl outline-none font-semibold text-sm text-slate-700 appearance-none"
+                          >
+                            <option value="">SELECCIONE...</option>
+                            {locations.map(l => <option key={l.id} value={l.name}>{l.name}</option>)}
+                          </select>
                         </div>
                       </div>
                     </div>
                   </div>
-
-                  {/* Columna derecha: Campos del formulario */}
-
-                  <div className="lg:col-span-2 space-y-4">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      {/* Código SKU con autocomplete */}
-                      <div className="relative">
-                        <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2 block">Código SKU / QR *</label>
-                        <input
-                          type="text"
-                          required
-                          value={codeSearch}
-                          onChange={e => handleCodeChange(e.target.value)}
-                          onFocus={() => setShowCodeSuggestions(codeSearch.length > 0)}
-                          onBlur={() => setTimeout(() => setShowCodeSuggestions(false), 200)}
-                          readOnly={!!editingProduct}
-                          className={`w-full px-4 py-3 bg-slate-100 rounded-xl outline-none font-semibold text-sm text-slate-700 ${!!editingProduct ? 'opacity-70 cursor-not-allowed' : ''}`}
-                          placeholder="SKU-0001"
-                        />
-                        {showCodeSuggestions && codeSuggestions.length > 0 && (
-                          <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-slate-200 rounded-xl shadow-lg z-50 max-h-48 overflow-y-auto">
-                            {codeSuggestions.map(p => (
-                              <button
-                                key={p.id}
-                                type="button"
-                                onClick={() => handleCodeSelect(p)}
-                                className="w-full px-4 py-3 text-left hover:bg-slate-50 border-b last:border-b-0"
-                              >
-                                <div className="font-bold text-sm">{p.code}</div>
-                                <div className="text-xs text-slate-500">{p.name}</div>
-                              </button>
-                            ))}
-                          </div>
-                        )}
+                </div>
+                {/* Nueva Sección Horizontal de Stock y Precios */}
+                <div className="w-full mt-6 p-4 bg-slate-900 rounded-2xl border-4 border-indigo-500 shadow-xl overflow-hidden relative group">
+                  <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+                    <AlertTriangle className="w-32 h-32 text-indigo-400 rotate-12" />
+                  </div>
+                  <div className="relative z-10">
+                    <div className="flex items-center gap-2 mb-4 border-b border-indigo-500/30 pb-3">
+                      <div className="p-1.5 bg-indigo-500 rounded-lg shadow-lg shadow-indigo-500/50 animate-pulse">
+                        <DollarSign className="w-4 h-4 text-white" />
                       </div>
+                      <h4 className="text-[10px] font-black uppercase tracking-widest text-indigo-100">Control de Valor y Stock</h4>
+                    </div>
 
-                      {/* Nombre con autocomplete */}
-                      <div className="relative">
-                        <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2 block">Nombre del Producto *</label>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                      <div className="bg-slate-800/50 p-3 rounded-xl border border-slate-700 hover:border-indigo-500/50 transition-colors">
+                        <label className="text-[9px] font-bold text-slate-400 uppercase mb-2 block tracking-wider text-center">Stock Mínimo</label>
                         <input
-                          type="text"
-                          required
-                          value={nameSearch}
-                          onChange={e => handleNameChange(e.target.value)}
-                          onFocus={() => setShowNameSuggestions(nameSearch.length > 0)}
-                          onBlur={() => setTimeout(() => setShowNameSuggestions(false), 200)}
-                          readOnly={!!editingProduct}
-                          className={`w-full px-4 py-3 bg-slate-100 rounded-xl outline-none font-semibold text-sm text-slate-700 ${!!editingProduct ? 'opacity-70 cursor-not-allowed' : ''}`}
-                          placeholder="EJ: ZAPATILLAS DEPORTIVAS"
-                        />
-                        {showNameSuggestions && nameSuggestions.length > 0 && (
-                          <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-slate-200 rounded-xl shadow-lg z-50 max-h-48 overflow-y-auto">
-                            {nameSuggestions.map(p => (
-                              <button
-                                key={p.id}
-                                type="button"
-                                onClick={() => handleNameSelect(p)}
-                                className="w-full px-4 py-3 text-left hover:bg-slate-50 border-b last:border-b-0"
-                              >
-                                <div className="font-bold text-sm">{p.name}</div>
-                                <div className="text-xs text-slate-500">{p.code}</div>
-                              </button>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-
-                      <div>
-                        <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2 block">Marca</label>
-                        <input
-                          type="text"
-                          value={formData.brand || ''}
-                          onChange={e => setFormData({ ...formData, brand: e.target.value })}
-                          className="w-full px-4 py-3 bg-slate-100 rounded-xl outline-none font-semibold text-sm text-slate-700"
-                          placeholder="MARCA..."
+                          type="number"
+                          min="0"
+                          value={formData.minStock ?? ''}
+                          onChange={e => setFormData({ ...formData, minStock: parseInt(e.target.value) || 0 })}
+                          className="w-full bg-transparent text-white font-black text-center text-xl outline-none placeholder:text-slate-600"
+                          placeholder="0"
                         />
                       </div>
 
-                      <div>
-                        <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2 block">Modelo</label>
-                        <input
-                          type="text"
-                          value={formData.model || ''}
-                          onChange={e => setFormData({ ...formData, model: e.target.value })}
-                          className="w-full px-4 py-3 bg-slate-100 rounded-xl outline-none font-semibold text-sm text-slate-700"
-                          placeholder="MODELO..."
-                        />
+                      {!editingProduct && (
+                        <div className="bg-slate-800/50 p-3 rounded-xl border border-slate-700 hover:border-emerald-500/50 transition-colors">
+                          <label className="text-[9px] font-bold text-emerald-400 uppercase mb-2 block tracking-wider text-center">Stock Inicial</label>
+                          <input
+                            type="number"
+                            min="0"
+                            value={formData.stock || ''}
+                            onChange={e => setFormData({ ...formData, stock: parseInt(e.target.value) || 0 })}
+                            className="w-full bg-transparent text-white font-black text-center text-xl outline-none placeholder:text-slate-600"
+                            placeholder="0"
+                          />
+                        </div>
+                      )}
+
+                      <div className={`bg-slate-800/50 p-3 rounded-xl border border-slate-700 hover:border-indigo-500/50 transition-colors ${editingProduct ? 'md:col-start-3' : ''}`}>
+                        <label className="text-[9px] font-bold text-indigo-300 uppercase mb-2 block tracking-wider text-center">Precio Compra</label>
+                        <div className="flex items-center justify-center gap-1">
+                          <span className="text-slate-500 text-xs font-bold">$</span>
+                          <input
+                            type="number"
+                            step="0.01"
+                            value={formData.purchasePrice || ''}
+                            onChange={e => setFormData({ ...formData, purchasePrice: parseFloat(e.target.value) || 0 })}
+                            className="w-24 bg-transparent text-white font-black text-center text-xl outline-none placeholder:text-slate-600"
+                            placeholder="0.00"
+                          />
+                        </div>
                       </div>
 
-                      <div>
-                        <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2 block">Unidad</label>
-                        <select
-                          value={formData.unit || 'UND'}
-                          onChange={e => setFormData({ ...formData, unit: e.target.value })}
-                          className="w-full px-4 py-3 bg-slate-100 rounded-xl outline-none font-semibold text-sm text-slate-700 appearance-none"
-                        >
-                          <option>UND</option>
-                          <option>PAR</option>
-                          <option>CAJA</option>
-                          <option>SET</option>
-                        </select>
-                      </div>
-
-                      <div>
-                        <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2 block">Talla / Medida</label>
-                        <input
-                          type="text"
-                          value={formData.size || ''}
-                          onChange={e => setFormData({ ...formData, size: e.target.value })}
-                          className="w-full px-4 py-3 bg-slate-100 rounded-xl outline-none font-semibold text-sm text-slate-700"
-                          placeholder="S, M, L, XL..."
-                        />
-                      </div>
-
-                      <div>
-                        <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2 block">Categoría</label>
-                        <select
-                          onFocus={handleLoadCategories}
-                          value={formData.category || ''}
-                          onChange={e => setFormData({ ...formData, category: e.target.value })}
-                          className="w-full px-4 py-3 bg-slate-100 rounded-xl outline-none font-semibold text-sm text-slate-700 appearance-none"
-                        >
-                          <option value="">SELECCIONE...</option>
-                          {categories.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
-                        </select>
-                      </div>
-
-                      <div>
-                        <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2 block">Almacén</label>
-                        <select
-                          onFocus={handleLoadLocations}
-                          value={formData.location || ''}
-                          onChange={e => setFormData({ ...formData, location: e.target.value })}
-                          className="w-full px-4 py-3 bg-slate-100 rounded-xl outline-none font-semibold text-sm text-slate-700 appearance-none"
-                        >
-                          <option value="">SELECCIONE...</option>
-                          {locations.map(l => <option key={l.id} value={l.name}>{l.name}</option>)}
-                        </select>
+                      <div className="bg-slate-800/50 p-3 rounded-xl border border-slate-700 hover:border-indigo-500/50 transition-colors">
+                        <label className="text-[9px] font-bold text-indigo-300 uppercase mb-2 block tracking-wider text-center">Precio Venta</label>
+                        <div className="flex items-center justify-center gap-1">
+                          <span className="text-slate-500 text-xs font-bold">$</span>
+                          <input
+                            type="number"
+                            step="0.01"
+                            value={formData.salePrice || ''}
+                            onChange={e => setFormData({ ...formData, salePrice: parseFloat(e.target.value) || 0 })}
+                            className="w-24 bg-transparent text-white font-black text-center text-xl outline-none placeholder:text-slate-600"
+                            placeholder="0.00"
+                          />
+                        </div>
                       </div>
                     </div>
                   </div>
                 </div>
               </div>
-
               {/* Footer fijo */}
               <div className="p-3 bg-slate-50 border-t flex justify-end items-center gap-2 flex-shrink-0">
                 <button
@@ -821,7 +824,7 @@ export const Inventory: React.FC<InventoryProps> = ({ role, userEmail, onNavigat
               </div>
             </form>
           </div>
-        </div>
+        </div >
       )}
 
       {/* Tabla de productos CON COLUMNA MODELO */}
@@ -946,17 +949,19 @@ export const Inventory: React.FC<InventoryProps> = ({ role, userEmail, onNavigat
       </div>
 
       {/* BOTÓN QR FLOTANTE - CENTRADO ABAJO - SOLO VISIBLE CON SELECCIÓN */}
-      {selectedIds.length > 0 && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 animate-in slide-in-from-bottom duration-300">
-          <button
-            onClick={() => setIsMultiQRModalOpen(true)}
-            className="px-8 py-4 bg-slate-900 text-white rounded-2xl text-xs font-black uppercase shadow-2xl flex items-center gap-3 hover:bg-slate-800 active:scale-95 transition-all"
-          >
-            <Printer className="w-5 h-5" />
-            IMPRIMIR {selectedIds.length} QR
-          </button>
-        </div>
-      )}
+      {
+        selectedIds.length > 0 && (
+          <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 animate-in slide-in-from-bottom duration-300">
+            <button
+              onClick={() => setIsMultiQRModalOpen(true)}
+              className="px-8 py-4 bg-slate-900 text-white rounded-2xl text-xs font-black uppercase shadow-2xl flex items-center gap-3 hover:bg-slate-800 active:scale-95 transition-all"
+            >
+              <Printer className="w-5 h-5" />
+              IMPRIMIR {selectedIds.length} QR
+            </button>
+          </div>
+        )
+      }
 
       {selectedQRProduct && <ProductQRCode product={selectedQRProduct} onClose={() => setSelectedQRProduct(null)} />}
       {isMultiQRModalOpen && <MultiQRCode products={products.filter(p => selectedIds.includes(p.id))} onClose={() => setIsMultiQRModalOpen(false)} />}
@@ -970,6 +975,6 @@ export const Inventory: React.FC<InventoryProps> = ({ role, userEmail, onNavigat
         onCancel={() => setProductToDelete(null)}
         confirmText="Sí, Eliminar"
       />
-    </div>
+    </div >
   );
 };
