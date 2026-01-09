@@ -1,17 +1,17 @@
-
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Product, Role, CategoryMaster, LocationMaster } from '../types.ts';
 import * as api from '../services/supabaseService.ts';
 import { StockBadge } from '../components/StockBadge.tsx';
 import { formatCurrency, calculateMargin } from '../utils/currencyUtils.ts';
-import { exportToPDF, exportToExcel } from '../services/excelService.ts';
+import { exportToExcel } from '../services/excelService.ts';
 import { ProductQRCode } from '../components/ProductQRCode.tsx';
 import { MultiQRCode } from '../components/MultiQRCode.tsx';
 import { QRScanner } from '../components/QRScanner.tsx';
 import { useNotification } from '../contexts/NotificationContext.tsx';
 import { CustomDialog } from '../components/CustomDialog.tsx';
+import { supabase } from '../supabaseClient.ts';
 import { 
-  Plus, Search, Edit2, ImageIcon, Loader2, X, Save, Camera, FileText, QrCode, Info, Trash2, FileSpreadsheet, CheckSquare, Square, Printer, ChevronLeft, ChevronRight, ScanLine, AlertTriangle, PackagePlus
+  Plus, Search, Edit2, ImageIcon, Loader2, X, Save, Camera, QrCode, Info, Trash2, FileSpreadsheet, CheckSquare, Square, Printer, ChevronLeft, ChevronRight, ScanLine, AlertTriangle, Upload
 } from 'https://esm.sh/lucide-react@0.475.0?external=react,react-dom';
 
 const ITEMS_PER_PAGE = 15;
@@ -30,8 +30,10 @@ interface InventoryProps {
 
 export const Inventory: React.FC<InventoryProps> = ({ role, userEmail, onNavigate, initialState, onInitialStateConsumed, categories, setCategories, locations, setLocations }) => {
   const [products, setProducts] = useState<Product[]>([]);
+  const [allProducts, setAllProducts] = useState<Product[]>([]); // Para autocomplete
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [uploadingImage, setUploadingImage] = useState(false);
   
   const [search, setSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
@@ -51,6 +53,12 @@ export const Inventory: React.FC<InventoryProps> = ({ role, userEmail, onNavigat
   const [isScannerOpen, setIsScannerOpen] = useState(false);
   const [productToDelete, setProductToDelete] = useState<Product | null>(null);
   const { addNotification } = useNotification();
+  
+  // Estados para autocomplete
+  const [codeSearch, setCodeSearch] = useState('');
+  const [nameSearch, setNameSearch] = useState('');
+  const [showCodeSuggestions, setShowCodeSuggestions] = useState(false);
+  const [showNameSuggestions, setShowNameSuggestions] = useState(false);
   
   useEffect(() => {
     const handler = setTimeout(() => {
@@ -76,6 +84,12 @@ export const Inventory: React.FC<InventoryProps> = ({ role, userEmail, onNavigat
         });
         setProducts(prods || []);
         setTotalCount(count || 0);
+        
+        // Cargar TODOS los productos para autocomplete
+        if (allProducts.length === 0) {
+          const { products: allProds } = await api.getProducts({ fetchAll: true });
+          setAllProducts(allProds || []);
+        }
       } catch (e) {
         addNotification('Error al cargar productos.', 'error');
       } finally {
@@ -121,20 +135,6 @@ export const Inventory: React.FC<InventoryProps> = ({ role, userEmail, onNavigat
     }
   };
 
-  const handleExportPDF = () => {
-    if (products.length === 0) {
-      addNotification('Sin datos para exportar', 'error');
-      return;
-    }
-    try {
-      const timestamp = new Date().toISOString().split('T')[0];
-      exportToPDF(products, `Inventario_${timestamp}`);
-      addNotification('PDF generado exitosamente', 'success');
-    } catch (err) {
-      addNotification('Error al generar PDF', 'error');
-    }
-  };
-
   const toggleSelectAll = () => {
     if (selectedIds.length === products.length) {
       setSelectedIds([]);
@@ -147,17 +147,41 @@ export const Inventory: React.FC<InventoryProps> = ({ role, userEmail, onNavigat
     setSelectedIds(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]);
   };
 
-  const handleOpenModal = (product?: Product) => {
+  // Generar siguiente código SKU automáticamente
+  const generateNextSKU = async () => {
+    try {
+      const { products: allProds } = await api.getProducts({ fetchAll: true });
+      const skuNumbers = allProds
+        .map(p => p.code)
+        .filter(code => code.startsWith('SKU-'))
+        .map(code => parseInt(code.replace('SKU-', '')))
+        .filter(num => !isNaN(num));
+      
+      const maxNum = skuNumbers.length > 0 ? Math.max(...skuNumbers) : 0;
+      const nextNum = maxNum + 1;
+      return `SKU-${String(nextNum).padStart(4, '0')}`;
+    } catch (err) {
+      return 'SKU-0001';
+    }
+  };
+
+  const handleOpenModal = async (product?: Product) => {
     if (product) { 
       setEditingProduct(product); 
-      setFormData({ ...product }); 
+      setFormData({ ...product });
+      setCodeSearch(product.code || '');
+      setNameSearch(product.name || '');
     } else { 
+      const nextSKU = await generateNextSKU();
       setEditingProduct(null); 
       setFormData({ 
-        code: '', name: '', brand: '', size: '', model: '', category: '', location: '', 
+        code: nextSKU,
+        name: '', brand: '', size: '', model: '', category: '', location: '', 
         stock: 0, minStock: 30, criticalStock: 10, purchasePrice: 0, salePrice: 0, 
         currency: 'PEN', unit: 'UND', imageUrl: '' 
-      }); 
+      });
+      setCodeSearch(nextSKU);
+      setNameSearch('');
     }
     setIsModalOpen(true);
   };
@@ -181,6 +205,172 @@ export const Inventory: React.FC<InventoryProps> = ({ role, userEmail, onNavigat
     setFormData(prev => ({ ...prev, [field]: numValue }));
   };
 
+  // Autocomplete para Código SKU
+  const handleCodeChange = (value: string) => {
+    setCodeSearch(value);
+    setFormData(prev => ({ ...prev, code: value.toUpperCase() }));
+    setShowCodeSuggestions(value.length > 0);
+  };
+
+  const handleCodeSelect = (product: Product) => {
+    setFormData({
+      ...formData,
+      code: product.code,
+      name: product.name,
+      brand: product.brand,
+      model: product.model,
+      category: product.category,
+      location: product.location,
+      size: product.size,
+      unit: product.unit
+    });
+    setCodeSearch(product.code);
+    setNameSearch(product.name);
+    setShowCodeSuggestions(false);
+    addNotification('Producto encontrado - datos autocompletados', 'info');
+  };
+
+  // Autocomplete para Nombre
+  const handleNameChange = (value: string) => {
+    const upperValue = value.toUpperCase(); // Convertir a mayúsculas
+    setNameSearch(upperValue);
+    setFormData(prev => ({ ...prev, name: upperValue }));
+    setShowNameSuggestions(value.length > 0);
+  };
+
+  const handleNameSelect = (product: Product) => {
+    setFormData({
+      ...formData,
+      code: product.code,
+      name: product.name,
+      brand: product.brand,
+      model: product.model,
+      category: product.category,
+      location: product.location,
+      size: product.size,
+      unit: product.unit
+    });
+    setCodeSearch(product.code);
+    setNameSearch(product.name);
+    setShowNameSuggestions(false);
+    addNotification('Producto encontrado - datos autocompletados', 'info');
+  };
+
+  // Filtrar sugerencias
+  const codeSuggestions = useMemo(() => {
+    if (!codeSearch || codeSearch.length < 2) return [];
+    return allProducts
+      .filter(p => p.code.toLowerCase().includes(codeSearch.toLowerCase()))
+      .slice(0, 5);
+  }, [codeSearch, allProducts]);
+
+  const nameSuggestions = useMemo(() => {
+    if (!nameSearch || nameSearch.length < 2) return [];
+    return allProducts
+      .filter(p => p.name.toLowerCase().includes(nameSearch.toLowerCase()))
+      .slice(0, 5);
+  }, [nameSearch, allProducts]);
+
+  // Upload imagen a Supabase Storage
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validar tipo
+    if (!file.type.startsWith('image/')) {
+      addNotification('Solo se permiten imágenes', 'error');
+      return;
+    }
+
+    // Validar tamaño (máx 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      addNotification('Imagen muy grande. Máximo 5MB', 'error');
+      return;
+    }
+
+    setUploadingImage(true);
+    try {
+      // Comprimir imagen
+      const compressed = await compressImage(file);
+      
+      // Generar nombre único
+      const fileName = `${Date.now()}_${formData.code || 'temp'}.jpg`;
+      const filePath = `products/${fileName}`;
+
+      // Subir a Supabase Storage
+      const { data, error } = await supabase.storage
+        .from('inventory-images')
+        .upload(filePath, compressed, {
+          contentType: 'image/jpeg',
+          upsert: false
+        });
+
+      if (error) throw error;
+
+      // Obtener URL pública
+      const { data: urlData } = supabase.storage
+        .from('inventory-images')
+        .getPublicUrl(filePath);
+
+      setFormData(prev => ({ ...prev, imageUrl: urlData.publicUrl }));
+      addNotification('Imagen cargada exitosamente', 'success');
+    } catch (err: any) {
+      console.error('Error al subir imagen:', err);
+      addNotification(err.message || 'Error al subir imagen', 'error');
+    } finally {
+      setUploadingImage(false);
+    }
+  };
+
+  const compressImage = (file: File): Promise<Blob> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      
+      reader.onload = (event: any) => {
+        const img = new Image();
+        img.src = event.target.result;
+        
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          const MAX_WIDTH = 800;
+          const MAX_HEIGHT = 800;
+          
+          let width = img.width;
+          let height = img.height;
+          
+          if (width > height) {
+            if (width > MAX_WIDTH) {
+              height = height * (MAX_WIDTH / width);
+              width = MAX_WIDTH;
+            }
+          } else {
+            if (height > MAX_HEIGHT) {
+              width = width * (MAX_HEIGHT / height);
+              height = MAX_HEIGHT;
+            }
+          }
+          
+          canvas.width = width;
+          canvas.height = height;
+          
+          const ctx = canvas.getContext('2d');
+          ctx?.drawImage(img, 0, 0, width, height);
+          
+          canvas.toBlob((blob) => {
+            if (blob) {
+              resolve(blob);
+            } else {
+              reject(new Error('Error al comprimir'));
+            }
+          }, 'image/jpeg', 0.8);
+        };
+      };
+      
+      reader.onerror = reject;
+    });
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.code || !formData.name) {
@@ -190,9 +380,18 @@ export const Inventory: React.FC<InventoryProps> = ({ role, userEmail, onNavigat
     
     setSaving(true);
     try {
-      await api.saveProduct(formData as Product, userEmail);
+      // CONVERTIR NOMBRE A MAYÚSCULAS ANTES DE GUARDAR
+      const productToSave = {
+        ...formData,
+        name: formData.name.toUpperCase(),
+        brand: formData.brand?.toUpperCase(),
+        model: formData.model?.toUpperCase()
+      } as Product;
+      
+      await api.saveProduct(productToSave, userEmail);
       setIsModalOpen(false);
       
+      // Recargar productos
       const { products: prods, count } = await api.getProducts({ 
         page: currentPage, 
         pageSize: ITEMS_PER_PAGE,
@@ -201,6 +400,10 @@ export const Inventory: React.FC<InventoryProps> = ({ role, userEmail, onNavigat
       });
       setProducts(prods || []);
       setTotalCount(count || 0);
+      
+      // Recargar todos los productos para autocomplete
+      const { products: allProds } = await api.getProducts({ fetchAll: true });
+      setAllProducts(allProds || []);
       
       addNotification(`Producto ${editingProduct ? 'actualizado' : 'creado'} exitosamente`, 'success');
     } catch (err: any) {
@@ -239,13 +442,12 @@ export const Inventory: React.FC<InventoryProps> = ({ role, userEmail, onNavigat
       
       <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-6">
         <div>
-          <h1 className="text-2xl font-black text-slate-900 uppercase tracking-tight">Inventario de Productos</h1>
-          <p className="text-[9px] text-slate-500 font-black uppercase tracking-widest mt-0.5">Gestión Completa de Stock</p>
+          <h1 className="text-2xl font-black text-red-600 uppercase tracking-tight">🔴 VERSIÓN ACTUALIZADA 2026</h1>
+          <p className="text-[9px] text-red-500 font-black uppercase tracking-widest mt-0.5">Sistema con todas las correcciones</p>
         </div>
         
         <div className="flex flex-wrap gap-3">
           <div className="flex gap-2">
-            <button onClick={handleExportPDF} className="px-4 py-3 text-rose-600 text-[9px] font-black uppercase flex items-center justify-center gap-1.5 hover:bg-rose-50 transition-all"><FileText className="w-3.5 h-3.5" /> PDF</button>
             <button 
               onClick={() => {
                 const timestamp = new Date().toISOString().split('T')[0];
@@ -317,14 +519,15 @@ export const Inventory: React.FC<InventoryProps> = ({ role, userEmail, onNavigat
         </div>
       </div>
 
-      {/* Modal de producto */}
+      {/* Modal de producto - CON ALTURA FIJA Y SCROLL */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={() => setIsModalOpen(false)}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm"></div>
-          <div className="relative bg-white rounded-[2.5rem] w-full max-w-4xl shadow-2xl animate-in zoom-in-95" onClick={e => e.stopPropagation()}>
-            <form onSubmit={handleSubmit}>
-              <div className="p-8">
-                <div className="flex justify-between items-start mb-6">
+          <div className="relative bg-white rounded-[2.5rem] w-full max-w-4xl shadow-2xl animate-in zoom-in-95 max-h-[90vh] flex flex-col">
+            <form onSubmit={handleSubmit} className="flex flex-col h-full">
+              {/* Header fijo */}
+              <div className="p-6 border-b flex-shrink-0">
+                <div className="flex justify-between items-start">
                   <h3 className="text-2xl font-black text-slate-800 uppercase tracking-tighter">
                     {editingProduct ? 'Editar Producto' : 'Nuevo Producto'}
                   </h3>
@@ -332,16 +535,39 @@ export const Inventory: React.FC<InventoryProps> = ({ role, userEmail, onNavigat
                     <X className="w-5 h-5" />
                   </button>
                 </div>
-                
+              </div>
+              
+              {/* Body con scroll */}
+              <div className="p-8 overflow-y-auto flex-1">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                   {/* Columna izquierda: Imagen y alertas */}
                   <div className="md:col-span-1 flex flex-col items-center">
-                    <div className="w-full aspect-square bg-slate-50 rounded-3xl border-2 border-dashed flex items-center justify-center mb-4">
-                      {formData.imageUrl ? (
-                        <img src={formData.imageUrl} alt="Producto" className="w-full h-full object-cover rounded-3xl" />
+                    <div className="w-full aspect-square bg-slate-50 rounded-3xl border-2 border-dashed flex items-center justify-center mb-4 relative group cursor-pointer overflow-hidden">
+                      {uploadingImage ? (
+                        <Loader2 className="animate-spin w-8 h-8 text-indigo-600" />
+                      ) : formData.imageUrl ? (
+                        <>
+                          <img src={formData.imageUrl} alt="Producto" className="w-full h-full object-cover rounded-3xl" />
+                          <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                            <Camera className="w-8 h-8 text-white" />
+                          </div>
+                        </>
                       ) : (
-                        <ImageIcon className="text-slate-300 w-16 h-16" />
+                        <>
+                          <ImageIcon className="text-slate-300 w-16 h-16" />
+                          <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                            <Upload className="w-8 h-8 text-indigo-600" />
+                          </div>
+                        </>
                       )}
+                      <input 
+                        ref={fileInputRef}
+                        type="file" 
+                        accept="image/*" 
+                        capture="environment"
+                        onChange={handleImageUpload}
+                        className="absolute inset-0 opacity-0 cursor-pointer"
+                      />
                     </div>
                     
                     <div className="w-full p-4 bg-amber-50 border-2 border-dashed border-amber-200 rounded-2xl text-center">
@@ -388,31 +614,66 @@ export const Inventory: React.FC<InventoryProps> = ({ role, userEmail, onNavigat
                   
                   {/* Columna derecha: Campos del formulario */}
                   <div className="md:col-span-2 grid grid-cols-2 gap-x-4 gap-y-5">
-                    <div className={editingProduct ? 'col-span-2' : 'col-span-1'}>
+                    {/* Código SKU con autocomplete */}
+                    <div className="relative">
                       <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2 block">Código SKU / QR *</label>
                       <input 
-                        onBlur={checkExistingCode} 
                         type="text" 
                         required 
-                        value={formData.code || ''} 
-                        onChange={e => setFormData({...formData, code: e.target.value.toUpperCase()})}
+                        value={codeSearch} 
+                        onChange={e => handleCodeChange(e.target.value)}
+                        onFocus={() => setShowCodeSuggestions(codeSearch.length > 0)}
+                        onBlur={() => setTimeout(() => setShowCodeSuggestions(false), 200)}
                         readOnly={!!editingProduct}
                         className={`w-full px-4 py-3 bg-slate-100 rounded-xl outline-none font-semibold text-sm text-slate-700 ${!!editingProduct ? 'opacity-70 cursor-not-allowed' : ''}`}
-                        placeholder="INGRESE O ESCANEE"
+                        placeholder="SKU-0001"
                       />
+                      {showCodeSuggestions && codeSuggestions.length > 0 && (
+                        <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-slate-200 rounded-xl shadow-lg z-50 max-h-48 overflow-y-auto">
+                          {codeSuggestions.map(p => (
+                            <button
+                              key={p.id}
+                              type="button"
+                              onClick={() => handleCodeSelect(p)}
+                              className="w-full px-4 py-3 text-left hover:bg-slate-50 border-b last:border-b-0"
+                            >
+                              <div className="font-bold text-sm">{p.code}</div>
+                              <div className="text-xs text-slate-500">{p.name}</div>
+                            </button>
+                          ))}
+                        </div>
+                      )}
                     </div>
                     
-                    <div className={editingProduct ? 'col-span-2' : 'col-span-1'}>
+                    {/* Nombre con autocomplete */}
+                    <div className="relative">
                       <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2 block">Nombre del Producto *</label>
                       <input 
                         type="text" 
                         required 
-                        value={formData.name || ''} 
-                        onChange={e => setFormData({...formData, name: e.target.value})} 
+                        value={nameSearch} 
+                        onChange={e => handleNameChange(e.target.value)}
+                        onFocus={() => setShowNameSuggestions(nameSearch.length > 0)}
+                        onBlur={() => setTimeout(() => setShowNameSuggestions(false), 200)}
                         readOnly={!!editingProduct}
                         className={`w-full px-4 py-3 bg-slate-100 rounded-xl outline-none font-semibold text-sm text-slate-700 ${!!editingProduct ? 'opacity-70 cursor-not-allowed' : ''}`}
                         placeholder="EJ: ZAPATILLAS DEPORTIVAS"
                       />
+                      {showNameSuggestions && nameSuggestions.length > 0 && (
+                        <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-slate-200 rounded-xl shadow-lg z-50 max-h-48 overflow-y-auto">
+                          {nameSuggestions.map(p => (
+                            <button
+                              key={p.id}
+                              type="button"
+                              onClick={() => handleNameSelect(p)}
+                              className="w-full px-4 py-3 text-left hover:bg-slate-50 border-b last:border-b-0"
+                            >
+                              <div className="font-bold text-sm">{p.name}</div>
+                              <div className="text-xs text-slate-500">{p.code}</div>
+                            </button>
+                          ))}
+                        </div>
+                      )}
                     </div>
 
                     <div>
@@ -491,7 +752,8 @@ export const Inventory: React.FC<InventoryProps> = ({ role, userEmail, onNavigat
                 </div>
               </div>
               
-              <div className="p-6 bg-slate-50 border-t flex justify-end items-center gap-4">
+              {/* Footer fijo */}
+              <div className="p-6 bg-slate-50 border-t flex justify-end items-center gap-4 flex-shrink-0">
                 <button 
                   type="button" 
                   onClick={() => setIsModalOpen(false)} 
@@ -502,7 +764,7 @@ export const Inventory: React.FC<InventoryProps> = ({ role, userEmail, onNavigat
                 <button 
                   type="submit" 
                   disabled={saving} 
-                  className="px-8 py-4 bg-indigo-600 text-white rounded-xl text-[10px] font-black uppercase shadow-lg shadow-indigo-100 flex items-center gap-2 hover:bg-indigo-700 transition-all active:scale-95"
+                  className="px-8 py-4 bg-indigo-600 text-white rounded-xl text-[10px] font-black uppercase shadow-lg shadow-indigo-100 flex items-center gap-2 hover:bg-indigo-700 transition-all active:scale-95 disabled:opacity-50"
                 >
                   {saving ? <Loader2 className="animate-spin w-4 h-4" /> : <Save className="w-4 h-4" />}
                   CONFIRMAR CAMBIOS
@@ -513,7 +775,7 @@ export const Inventory: React.FC<InventoryProps> = ({ role, userEmail, onNavigat
         </div>
       )}
 
-      {/* Tabla de productos */}
+      {/* Tabla de productos CON COLUMNA MODELO */}
       <div className="bg-white rounded-[2.5rem] shadow-sm border border-slate-100 overflow-hidden">
         <div className="overflow-x-auto no-scrollbar">
           <table className="w-full min-w-[1000px]">
@@ -529,6 +791,7 @@ export const Inventory: React.FC<InventoryProps> = ({ role, userEmail, onNavigat
                   </button>
                 </th>
                 <th className="px-6 py-4 text-left">Producto</th>
+                <th className="px-6 py-4 text-left">Modelo</th>
                 <th className="px-6 py-4 text-center">Stock</th>
                 <th className="px-6 py-4 text-left">Almacén</th>
                 <th className="px-6 py-4 text-center">Estado</th>
@@ -551,6 +814,9 @@ export const Inventory: React.FC<InventoryProps> = ({ role, userEmail, onNavigat
                   <td className="px-6 py-3">
                     <p className="text-sm font-bold text-slate-800 uppercase">{p.name}</p>
                     <p className="text-[9px] text-slate-400 font-black uppercase tracking-tighter">{p.code}</p>
+                  </td>
+                  <td className="px-6 py-3">
+                    <p className="text-[10px] text-slate-600 font-bold uppercase">{p.model || '-'}</p>
                   </td>
                   <td className="px-6 py-3 text-center">
                     <p className="text-sm font-black text-slate-800">
@@ -608,13 +874,6 @@ export const Inventory: React.FC<InventoryProps> = ({ role, userEmail, onNavigat
         {/* Footer con paginación */}
         <div className="p-4 flex flex-col sm:flex-row justify-between items-center gap-4 text-[10px] font-black uppercase text-slate-500 border-t">
           <div className="flex items-center gap-2">
-            <button 
-              onClick={() => setIsMultiQRModalOpen(true)} 
-              disabled={selectedIds.length === 0} 
-              className="px-4 py-2 bg-slate-800 text-white rounded-lg disabled:opacity-30 disabled:cursor-not-allowed flex items-center gap-1.5"
-            >
-              <Printer className="w-3.5 h-3.5" /> IMPRIMIR QR ({selectedIds.length})
-            </button>
             <p className="hidden sm:block">({selectedIds.length} de {totalCount} seleccionados)</p>
           </div>
           <div className="flex items-center gap-2">
@@ -636,6 +895,19 @@ export const Inventory: React.FC<InventoryProps> = ({ role, userEmail, onNavigat
           </div>
         </div>
       </div>
+      
+      {/* BOTÓN QR FLOTANTE - CENTRADO ABAJO - SOLO VISIBLE CON SELECCIÓN */}
+      {selectedIds.length > 0 && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 animate-in slide-in-from-bottom duration-300">
+          <button 
+            onClick={() => setIsMultiQRModalOpen(true)}
+            className="px-8 py-4 bg-slate-900 text-white rounded-2xl text-xs font-black uppercase shadow-2xl flex items-center gap-3 hover:bg-slate-800 active:scale-95 transition-all"
+          >
+            <Printer className="w-5 h-5" />
+            IMPRIMIR {selectedIds.length} QR
+          </button>
+        </div>
+      )}
       
       {selectedQRProduct && <ProductQRCode product={selectedQRProduct} onClose={() => setSelectedQRProduct(null)} />}
       {isMultiQRModalOpen && <MultiQRCode products={products.filter(p => selectedIds.includes(p.id))} onClose={() => setIsMultiQRModalOpen(false)} />}
