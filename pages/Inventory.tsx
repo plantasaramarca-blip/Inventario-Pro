@@ -168,7 +168,14 @@ export const Inventory: React.FC<InventoryProps> = ({ role, userEmail, onNavigat
   const handleOpenModal = async (product?: Product) => {
     if (product) { 
       setEditingProduct(product); 
-      setFormData({ ...product });
+      setFormData({ 
+        ...product,
+        brand: product.brand || '',
+        model: product.model || '',
+        category: product.category || '',
+        location: product.location || '',
+        size: product.size || ''
+      });
       setCodeSearch(product.code || '');
       setNameSearch(product.name || '');
     } else { 
@@ -283,15 +290,21 @@ export const Inventory: React.FC<InventoryProps> = ({ role, userEmail, onNavigat
     }
 
     // Validar tamaño (máx 5MB)
+    const originalSizeMB = (file.size / (1024 * 1024)).toFixed(2);
     if (file.size > 5 * 1024 * 1024) {
-      addNotification('Imagen muy grande. Máximo 5MB', 'error');
+      addNotification(`Imagen muy grande (${originalSizeMB}MB). Máximo 5MB`, 'error');
       return;
     }
 
     setUploadingImage(true);
+    addNotification(`Comprimiendo imagen (${originalSizeMB}MB)...`, 'info');
+    
     try {
       // Comprimir imagen
       const compressed = await compressImage(file);
+      const compressedSizeMB = (compressed.size / (1024 * 1024)).toFixed(2);
+      
+      addNotification(`Subiendo (${compressedSizeMB}MB)...`, 'info');
       
       // Generar nombre único
       const fileName = `${Date.now()}_${formData.code || 'temp'}.jpg`;
@@ -313,7 +326,7 @@ export const Inventory: React.FC<InventoryProps> = ({ role, userEmail, onNavigat
         .getPublicUrl(filePath);
 
       setFormData(prev => ({ ...prev, imageUrl: urlData.publicUrl }));
-      addNotification('Imagen cargada exitosamente', 'success');
+      addNotification(`✓ Imagen cargada (${originalSizeMB}MB → ${compressedSizeMB}MB)`, 'success');
     } catch (err: any) {
       console.error('Error al subir imagen:', err);
       addNotification(err.message || 'Error al subir imagen', 'error');
@@ -442,8 +455,8 @@ export const Inventory: React.FC<InventoryProps> = ({ role, userEmail, onNavigat
       
       <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-6">
         <div>
-          <h1 className="text-2xl font-black text-red-600 uppercase tracking-tight">🔴 VERSIÓN ACTUALIZADA 2026</h1>
-          <p className="text-[9px] text-red-500 font-black uppercase tracking-widest mt-0.5">Sistema con todas las correcciones</p>
+          <h1 className="text-2xl font-black text-slate-900 uppercase tracking-tight">Inventario de Productos</h1>
+          <p className="text-[9px] text-slate-500 font-black uppercase tracking-widest mt-0.5">Gestión Completa de Stock</p>
         </div>
         
         <div className="flex flex-wrap gap-3">
@@ -523,7 +536,7 @@ export const Inventory: React.FC<InventoryProps> = ({ role, userEmail, onNavigat
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm"></div>
-          <div className="relative bg-white rounded-[2.5rem] w-full max-w-4xl shadow-2xl animate-in zoom-in-95 max-h-[90vh] flex flex-col">
+          <div className="relative bg-white rounded-[2.5rem] w-full max-w-4xl shadow-2xl animate-in zoom-in-95 max-h-[85vh] flex flex-col">
             <form onSubmit={handleSubmit} className="flex flex-col h-full">
               {/* Header fijo */}
               <div className="p-6 border-b flex-shrink-0">
