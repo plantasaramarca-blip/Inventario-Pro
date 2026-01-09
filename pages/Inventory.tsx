@@ -11,7 +11,7 @@ import { useNotification } from '../contexts/NotificationContext.tsx';
 import { CustomDialog } from '../components/CustomDialog.tsx';
 import { supabase } from '../supabaseClient.ts';
 import {
-  Plus, Search, Edit2, ImageIcon, Loader2, X, Save, Camera, QrCode, Info, Trash2, FileSpreadsheet, CheckSquare, Square, Printer, ChevronLeft, ChevronRight, ScanLine, AlertTriangle, Upload
+  Plus, Search, Edit2, ImageIcon, Loader2, X, Save, Camera, QrCode, Info, Trash2, FileSpreadsheet, CheckSquare, Square, Printer, ChevronLeft, ChevronRight, ScanLine, AlertTriangle, Upload, DollarSign, TrendingUp
 } from 'https://esm.sh/lucide-react@0.475.0?external=react,react-dom';
 
 const ITEMS_PER_PAGE = 15;
@@ -401,7 +401,7 @@ export const Inventory: React.FC<InventoryProps> = ({ role, userEmail, onNavigat
         model: formData.model?.toUpperCase()
       } as Product;
 
-      await api.saveProduct(productToSave, userEmail);
+      await api.saveProduct(productToSave);
       setIsModalOpen(false);
 
       // Recargar productos
@@ -555,228 +555,247 @@ export const Inventory: React.FC<InventoryProps> = ({ role, userEmail, onNavigat
 
               <div className="p-4 sm:p-6 overflow-y-auto flex-1" style={{ WebkitOverflowScrolling: 'touch' }}>
 
-                <div className="space-y-4">
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start h-full">
                   {/* Columna izquierda: Imagen y alertas */}
 
-                  <div className="flex flex-col items-center w-full">
-                    <div className="w-full aspect-square bg-slate-50 rounded-3xl border-2 border-dashed flex items-center justify-center mb-4 relative group cursor-pointer overflow-hidden">
-                      {uploadingImage ? (
-                        <Loader2 className="animate-spin w-8 h-8 text-indigo-600" />
-                      ) : formData.imageUrl ? (
-                        <>
-                          <img src={formData.imageUrl} alt="Producto" className="w-full h-full object-cover rounded-3xl" />
-                          <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                            <Camera className="w-8 h-8 text-white" />
-                          </div>
-                        </>
-                      ) : (
-                        <>
-                          <ImageIcon className="text-slate-300 w-16 h-16" />
-                          <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                            <Upload className="w-8 h-8 text-indigo-600" />
-                          </div>
-                        </>
-                      )}
-                      <input
-                        ref={fileInputRef}
-                        type="file"
-                        accept="image/*"
-                        capture="environment"
-                        onChange={handleImageUpload}
-                        className="absolute inset-0 opacity-0 cursor-pointer"
-                      />
-                    </div>
+                  <div className="lg:col-span-1 flex flex-col gap-5">
+                    <div className="flex flex-col items-center w-full">
+                      <div className="w-full aspect-square bg-slate-50 rounded-3xl border-2 border-dashed flex items-center justify-center mb-4 relative group cursor-pointer overflow-hidden">
+                        {uploadingImage ? (
+                          <Loader2 className="animate-spin w-8 h-8 text-indigo-600" />
+                        ) : formData.imageUrl ? (
+                          <>
+                            <img src={formData.imageUrl} alt="Producto" className="w-full h-full object-cover rounded-3xl" />
+                            <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                              <Camera className="w-8 h-8 text-white" />
+                            </div>
+                          </>
+                        ) : (
+                          <>
+                            <ImageIcon className="text-slate-300 w-16 h-16" />
+                            <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                              <Upload className="w-8 h-8 text-indigo-600" />
+                            </div>
+                          </>
+                        )}
+                        <input
+                          ref={fileInputRef}
+                          type="file"
+                          accept="image/*"
+                          capture="environment"
+                          onChange={handleImageUpload}
+                          className="absolute inset-0 opacity-0 cursor-pointer"
+                        />
+                      </div>
 
-                  </div>
-                  <div className="w-full p-4 bg-slate-50 rounded-2xl">
-                    <div className="grid grid-cols-2 gap-3">
-                      <div>
-                        <label className="text-[9px] font-bold text-slate-600 uppercase mb-1 block">Stock Mínimo</label>
-                        <input
-                          type="number"
-                          min="0"
-                          value={formData.minStock ?? ''}
-                          onChange={e => setFormData({ ...formData, minStock: parseInt(e.target.value) || 0 })}
-                          className="w-full px-3 py-2 bg-white border rounded-lg outline-none text-sm text-center"
-                          placeholder="30"
-                        />
+                    </div>
+                    <div className="w-full p-4 bg-slate-900 rounded-2xl border-4 border-indigo-500 shadow-xl overflow-hidden relative group">
+                      <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+                        <AlertTriangle className="w-24 h-24 text-white" />
                       </div>
-                      {!editingProduct && (
-                        <div>
-                          <label className="text-[9px] font-bold text-slate-600 uppercase mb-1 block">Stock Inicial</label>
-                          <input
-                            type="number"
-                            min="0"
-                            value={formData.stock || ''}
-                            onChange={e => setFormData({ ...formData, stock: parseInt(e.target.value) || 0 })}
-                            className="w-full px-3 py-2 bg-white border rounded-lg outline-none text-sm text-center"
-                            placeholder="0"
-                          />
+                      <div className="relative z-10">
+                        <div className="flex items-center gap-2 mb-4 border-b border-indigo-500/30 pb-3">
+                          <div className="p-1.5 bg-indigo-500 rounded-lg shadow-lg shadow-indigo-500/50 animate-pulse">
+                            <DollarSign className="w-4 h-4 text-white" />
+                          </div>
+                          <h4 className="text-[10px] font-black uppercase tracking-widest text-indigo-100">Control de Valor</h4>
                         </div>
-                      )}
-                      <div>
-                        <label className="text-[9px] font-bold text-slate-600 uppercase mb-1 block">Precio Compra</label>
-                        <input
-                          type="number"
-                          min="0"
-                          step="0.01"
-                          value={formData.purchasePrice || ''}
-                          onChange={e => setFormData({ ...formData, purchasePrice: parseFloat(e.target.value) || 0 })}
-                          className="w-full px-3 py-2 bg-white border rounded-lg outline-none text-sm text-center"
-                          placeholder="0.00"
-                        />
-                      </div>
-                      <div>
-                        <label className="text-[9px] font-bold text-slate-600 uppercase mb-1 block">Precio Venta</label>
-                        <input
-                          type="number"
-                          min="0"
-                          step="0.01"
-                          value={formData.salePrice || ''}
-                          onChange={e => setFormData({ ...formData, salePrice: parseFloat(e.target.value) || 0 })}
-                          className="w-full px-3 py-2 bg-white border rounded-lg outline-none text-sm text-center"
-                          placeholder="0.00"
-                        />
+                        <div className="grid grid-cols-2 gap-3">
+                          <div className="bg-slate-800/50 p-2.5 rounded-xl border border-slate-700 hover:border-indigo-500/50 transition-colors">
+                            <label className="text-[8px] font-bold text-slate-400 uppercase mb-1 block tracking-wider">Mínimo</label>
+                            <input
+                              type="number"
+                              min="0"
+                              value={formData.minStock ?? ''}
+                              onChange={e => setFormData({ ...formData, minStock: parseInt(e.target.value) || 0 })}
+                              className="w-full bg-transparent text-white font-black text-center text-sm outline-none placeholder:text-slate-600"
+                              placeholder="0"
+                            />
+                          </div>
+                          {!editingProduct && (
+                            <div className="bg-slate-800/50 p-2.5 rounded-xl border border-slate-700 hover:border-emerald-500/50 transition-colors">
+                              <label className="text-[8px] font-bold text-emerald-400 uppercase mb-1 block tracking-wider">Inicial</label>
+                              <input
+                                type="number"
+                                min="0"
+                                value={formData.stock || ''}
+                                onChange={e => setFormData({ ...formData, stock: parseInt(e.target.value) || 0 })}
+                                className="w-full bg-transparent text-white font-black text-center text-sm outline-none placeholder:text-slate-600"
+                                placeholder="0"
+                              />
+                            </div>
+                          )}
+                          <div className="bg-slate-800/50 p-2.5 rounded-xl border border-slate-700 col-span-2 flex items-center justify-between hover:border-indigo-500/50 transition-colors">
+                            <label className="text-[8px] font-bold text-indigo-300 uppercase block tracking-wider">Precio Compra</label>
+                            <div className="flex items-center gap-1">
+                              <span className="text-slate-500 text-[10px]">$</span>
+                              <input
+                                type="number"
+                                step="0.01"
+                                value={formData.purchasePrice || ''}
+                                onChange={e => setFormData({ ...formData, purchasePrice: parseFloat(e.target.value) || 0 })}
+                                className="w-24 bg-transparent text-white font-black text-right text-sm outline-none placeholder:text-slate-600"
+                                placeholder="0.00"
+                              />
+                            </div>
+                          </div>
+                          <div className="bg-slate-800/50 p-2.5 rounded-xl border border-slate-700 col-span-2 flex items-center justify-between hover:border-indigo-500/50 transition-colors">
+                            <label className="text-[8px] font-bold text-indigo-300 uppercase block tracking-wider">Precio Venta</label>
+                            <div className="flex items-center gap-1">
+                              <span className="text-slate-500 text-[10px]">$</span>
+                              <input
+                                type="number"
+                                step="0.01"
+                                value={formData.salePrice || ''}
+                                onChange={e => setFormData({ ...formData, salePrice: parseFloat(e.target.value) || 0 })}
+                                className="w-24 bg-transparent text-white font-black text-right text-sm outline-none placeholder:text-slate-600"
+                                placeholder="0.00"
+                              />
+                            </div>
+                          </div>
+                        </div>
                       </div>
                     </div>
                   </div>
 
                   {/* Columna derecha: Campos del formulario */}
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    {/* Código SKU con autocomplete */}
-                    <div className="relative">
-                      <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2 block">Código SKU / QR *</label>
-                      <input
-                        type="text"
-                        required
-                        value={codeSearch}
-                        onChange={e => handleCodeChange(e.target.value)}
-                        onFocus={() => setShowCodeSuggestions(codeSearch.length > 0)}
-                        onBlur={() => setTimeout(() => setShowCodeSuggestions(false), 200)}
-                        readOnly={!!editingProduct}
-                        className={`w-full px-4 py-3 bg-slate-100 rounded-xl outline-none font-semibold text-sm text-slate-700 ${!!editingProduct ? 'opacity-70 cursor-not-allowed' : ''}`}
-                        placeholder="SKU-0001"
-                      />
-                      {showCodeSuggestions && codeSuggestions.length > 0 && (
-                        <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-slate-200 rounded-xl shadow-lg z-50 max-h-48 overflow-y-auto">
-                          {codeSuggestions.map(p => (
-                            <button
-                              key={p.id}
-                              type="button"
-                              onClick={() => handleCodeSelect(p)}
-                              className="w-full px-4 py-3 text-left hover:bg-slate-50 border-b last:border-b-0"
-                            >
-                              <div className="font-bold text-sm">{p.code}</div>
-                              <div className="text-xs text-slate-500">{p.name}</div>
-                            </button>
-                          ))}
-                        </div>
-                      )}
-                    </div>
+                  <div className="lg:col-span-2 space-y-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {/* Código SKU con autocomplete */}
+                      <div className="relative">
+                        <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2 block">Código SKU / QR *</label>
+                        <input
+                          type="text"
+                          required
+                          value={codeSearch}
+                          onChange={e => handleCodeChange(e.target.value)}
+                          onFocus={() => setShowCodeSuggestions(codeSearch.length > 0)}
+                          onBlur={() => setTimeout(() => setShowCodeSuggestions(false), 200)}
+                          readOnly={!!editingProduct}
+                          className={`w-full px-4 py-3 bg-slate-100 rounded-xl outline-none font-semibold text-sm text-slate-700 ${!!editingProduct ? 'opacity-70 cursor-not-allowed' : ''}`}
+                          placeholder="SKU-0001"
+                        />
+                        {showCodeSuggestions && codeSuggestions.length > 0 && (
+                          <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-slate-200 rounded-xl shadow-lg z-50 max-h-48 overflow-y-auto">
+                            {codeSuggestions.map(p => (
+                              <button
+                                key={p.id}
+                                type="button"
+                                onClick={() => handleCodeSelect(p)}
+                                className="w-full px-4 py-3 text-left hover:bg-slate-50 border-b last:border-b-0"
+                              >
+                                <div className="font-bold text-sm">{p.code}</div>
+                                <div className="text-xs text-slate-500">{p.name}</div>
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
 
-                    {/* Nombre con autocomplete */}
-                    <div className="relative">
-                      <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2 block">Nombre del Producto *</label>
-                      <input
-                        type="text"
-                        required
-                        value={nameSearch}
-                        onChange={e => handleNameChange(e.target.value)}
-                        onFocus={() => setShowNameSuggestions(nameSearch.length > 0)}
-                        onBlur={() => setTimeout(() => setShowNameSuggestions(false), 200)}
-                        readOnly={!!editingProduct}
-                        className={`w-full px-4 py-3 bg-slate-100 rounded-xl outline-none font-semibold text-sm text-slate-700 ${!!editingProduct ? 'opacity-70 cursor-not-allowed' : ''}`}
-                        placeholder="EJ: ZAPATILLAS DEPORTIVAS"
-                      />
-                      {showNameSuggestions && nameSuggestions.length > 0 && (
-                        <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-slate-200 rounded-xl shadow-lg z-50 max-h-48 overflow-y-auto">
-                          {nameSuggestions.map(p => (
-                            <button
-                              key={p.id}
-                              type="button"
-                              onClick={() => handleNameSelect(p)}
-                              className="w-full px-4 py-3 text-left hover:bg-slate-50 border-b last:border-b-0"
-                            >
-                              <div className="font-bold text-sm">{p.name}</div>
-                              <div className="text-xs text-slate-500">{p.code}</div>
-                            </button>
-                          ))}
-                        </div>
-                      )}
-                    </div>
+                      {/* Nombre con autocomplete */}
+                      <div className="relative">
+                        <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2 block">Nombre del Producto *</label>
+                        <input
+                          type="text"
+                          required
+                          value={nameSearch}
+                          onChange={e => handleNameChange(e.target.value)}
+                          onFocus={() => setShowNameSuggestions(nameSearch.length > 0)}
+                          onBlur={() => setTimeout(() => setShowNameSuggestions(false), 200)}
+                          readOnly={!!editingProduct}
+                          className={`w-full px-4 py-3 bg-slate-100 rounded-xl outline-none font-semibold text-sm text-slate-700 ${!!editingProduct ? 'opacity-70 cursor-not-allowed' : ''}`}
+                          placeholder="EJ: ZAPATILLAS DEPORTIVAS"
+                        />
+                        {showNameSuggestions && nameSuggestions.length > 0 && (
+                          <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-slate-200 rounded-xl shadow-lg z-50 max-h-48 overflow-y-auto">
+                            {nameSuggestions.map(p => (
+                              <button
+                                key={p.id}
+                                type="button"
+                                onClick={() => handleNameSelect(p)}
+                                className="w-full px-4 py-3 text-left hover:bg-slate-50 border-b last:border-b-0"
+                              >
+                                <div className="font-bold text-sm">{p.name}</div>
+                                <div className="text-xs text-slate-500">{p.code}</div>
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
 
-                    <div>
-                      <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2 block">Marca</label>
-                      <input
-                        type="text"
-                        value={formData.brand || ''}
-                        onChange={e => setFormData({ ...formData, brand: e.target.value })}
-                        className="w-full px-4 py-3 bg-slate-100 rounded-xl outline-none font-semibold text-sm text-slate-700"
-                        placeholder="MARCA..."
-                      />
-                    </div>
+                      <div>
+                        <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2 block">Marca</label>
+                        <input
+                          type="text"
+                          value={formData.brand || ''}
+                          onChange={e => setFormData({ ...formData, brand: e.target.value })}
+                          className="w-full px-4 py-3 bg-slate-100 rounded-xl outline-none font-semibold text-sm text-slate-700"
+                          placeholder="MARCA..."
+                        />
+                      </div>
 
-                    <div>
-                      <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2 block">Modelo</label>
-                      <input
-                        type="text"
-                        value={formData.model || ''}
-                        onChange={e => setFormData({ ...formData, model: e.target.value })}
-                        className="w-full px-4 py-3 bg-slate-100 rounded-xl outline-none font-semibold text-sm text-slate-700"
-                        placeholder="MODELO..."
-                      />
-                    </div>
+                      <div>
+                        <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2 block">Modelo</label>
+                        <input
+                          type="text"
+                          value={formData.model || ''}
+                          onChange={e => setFormData({ ...formData, model: e.target.value })}
+                          className="w-full px-4 py-3 bg-slate-100 rounded-xl outline-none font-semibold text-sm text-slate-700"
+                          placeholder="MODELO..."
+                        />
+                      </div>
 
-                    <div>
-                      <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2 block">Unidad</label>
-                      <select
-                        value={formData.unit || 'UND'}
-                        onChange={e => setFormData({ ...formData, unit: e.target.value })}
-                        className="w-full px-4 py-3 bg-slate-100 rounded-xl outline-none font-semibold text-sm text-slate-700 appearance-none"
-                      >
-                        <option>UND</option>
-                        <option>PAR</option>
-                        <option>CAJA</option>
-                        <option>SET</option>
-                      </select>
-                    </div>
+                      <div>
+                        <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2 block">Unidad</label>
+                        <select
+                          value={formData.unit || 'UND'}
+                          onChange={e => setFormData({ ...formData, unit: e.target.value })}
+                          className="w-full px-4 py-3 bg-slate-100 rounded-xl outline-none font-semibold text-sm text-slate-700 appearance-none"
+                        >
+                          <option>UND</option>
+                          <option>PAR</option>
+                          <option>CAJA</option>
+                          <option>SET</option>
+                        </select>
+                      </div>
 
-                    <div>
-                      <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2 block">Talla / Medida</label>
-                      <input
-                        type="text"
-                        value={formData.size || ''}
-                        onChange={e => setFormData({ ...formData, size: e.target.value })}
-                        className="w-full px-4 py-3 bg-slate-100 rounded-xl outline-none font-semibold text-sm text-slate-700"
-                        placeholder="S, M, L, XL..."
-                      />
-                    </div>
+                      <div>
+                        <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2 block">Talla / Medida</label>
+                        <input
+                          type="text"
+                          value={formData.size || ''}
+                          onChange={e => setFormData({ ...formData, size: e.target.value })}
+                          className="w-full px-4 py-3 bg-slate-100 rounded-xl outline-none font-semibold text-sm text-slate-700"
+                          placeholder="S, M, L, XL..."
+                        />
+                      </div>
 
-                    <div>
-                      <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2 block">Categoría</label>
-                      <select
-                        onFocus={handleLoadCategories}
-                        value={formData.category || ''}
-                        onChange={e => setFormData({ ...formData, category: e.target.value })}
-                        className="w-full px-4 py-3 bg-slate-100 rounded-xl outline-none font-semibold text-sm text-slate-700 appearance-none"
-                      >
-                        <option value="">SELECCIONE...</option>
-                        {categories.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
-                      </select>
-                    </div>
+                      <div>
+                        <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2 block">Categoría</label>
+                        <select
+                          onFocus={handleLoadCategories}
+                          value={formData.category || ''}
+                          onChange={e => setFormData({ ...formData, category: e.target.value })}
+                          className="w-full px-4 py-3 bg-slate-100 rounded-xl outline-none font-semibold text-sm text-slate-700 appearance-none"
+                        >
+                          <option value="">SELECCIONE...</option>
+                          {categories.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
+                        </select>
+                      </div>
 
-                    <div>
-                      <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2 block">Almacén</label>
-                      <select
-                        onFocus={handleLoadLocations}
-                        value={formData.location || ''}
-                        onChange={e => setFormData({ ...formData, location: e.target.value })}
-                        className="w-full px-4 py-3 bg-slate-100 rounded-xl outline-none font-semibold text-sm text-slate-700 appearance-none"
-                      >
-                        <option value="">SELECCIONE...</option>
-                        {locations.map(l => <option key={l.id} value={l.name}>{l.name}</option>)}
-                      </select>
+                      <div>
+                        <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2 block">Almacén</label>
+                        <select
+                          onFocus={handleLoadLocations}
+                          value={formData.location || ''}
+                          onChange={e => setFormData({ ...formData, location: e.target.value })}
+                          className="w-full px-4 py-3 bg-slate-100 rounded-xl outline-none font-semibold text-sm text-slate-700 appearance-none"
+                        >
+                          <option value="">SELECCIONE...</option>
+                          {locations.map(l => <option key={l.id} value={l.name}>{l.name}</option>)}
+                        </select>
+                      </div>
                     </div>
                   </div>
                 </div>
