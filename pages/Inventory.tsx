@@ -532,16 +532,16 @@ export const Inventory: React.FC<InventoryProps> = ({ role, userEmail, onNavigat
         </div>
       </div>
 
-      {/* Modal de producto - CON ALTURA FIJA Y SCROLL */}
+      {/* Modal de producto - RESPONSIVE CELULAR */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4">
           <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm"></div>
-          <div className="relative bg-white rounded-[2.5rem] w-full max-w-4xl shadow-2xl animate-in zoom-in-95 max-h-[85vh] flex flex-col">
+          <div className="relative bg-white rounded-3xl w-full max-w-4xl shadow-2xl animate-in zoom-in-95 max-h-[75vh] sm:max-h-[85vh] flex flex-col">
             <form onSubmit={handleSubmit} className="flex flex-col h-full">
               {/* Header fijo */}
-              <div className="p-6 border-b flex-shrink-0">
+              <div className="p-4 sm:p-6 border-b flex-shrink-0">
                 <div className="flex justify-between items-start">
-                  <h3 className="text-2xl font-black text-slate-800 uppercase tracking-tighter">
+                  <h3 className="text-lg sm:text-2xl font-black text-slate-800 uppercase tracking-tighter">
                     {editingProduct ? 'Editar Producto' : 'Nuevo Producto'}
                   </h3>
                   <button type="button" onClick={() => setIsModalOpen(false)} className="p-2 text-slate-400 hover:bg-slate-100 rounded-xl">
@@ -551,7 +551,7 @@ export const Inventory: React.FC<InventoryProps> = ({ role, userEmail, onNavigat
               </div>
               
               {/* Body con scroll */}
-              <div className="p-8 overflow-y-auto flex-1">
+              <div className="p-4 sm:p-8 overflow-y-auto flex-1">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                   {/* Columna izquierda: Imagen y alertas */}
                   <div className="md:col-span-1 flex flex-col items-center">
@@ -583,41 +583,41 @@ export const Inventory: React.FC<InventoryProps> = ({ role, userEmail, onNavigat
                       />
                     </div>
                     
-                    <div className="w-full p-4 bg-amber-50 border-2 border-dashed border-amber-200 rounded-2xl text-center">
-                      <AlertTriangle className="w-6 h-6 text-amber-500 mx-auto mb-2"/>
-                      <p className="text-[9px] font-black text-amber-800 uppercase tracking-widest">Alertas de Stock</p>
+                    <div className="w-full p-3 sm:p-4 bg-amber-50 border-2 border-dashed border-amber-200 rounded-2xl text-center">
+                      <AlertTriangle className="w-5 h-5 sm:w-6 sm:h-6 text-amber-500 mx-auto mb-2"/>
+                      <p className="text-[8px] sm:text-[9px] font-black text-amber-800 uppercase tracking-widest">Alertas de Stock</p>
                       <div className="flex gap-2 mt-2">
-                        <div>
-                          <label className="text-[8px] font-bold text-slate-500 uppercase tracking-wider block">Mínimo</label>
+                        <div className="flex-1">
+                          <label className="text-[7px] sm:text-[8px] font-bold text-slate-500 uppercase tracking-wider block">Mínimo</label>
                           <input 
                             type="number" 
                             min="0" 
                             value={formData.minStock ?? ''} 
                             onChange={e => handleStockInputChange('minStock', e.target.value)} 
-                            className="w-full px-2 py-2 bg-white rounded-lg outline-none font-semibold text-sm text-center" 
+                            className="w-full px-2 py-1.5 sm:py-2 bg-white rounded-lg outline-none font-semibold text-xs sm:text-sm text-center" 
                           />
                         </div>
-                        <div>
-                          <label className="text-[8px] font-bold text-slate-500 uppercase tracking-wider block">Crítico</label>
+                        <div className="flex-1">
+                          <label className="text-[7px] sm:text-[8px] font-bold text-slate-500 uppercase tracking-wider block">Crítico</label>
                           <input 
                             type="number" 
                             min="0" 
                             value={formData.criticalStock ?? ''} 
                             onChange={e => handleStockInputChange('criticalStock', e.target.value)} 
-                            className="w-full px-2 py-2 bg-white rounded-lg outline-none font-semibold text-sm text-center" 
+                            className="w-full px-2 py-1.5 sm:py-2 bg-white rounded-lg outline-none font-semibold text-xs sm:text-sm text-center" 
                           />
                         </div>
                       </div>
                       
                       {!editingProduct && (
-                        <div className="mt-3">
-                          <label className="text-[8px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Stock Inicial</label>
+                        <div className="mt-2 sm:mt-3">
+                          <label className="text-[7px] sm:text-[8px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Stock Inicial</label>
                           <input 
                             type="number" 
                             min="0" 
                             value={formData.stock || ''} 
                             onChange={e => setFormData({...formData, stock: parseInt(e.target.value) || 0})} 
-                            className="w-full px-2 py-2 bg-white rounded-lg outline-none font-semibold text-sm text-center" 
+                            className="w-full px-2 py-1.5 sm:py-2 bg-white rounded-lg outline-none font-semibold text-xs sm:text-sm text-center" 
                             placeholder="0"
                           />
                         </div>
@@ -766,21 +766,21 @@ export const Inventory: React.FC<InventoryProps> = ({ role, userEmail, onNavigat
               </div>
               
               {/* Footer fijo */}
-              <div className="p-6 bg-slate-50 border-t flex justify-end items-center gap-4 flex-shrink-0">
+              <div className="p-3 sm:p-6 bg-slate-50 border-t flex justify-end items-center gap-3 sm:gap-4 flex-shrink-0">
                 <button 
                   type="button" 
                   onClick={() => setIsModalOpen(false)} 
-                  className="px-8 py-3 text-[10px] font-black uppercase text-slate-500 hover:text-slate-800"
+                  className="px-4 sm:px-8 py-2 sm:py-3 text-[9px] sm:text-[10px] font-black uppercase text-slate-500 hover:text-slate-800"
                 >
                   CANCELAR
                 </button>
                 <button 
                   type="submit" 
                   disabled={saving} 
-                  className="px-8 py-4 bg-indigo-600 text-white rounded-xl text-[10px] font-black uppercase shadow-lg shadow-indigo-100 flex items-center gap-2 hover:bg-indigo-700 transition-all active:scale-95 disabled:opacity-50"
+                  className="px-4 sm:px-8 py-3 sm:py-4 bg-indigo-600 text-white rounded-xl text-[9px] sm:text-[10px] font-black uppercase shadow-lg shadow-indigo-100 flex items-center gap-2 hover:bg-indigo-700 transition-all active:scale-95 disabled:opacity-50"
                 >
                   {saving ? <Loader2 className="animate-spin w-4 h-4" /> : <Save className="w-4 h-4" />}
-                  CONFIRMAR CAMBIOS
+                  GUARDAR
                 </button>
               </div>
             </form>
