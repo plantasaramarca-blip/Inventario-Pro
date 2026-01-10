@@ -858,6 +858,7 @@ export const Inventory: React.FC<InventoryProps> = ({ role, userEmail, onNavigat
                     )}
                   </button>
                 </th>
+                <th className="px-6 py-4 w-16 text-center">IMG</th>
                 <th className="px-6 py-4 text-left">Producto</th>
                 <th className="px-6 py-4 text-left">Modelo</th>
                 <th className="px-6 py-4 text-center">Stock</th>
@@ -878,6 +879,15 @@ export const Inventory: React.FC<InventoryProps> = ({ role, userEmail, onNavigat
                         <Square className="w-5 h-5 mx-auto text-slate-200 group-hover:text-slate-400" />
                       )}
                     </button>
+                  </td>
+                  <td className="px-6 py-3">
+                    <div className="w-10 h-10 rounded-lg bg-slate-100 border border-slate-200 overflow-hidden flex items-center justify-center">
+                      {p.imageUrl ? (
+                        <img src={p.imageUrl} alt={p.name} className="w-full h-full object-cover" />
+                      ) : (
+                        <ImageIcon className="w-5 h-5 text-slate-300" />
+                      )}
+                    </div>
                   </td>
                   <td className="px-6 py-3">
                     <p className="text-sm font-bold text-slate-800 uppercase">{p.name}</p>
