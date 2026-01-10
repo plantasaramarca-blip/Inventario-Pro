@@ -97,7 +97,29 @@ export const Inventory: React.FC<InventoryProps> = ({ role, userEmail, onNavigat
       }
     };
     loadData();
-    if (initialState?.openNewProductModal) {
+    if (initialState?.filter) {
+      if (initialState.filter === 'outOfStock') {
+        const check = async () => {
+          const { products: all } = await api.getProducts({ fetchAll: true });
+          setProducts(all.filter(p => !p.stock || p.stock === 0));
+        }
+        check();
+      } else if (initialState.filter === 'critical') {
+        const check = async () => {
+          const { products: all } = await api.getProducts({ fetchAll: true });
+          setProducts(all.filter(p => p.stock > 0 && p.stock <= (p.criticalStock || 5)));
+        }
+        check();
+      } else if (initialState.filter === 'lowStock') {
+        const check = async () => {
+          const { products: all } = await api.getProducts({ fetchAll: true });
+          setProducts(all.filter(p => p.stock > (p.criticalStock || 5) && p.stock <= (p.minStock || 10)));
+        }
+        check();
+      }
+      onInitialStateConsumed();
+    }
+    else if (initialState?.openNewProductModal) {
       handleOpenModal();
       onInitialStateConsumed();
     }

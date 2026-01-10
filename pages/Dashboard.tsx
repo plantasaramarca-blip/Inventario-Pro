@@ -46,7 +46,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
       icon: DollarSign,
       color: 'bg-indigo-600',
       sub: 'Inversión',
-      onClick: () => console.log('Próximamente: Sección de Precios')
+      onClick: () => onNavigate('inventory')
     },
     {
       title: 'Sin Stock',
@@ -117,6 +117,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
           <table className="w-full text-left min-w-[600px]">
             <thead className="text-[8px] font-black uppercase text-slate-400 tracking-widest border-b border-slate-50">
               <tr>
+                <th className="pb-3 px-2 w-10 text-center">IMG</th>
                 <th className="pb-3 px-2">Producto</th>
                 <th className="pb-3 px-2 text-center">Stock / Mínimo</th>
                 <th className="pb-3 px-2 text-left">Modelo</th>
@@ -132,6 +133,15 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
                   onClick={() => onNavigate('productDetail', { push: true, state: { productId: p.id } })}
                   className="hover:bg-indigo-50/50 transition-colors cursor-pointer group"
                 >
+                  <td className="py-3 px-2">
+                    <div className="w-8 h-8 rounded bg-slate-100 border border-slate-200 overflow-hidden flex items-center justify-center mx-auto">
+                      {p.imageUrl ? (
+                        <img src={p.imageUrl} alt={p.name} className="w-full h-full object-cover" />
+                      ) : (
+                        <Layers className="w-4 h-4 text-slate-300" />
+                      )}
+                    </div>
+                  </td>
                   <td className="py-3 px-2">
                     <p className="text-[11px] font-bold text-slate-800 uppercase">{p.name}</p>
                     <p className="text-[8px] text-slate-400 font-black uppercase tracking-tighter">{p.code}</p>

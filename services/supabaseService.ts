@@ -230,11 +230,10 @@ export const getAlertProducts = async (limit = 6): Promise<Product[]> => {
   try {
     const { data, error } = await supabase
       .from('products')
-      .select(`
-        id, code, name, category, location, 
-        stock, min_stock, critical_stock, 
-        unit, precio_compra, precio_venta, model
-      `)
+    id, code, name, category, location,
+      stock, min_stock, critical_stock,
+      unit, precio_compra, precio_venta, model, image_url
+        `)
       .order('stock', { ascending: true })
       .limit(limit * 3);
 
@@ -256,7 +255,7 @@ export const getAlertProducts = async (limit = 6): Promise<Product[]> => {
       unit: p.unit,
       purchasePrice: p.precio_compra,
       salePrice: p.precio_venta,
-      imageUrl: '',
+      imageUrl: p.image_url || '',
       brand: '',
       model: p.model || '',
       size: '',
