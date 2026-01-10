@@ -11,7 +11,7 @@ import { useNotification } from '../contexts/NotificationContext.tsx';
 import { CustomDialog } from '../components/CustomDialog.tsx';
 import { supabase } from '../supabaseClient.ts';
 import {
-  Plus, Search, Edit2, ImageIcon, Loader2, X, Save, Camera, QrCode, Info, Trash2, FileSpreadsheet, CheckSquare, Square, Printer, ChevronLeft, ChevronRight, ScanLine, AlertTriangle, Upload, DollarSign, TrendingUp
+  Plus, Search, Edit2, ImageIcon, Loader2, X, Save, Camera, QrCode, Info, Trash2, FileSpreadsheet, CheckSquare, Square, Printer, ChevronLeft, ChevronRight, ScanLine, AlertTriangle, Upload, DollarSign, TrendingUp, Layers
 } from 'https://esm.sh/lucide-react@0.475.0?external=react,react-dom';
 
 const ITEMS_PER_PAGE = 15;
@@ -555,177 +555,193 @@ export const Inventory: React.FC<InventoryProps> = ({ role, userEmail, onNavigat
 
               <div className="p-4 sm:p-6 overflow-y-auto flex-1" style={{ WebkitOverflowScrolling: 'touch' }}>
 
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start h-full">
-                  {/* Columna izquierda: Imagen y alertas */}
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
 
-                  <div className="lg:col-span-1 flex flex-col gap-5">
-                    <div className="flex flex-col items-center w-full">
-                      <div className="w-full aspect-square bg-slate-50 rounded-3xl border-2 border-dashed flex items-center justify-center mb-4 relative group cursor-pointer overflow-hidden">
-                        {uploadingImage ? (
-                          <Loader2 className="animate-spin w-8 h-8 text-indigo-600" />
-                        ) : formData.imageUrl ? (
-                          <>
-                            <img src={formData.imageUrl} alt="Producto" className="w-full h-full object-cover rounded-3xl" />
-                            <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                              <Camera className="w-8 h-8 text-white" />
-                            </div>
-                          </>
-                        ) : (
-                          <>
-                            <ImageIcon className="text-slate-300 w-16 h-16" />
-                            <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                              <Upload className="w-8 h-8 text-indigo-600" />
-                            </div>
-                          </>
-                        )}
-                        <input
-                          ref={fileInputRef}
-                          type="file"
-                          accept="image/*"
-                          capture="environment"
-                          onChange={handleImageUpload}
-                          className="absolute inset-0 opacity-0 cursor-pointer"
-                        />
-                      </div>
-
+                  {/* LEFT COLUMN: Visuals (4/12) */}
+                  <div className="lg:col-span-4 flex flex-col gap-4">
+                    <div className="w-full aspect-square bg-slate-50 rounded-3xl border-2 border-dashed flex items-center justify-center relative group cursor-pointer overflow-hidden shadow-sm hover:shadow-md transition-all">
+                      {uploadingImage ? (
+                        <Loader2 className="animate-spin w-8 h-8 text-indigo-600" />
+                      ) : formData.imageUrl ? (
+                        <>
+                          <img src={formData.imageUrl} alt="Producto" className="w-full h-full object-cover rounded-3xl" />
+                          <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                            <Camera className="w-8 h-8 text-white" />
+                          </div>
+                        </>
+                      ) : (
+                        <>
+                          <ImageIcon className="text-slate-300 w-16 h-16" />
+                          <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                            <Upload className="w-8 h-8 text-indigo-600" />
+                          </div>
+                        </>
+                      )}
+                      <input
+                        ref={fileInputRef}
+                        type="file"
+                        accept="image/*"
+                        capture="environment"
+                        onChange={handleImageUpload}
+                        className="absolute inset-0 opacity-0 cursor-pointer"
+                      />
                     </div>
 
-                    {/* Columna derecha: Campos del formulario */}
-                    <div className="lg:col-span-2 space-y-4">
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        {/* Código SKU con autocomplete */}
-                        <div className="relative">
-                          <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2 block">Código SKU / QR *</label>
-                          <input
-                            type="text"
-                            required
-                            value={codeSearch}
-                            onChange={e => handleCodeChange(e.target.value)}
-                            onFocus={() => setShowCodeSuggestions(codeSearch.length > 0)}
-                            onBlur={() => setTimeout(() => setShowCodeSuggestions(false), 200)}
-                            readOnly={!!editingProduct}
-                            className={`w-full px-4 py-3 bg-slate-100 rounded-xl outline-none font-semibold text-sm text-slate-700 ${!!editingProduct ? 'opacity-70 cursor-not-allowed' : ''}`}
-                            placeholder="SKU-0001"
-                          />
-                          {showCodeSuggestions && codeSuggestions.length > 0 && (
-                            <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-slate-200 rounded-xl shadow-lg z-50 max-h-48 overflow-y-auto">
-                              {codeSuggestions.map(p => (
-                                <button
-                                  key={p.id}
-                                  type="button"
-                                  onClick={() => handleCodeSelect(p)}
-                                  className="w-full px-4 py-3 text-left hover:bg-slate-50 border-b last:border-b-0"
-                                >
-                                  <div className="font-bold text-sm">{p.code}</div>
-                                  <div className="text-xs text-slate-500">{p.name}</div>
-                                </button>
-                              ))}
-                            </div>
-                          )}
+                    {/* SKU Field - Prominent */}
+                    <div className="relative group">
+                      <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2 block">Código SKU / QR <span className="text-rose-500">*</span></label>
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          required
+                          value={codeSearch}
+                          onChange={e => handleCodeChange(e.target.value)}
+                          onFocus={() => setShowCodeSuggestions(codeSearch.length > 0)}
+                          onBlur={() => setTimeout(() => setShowCodeSuggestions(false), 200)}
+                          readOnly={!!editingProduct}
+                          className={`w-full px-4 py-3 bg-slate-100 rounded-xl outline-none font-black text-sm text-slate-700 tracking-wider ${!!editingProduct ? 'opacity-70 cursor-not-allowed' : 'focus:ring-2 focus:ring-indigo-500/20 transition-all'}`}
+                          placeholder="SKU-0001"
+                        />
+                        <button type="button" onClick={() => setIsScannerOpen(true)} className="p-3 bg-slate-100 rounded-xl text-slate-500 hover:bg-slate-200 hover:text-indigo-600 transition-colors">
+                          <QrCode className="w-5 h-5" />
+                        </button>
+                      </div>
+                      {showCodeSuggestions && codeSuggestions.length > 0 && (
+                        <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-slate-200 rounded-xl shadow-lg z-50 max-h-48 overflow-y-auto">
+                          {codeSuggestions.map(p => (
+                            <button key={p.id} type="button" onClick={() => handleCodeSelect(p)} className="w-full px-4 py-3 text-left hover:bg-slate-50 border-b last:border-b-0">
+                              <div className="font-bold text-sm">{p.code}</div>
+                              <div className="text-xs text-slate-500">{p.name}</div>
+                            </button>
+                          ))}
                         </div>
+                      )}
+                    </div>
+                  </div>
 
-                        {/* Nombre con autocomplete */}
-                        <div className="relative">
-                          <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2 block">Nombre del Producto *</label>
-                          <input
-                            type="text"
-                            required
-                            value={nameSearch}
-                            onChange={e => handleNameChange(e.target.value)}
-                            onFocus={() => setShowNameSuggestions(nameSearch.length > 0)}
-                            onBlur={() => setTimeout(() => setShowNameSuggestions(false), 200)}
-                            readOnly={!!editingProduct}
-                            className={`w-full px-4 py-3 bg-slate-100 rounded-xl outline-none font-semibold text-sm text-slate-700 ${!!editingProduct ? 'opacity-70 cursor-not-allowed' : ''}`}
-                            placeholder="EJ: ZAPATILLAS DEPORTIVAS"
-                          />
-                          {showNameSuggestions && nameSuggestions.length > 0 && (
-                            <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-slate-200 rounded-xl shadow-lg z-50 max-h-48 overflow-y-auto">
-                              {nameSuggestions.map(p => (
-                                <button
-                                  key={p.id}
-                                  type="button"
-                                  onClick={() => handleNameSelect(p)}
-                                  className="w-full px-4 py-3 text-left hover:bg-slate-50 border-b last:border-b-0"
-                                >
-                                  <div className="font-bold text-sm">{p.name}</div>
-                                  <div className="text-xs text-slate-500">{p.code}</div>
-                                </button>
-                              ))}
-                            </div>
-                          )}
+                  {/* RIGHT COLUMN: Details (8/12) */}
+                  <div className="lg:col-span-8 flex flex-col gap-5">
+
+                    {/* Main Name Field */}
+                    <div className="relative">
+                      <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2 block">Nombre del Producto <span className="text-rose-500">*</span></label>
+                      <input
+                        type="text"
+                        required
+                        value={nameSearch}
+                        onChange={e => handleNameChange(e.target.value)}
+                        onFocus={() => setShowNameSuggestions(nameSearch.length > 0)}
+                        onBlur={() => setTimeout(() => setShowNameSuggestions(false), 200)}
+                        readOnly={!!editingProduct}
+                        className={`w-full px-5 py-4 bg-white border-2 border-slate-100 rounded-2xl outline-none font-black text-xl text-slate-800 placeholder:text-slate-300 focus:border-indigo-500/50 focus:shadow-xl focus:shadow-indigo-500/10 transition-all ${!!editingProduct ? 'opacity-70 cursor-not-allowed' : ''}`}
+                        placeholder="EJ: ZAPATILLAS NIKE AIR..."
+                      />
+                      {showNameSuggestions && nameSuggestions.length > 0 && (
+                        <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-slate-200 rounded-xl shadow-lg z-50 max-h-48 overflow-y-auto">
+                          {nameSuggestions.map(p => (
+                            <button key={p.id} type="button" onClick={() => handleNameSelect(p)} className="w-full px-4 py-3 text-left hover:bg-slate-50 border-b last:border-b-0">
+                              <div className="font-bold text-sm">{p.name}</div>
+                              <div className="text-xs text-slate-500">{p.code}</div>
+                            </button>
+                          ))}
                         </div>
+                      )}
+                    </div>
 
-                        <div>
-                          <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2 block">Marca</label>
-                          <input
-                            type="text"
-                            value={formData.brand || ''}
-                            onChange={e => setFormData({ ...formData, brand: e.target.value })}
-                            className="w-full px-4 py-3 bg-slate-100 rounded-xl outline-none font-semibold text-sm text-slate-700"
-                            placeholder="MARCA..."
-                          />
-                        </div>
+                    {/* Secondary Metrics Grid */}
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2 block">Marca</label>
+                        <input
+                          type="text"
+                          value={formData.brand || ''}
+                          onChange={e => setFormData({ ...formData, brand: e.target.value })}
+                          className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl outline-none font-semibold text-sm text-slate-700 focus:bg-white focus:border-indigo-300 transition-all"
+                          placeholder="Marca..."
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2 block">Modelo</label>
+                        <input
+                          type="text"
+                          value={formData.model || ''}
+                          onChange={e => setFormData({ ...formData, model: e.target.value })}
+                          className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl outline-none font-semibold text-sm text-slate-700 focus:bg-white focus:border-indigo-300 transition-all"
+                          placeholder="Modelo..."
+                        />
+                      </div>
+                    </div>
 
-                        <div>
-                          <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2 block">Modelo</label>
-                          <input
-                            type="text"
-                            value={formData.model || ''}
-                            onChange={e => setFormData({ ...formData, model: e.target.value })}
-                            className="w-full px-4 py-3 bg-slate-100 rounded-xl outline-none font-semibold text-sm text-slate-700"
-                            placeholder="MODELO..."
-                          />
-                        </div>
-
-                        <div>
-                          <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2 block">Unidad</label>
-                          <select
-                            value={formData.unit || 'UND'}
-                            onChange={e => setFormData({ ...formData, unit: e.target.value })}
-                            className="w-full px-4 py-3 bg-slate-100 rounded-xl outline-none font-semibold text-sm text-slate-700 appearance-none"
-                          >
-                            <option>UND</option>
-                            <option>PAR</option>
-                            <option>CAJA</option>
-                            <option>SET</option>
-                          </select>
-                        </div>
-
+                    {/* CLASSIFICATION BLOCK (Combos on the Right/Grouped) */}
+                    <div className="bg-slate-50/80 p-5 rounded-2xl border border-dashed border-slate-200">
+                      <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-4 flex items-center gap-2">
+                        <Layers className="w-3 h-3" /> Clasificación y Medida
+                      </h4>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div>
                           <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2 block">Talla / Medida</label>
                           <input
                             type="text"
                             value={formData.size || ''}
                             onChange={e => setFormData({ ...formData, size: e.target.value })}
-                            className="w-full px-4 py-3 bg-slate-100 rounded-xl outline-none font-semibold text-sm text-slate-700"
+                            className="w-full px-4 py-3 bg-white rounded-xl outline-none font-semibold text-sm text-slate-700 border border-transparent focus:border-indigo-300 transition-all shadow-sm"
                             placeholder="S, M, L, XL..."
                           />
                         </div>
-
+                        <div>
+                          <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2 block">Unidad</label>
+                          <div className="relative">
+                            <select
+                              value={formData.unit || 'UND'}
+                              onChange={e => setFormData({ ...formData, unit: e.target.value })}
+                              className="w-full px-4 py-3 bg-white rounded-xl outline-none font-bold text-sm text-slate-700 border border-transparent focus:border-indigo-300 transition-all shadow-sm appearance-none cursor-pointer"
+                            >
+                              <option>UND</option>
+                              <option>PAR</option>
+                              <option>CAJA</option>
+                              <option>SET</option>
+                              <option>KG</option>
+                              <option>MTR</option>
+                              <option>LIT</option>
+                            </select>
+                            <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
+                              <ChevronRight className="w-4 h-4 rotate-90" />
+                            </div>
+                          </div>
+                        </div>
                         <div>
                           <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2 block">Categoría</label>
-                          <select
-                            onFocus={handleLoadCategories}
-                            value={formData.category || ''}
-                            onChange={e => setFormData({ ...formData, category: e.target.value })}
-                            className="w-full px-4 py-3 bg-slate-100 rounded-xl outline-none font-semibold text-sm text-slate-700 appearance-none"
-                          >
-                            <option value="">SELECCIONE...</option>
-                            {categories.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
-                          </select>
+                          <div className="relative">
+                            <select
+                              onFocus={handleLoadCategories}
+                              value={formData.category || ''}
+                              onChange={e => setFormData({ ...formData, category: e.target.value })}
+                              className="w-full px-4 py-3 bg-white rounded-xl outline-none font-bold text-sm text-indigo-900 border border-transparent focus:border-indigo-300 transition-all shadow-sm appearance-none cursor-pointer"
+                            >
+                              <option value="">SELECCIONE...</option>
+                              {categories.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
+                            </select>
+                            <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-indigo-300">
+                              <ChevronRight className="w-4 h-4 rotate-90" />
+                            </div>
+                          </div>
                         </div>
-
                         <div>
                           <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2 block">Almacén</label>
-                          <select
-                            onFocus={handleLoadLocations}
-                            value={formData.location || ''}
-                            onChange={e => setFormData({ ...formData, location: e.target.value })}
-                            className="w-full px-4 py-3 bg-slate-100 rounded-xl outline-none font-semibold text-sm text-slate-700 appearance-none"
-                          >
-                            <option value="">SELECCIONE...</option>
-                            {locations.map(l => <option key={l.id} value={l.name}>{l.name}</option>)}
-                          </select>
+                          <div className="relative">
+                            <select
+                              onFocus={handleLoadLocations}
+                              value={formData.location || ''}
+                              onChange={e => setFormData({ ...formData, location: e.target.value })}
+                              className="w-full px-4 py-3 bg-white rounded-xl outline-none font-bold text-sm text-indigo-900 border border-transparent focus:border-indigo-300 transition-all shadow-sm appearance-none cursor-pointer"
+                            >
+                              <option value="">SELECCIONE...</option>
+                              {locations.map(l => <option key={l.id} value={l.name}>{l.name}</option>)}
+                            </select>
+                            <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-indigo-300">
+                              <ChevronRight className="w-4 h-4 rotate-90" />
+                            </div>
+                          </div>
                         </div>
                       </div>
                     </div>
