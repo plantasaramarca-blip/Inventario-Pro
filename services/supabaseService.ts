@@ -174,7 +174,7 @@ export const saveCategoryMaster = async (cat: Partial<CategoryMaster>) => { if (
 export const deleteCategoryMaster = async (id: string) => { if (!useSupabase()) return; };
 
 const FULL_PRODUCT_QUERY = 'id, code, name, brand, size, model, category, location, stock, min_stock, critical_stock, precio_compra, precio_venta, moneda, unit, image_url, updated_at';
-const LIST_PRODUCT_QUERY = 'id, code, name, stock, location, min_stock, critical_stock, precio_compra, moneda, unit, model';
+const LIST_PRODUCT_QUERY = 'id, code, name, stock, location, min_stock, critical_stock, precio_compra, moneda, unit, model, brand, size, category, precio_venta, image_url';
 
 export const getProducts = async (options?: { page?: number; pageSize?: number; searchTerm?: string; filters?: { category: string; location: string }; fetchAll?: boolean; }): Promise<{ products: Product[]; count: number | null }> => {
   if (!useSupabase()) return { products: [], count: 0 };
