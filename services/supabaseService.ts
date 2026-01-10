@@ -30,16 +30,16 @@ const getCached = (key: string) => {
   try {
     const cached = localStorage.getItem(`kardex_cache_${key}`);
     if (!cached) return null;
-    
+
     const { data, timestamp } = JSON.parse(cached);
     const age = Date.now() - timestamp;
-    
+
     if (age > CACHE_DURATION) {
       localStorage.removeItem(`kardex_cache_${key}`);
       return null;
     }
-    
-    console.log(`✅ Usando ${key} desde caché (${Math.floor(age/1000)}s antiguo)`);
+
+    console.log(`✅ Usando ${key} desde caché (${Math.floor(age / 1000)}s antiguo)`);
     return data;
   } catch (error) {
     console.error('Error al leer caché:', error);
@@ -88,7 +88,7 @@ const getChangedFields = (oldV: any, newV: any): string[] => {
   const allKeys = new Set([...Object.keys(oldV), ...Object.keys(newV)]);
   const changed: string[] = [];
   const ignoredKeys = ['id', 'updated_at', 'created_at', 'user_id', 'imageUrl'];
-  
+
   allKeys.forEach(key => {
     if (ignoredKeys.includes(key)) return;
     const oldValue = String(oldV[key] ?? '').trim();
@@ -128,7 +128,7 @@ const mapToProduct = (p: any): Product => ({
   purchasePrice: p.precio_compra || 0, salePrice: p.precio_venta || 0, currency: p.moneda || 'PEN', unit: p.unit || 'UND', imageUrl: p.image_url, updatedAt: p.updated_at
 });
 
-export const getCurrentUserProfile = async (email: string): Promise<{role: Role} | null> => {
+export const getCurrentUserProfile = async (email: string): Promise<{ role: Role } | null> => {
   if (!useSupabase()) return { role: 'ADMIN' };
   return fetchWithRetry(async () => {
     const { data, error } = await supabase.from('profiles').select('role').eq('email', email.toLowerCase()).maybeSingle();
@@ -158,8 +158,8 @@ export const getLocationsMaster = async (): Promise<LocationMaster[]> => {
   });
 };
 
-export const saveLocationMaster = async (loc: Partial<LocationMaster>) => { if (!useSupabase()) return;};
-export const deleteLocationMaster = async (id: string) => { if (!useSupabase()) return;};
+export const saveLocationMaster = async (loc: Partial<LocationMaster>) => { if (!useSupabase()) return; };
+export const deleteLocationMaster = async (id: string) => { if (!useSupabase()) return; };
 
 export const getCategoriesMaster = async (): Promise<CategoryMaster[]> => {
   if (!useSupabase()) return [{ id: '1', name: 'General' }];
@@ -170,11 +170,11 @@ export const getCategoriesMaster = async (): Promise<CategoryMaster[]> => {
   });
 };
 
-export const saveCategoryMaster = async (cat: Partial<CategoryMaster>) => { if (!useSupabase()) return;};
-export const deleteCategoryMaster = async (id: string) => { if (!useSupabase()) return;};
+export const saveCategoryMaster = async (cat: Partial<CategoryMaster>) => { if (!useSupabase()) return; };
+export const deleteCategoryMaster = async (id: string) => { if (!useSupabase()) return; };
 
 const FULL_PRODUCT_QUERY = 'id, code, name, brand, size, model, category, location, stock, min_stock, critical_stock, precio_compra, precio_venta, moneda, unit, image_url, updated_at';
-const LIST_PRODUCT_QUERY = 'id, code, name, stock, location, min_stock, critical_stock, precio_compra, moneda, unit';
+const LIST_PRODUCT_QUERY = 'id, code, name, stock, location, min_stock, critical_stock, precio_compra, moneda, unit, model';
 
 export const getProducts = async (options?: { page?: number; pageSize?: number; searchTerm?: string; filters?: { category: string; location: string }; fetchAll?: boolean; }): Promise<{ products: Product[]; count: number | null }> => {
   if (!useSupabase()) return { products: [], count: 0 };
@@ -182,7 +182,7 @@ export const getProducts = async (options?: { page?: number; pageSize?: number; 
   return fetchWithRetry(async () => {
     const selectFields = options?.fetchAll ? FULL_PRODUCT_QUERY : LIST_PRODUCT_QUERY + ', updated_at';
     let query = supabase.from('products').select(selectFields, { count: 'exact' });
-    
+
     if (options?.searchTerm) {
       query = query.or(`name.ilike.%${options.searchTerm}%,code.ilike.%${options.searchTerm}%,brand.ilike.%${options.searchTerm}%`);
     }
@@ -195,7 +195,7 @@ export const getProducts = async (options?: { page?: number; pageSize?: number; 
         query = query.eq('location', options.filters.location);
       }
     }
-    
+
     query = query.order('updated_at', { ascending: false });
 
     if (!options?.fetchAll && options?.page !== undefined && options?.pageSize !== undefined) {
@@ -206,7 +206,7 @@ export const getProducts = async (options?: { page?: number; pageSize?: number; 
 
     const { data, error, count } = await query;
     if (error) throw error;
-    
+
     return { products: (data || []).map(mapToProduct), count };
   });
 };
@@ -221,60 +221,59 @@ export const getProductById = async (id: string): Promise<Product | null> => {
 };
 
 export const getAlertProducts = async (limit = 6): Promise<Product[]> => {
-    if (!useSupabase()) return [];
-    
-    // Intentar caché primero
-    const cached = getCached('alertProducts');
-    if (cached) return cached;
-    
-    try {
-        const { data, error } = await supabase
-            .from('products')
-            .select(`
-                id, code, name, category, location, 
-                stock, min_stock, critical_stock, 
-                unit, precio_compra, precio_venta
-            `)
-            .order('stock', { ascending: true })
-            .limit(limit * 3);
-        
-        if (error) throw error;
-        
-        const filtered = (data || [])
-            .filter(p => p.stock <= p.min_stock)
-            .slice(0, limit);
-        
-        const result = filtered.map(p => ({
-            id: p.id,
-            code: p.code,
-            name: p.name,
-            category: p.category,
-            location: p.location,
-            stock: p.stock,
-            minStock: p.min_stock,
-            criticalStock: p.critical_stock,
-            unit: p.unit,
-            purchasePrice: p.precio_compra,
-            salePrice: p.precio_venta,
-            imageUrl: '',
-            brand: '',
-            model: '',
-            size: '',
-            qrCode: '',
-            qrData: null,
-            updatedAt: new Date()
-        }));
-        
-        setCache('alertProducts', result);
-        return result;
-    } catch (error) {
-        console.error('Error en getAlertProducts:', error);
-        
-        const expiredCache = getExpiredCache('alertProducts');
-        if (expiredCache) return expiredCache;
-        
-        return [];
-    }
+  if (!useSupabase()) return [];
+
+  // Intentar caché primero
+  const cached = getCached('alertProducts');
+  if (cached) return cached;
+
+  try {
+    const { data, error } = await supabase
+      .from('products')
+    id, code, name, category, location,
+      stock, min_stock, critical_stock,
+      unit, precio_compra, precio_venta, model
+        `)
+      .order('stock', { ascending: true })
+      .limit(limit * 3);
+
+    if (error) throw error;
+
+    const filtered = (data || [])
+      .filter(p => p.stock <= p.min_stock)
+      .slice(0, limit);
+
+    const result = filtered.map(p => ({
+      id: p.id,
+      code: p.code,
+      name: p.name,
+      category: p.category,
+      location: p.location,
+      stock: p.stock,
+      minStock: p.min_stock,
+      criticalStock: p.critical_stock,
+      unit: p.unit,
+      purchasePrice: p.precio_compra,
+      salePrice: p.precio_venta,
+      imageUrl: '',
+      brand: '',
+      model: p.model || '',
+      size: '',
+      qrCode: '',
+      qrData: null,
+      updatedAt: new Date()
+    }));
+
+    setCache('alertProducts', result);
+    return result;
+  } catch (error) {
+    console.error('Error en getAlertProducts:', error);
+
+    const expiredCache = getExpiredCache('alertProducts');
+    if (expiredCache) return expiredCache;
+
+    return [];
+  }
 };
 
 export const saveProduct = async (product: Partial<Product>): Promise<Product> => {
@@ -286,63 +285,63 @@ export const saveProduct = async (product: Partial<Product>): Promise<Product> =
 
     let savedData;
     if (id) {
-        const { data: oldData } = await supabase.from('products').select('*').eq('id', id).single();
-        const { data, error } = await supabase.from('products').update(payload).eq('id', id).select().single();
-        if (error) throw error;
-        savedData = data;
-        saveAuditLog({ action: 'UPDATE', table_name: 'products', record_id: id, record_name: payload.name || 'N/A' }, oldData, payload);
+      const { data: oldData } = await supabase.from('products').select('*').eq('id', id).single();
+      const { data, error } = await supabase.from('products').update(payload).eq('id', id).select().single();
+      if (error) throw error;
+      savedData = data;
+      saveAuditLog({ action: 'UPDATE', table_name: 'products', record_id: id, record_name: payload.name || 'N/A' }, oldData, payload);
     } else {
-        const { data, error } = await supabase.from('products').insert([payload]).select().single();
-        if (error) throw error;
-        savedData = data;
-        saveAuditLog({ action: 'CREATE', table_name: 'products', record_id: data.id, record_name: data.name }, null, payload);
+      const { data, error } = await supabase.from('products').insert([payload]).select().single();
+      if (error) throw error;
+      savedData = data;
+      saveAuditLog({ action: 'CREATE', table_name: 'products', record_id: data.id, record_name: data.name }, null, payload);
     }
-    
+
     // Limpiar caché después de guardar
     clearCache('stats');
     clearCache('alertProducts');
-    
+
     return mapToProduct(savedData);
   });
 };
 
 export const saveProductAndInitialMovement = async (product: Product, initialStock: number, userEmail?: string): Promise<Product> => {
-    if (!useSupabase()) return product;
-    const savedProduct = await saveProduct({ ...product, stock: initialStock });
-    if (initialStock > 0) {
-        await registerBatchMovements([{
-            productId: savedProduct.id,
-            name: savedProduct.name,
-            type: 'INGRESO',
-            quantity: initialStock,
-            dispatcher: userEmail || 'sistema',
-            reason: 'Stock Inicial'
-        }]);
-    }
-    return savedProduct;
+  if (!useSupabase()) return product;
+  const savedProduct = await saveProduct({ ...product, stock: initialStock });
+  if (initialStock > 0) {
+    await registerBatchMovements([{
+      productId: savedProduct.id,
+      name: savedProduct.name,
+      type: 'INGRESO',
+      quantity: initialStock,
+      dispatcher: userEmail || 'sistema',
+      reason: 'Stock Inicial'
+    }]);
+  }
+  return savedProduct;
 };
 
 export const deleteProduct = async (id: string) => {
-    if (!useSupabase()) return;
-    return fetchWithRetry(async () => {
-      const { data: oldData } = await supabase.from('products').select('name').eq('id', id).single();
-      const { error } = await supabase.from('products').delete().eq('id', id);
-      if (error) throw error;
-      if (oldData) saveAuditLog({ action: 'DELETE', table_name: 'products', record_id: id, record_name: oldData.name }, oldData, null);
-      
-      // Limpiar caché después de eliminar
-      clearCache('stats');
-      clearCache('alertProducts');
-    });
+  if (!useSupabase()) return;
+  return fetchWithRetry(async () => {
+    const { data: oldData } = await supabase.from('products').select('name').eq('id', id).single();
+    const { error } = await supabase.from('products').delete().eq('id', id);
+    if (error) throw error;
+    if (oldData) saveAuditLog({ action: 'DELETE', table_name: 'products', record_id: id, record_name: oldData.name }, oldData, null);
+
+    // Limpiar caché después de eliminar
+    clearCache('stats');
+    clearCache('alertProducts');
+  });
 };
 
 export const getMovements = async (limit = 100): Promise<Movement[]> => {
   if (!useSupabase()) return [];
-  
+
   // Intentar caché primero
   const cached = getCached('movements');
   if (cached) return cached;
-  
+
   try {
     const query = 'id, product_id, product_name, type, quantity, date, dispatcher, destino_nombre, balance_after';
     const { data, error } = await supabase
@@ -350,9 +349,9 @@ export const getMovements = async (limit = 100): Promise<Movement[]> => {
       .select(query)
       .order('date', { ascending: false })
       .limit(limit);
-    
+
     if (error) throw error;
-    
+
     const result = (data || []).map(m => ({
       id: m.id,
       productId: m.product_id,
@@ -365,15 +364,15 @@ export const getMovements = async (limit = 100): Promise<Movement[]> => {
       balanceAfter: Number(m.balance_after) || 0,
       destinationName: m.destino_nombre
     }));
-    
+
     setCache('movements', result);
     return result;
   } catch (error) {
     console.error('Error en getMovements:', error);
-    
+
     const expiredCache = getExpiredCache('movements');
     if (expiredCache) return expiredCache;
-    
+
     return [];
   }
 };
@@ -401,7 +400,7 @@ export const registerBatchMovements = async (items: any[]) => {
     for (const mov of insertedMovements) {
       saveAuditLog({ action: 'CREATE', table_name: 'movements', record_id: mov.id, record_name: mov.product_name }, null, mov);
     }
-    
+
     // Limpiar caché después de registrar movimientos
     clearCache('movements');
     clearCache('stats');
@@ -444,109 +443,109 @@ export const deleteContact = async (id: string) => { if (!useSupabase()) return;
 // ======================================================================
 
 export const getStats = async (): Promise<InventoryStats> => {
-    if (!useSupabase()) {
-        return { 
-            totalProducts: 0, 
-            lowStockCount: 0, 
-            criticalStockCount: 0, 
-            outOfStockCount: 0, 
-            totalMovements: 0, 
-            totalContacts: 0, 
-            totalValue: 0 
-        };
+  if (!useSupabase()) {
+    return {
+      totalProducts: 0,
+      lowStockCount: 0,
+      criticalStockCount: 0,
+      outOfStockCount: 0,
+      totalMovements: 0,
+      totalContacts: 0,
+      totalValue: 0
+    };
+  }
+
+  const cached = getCached('stats');
+  if (cached) {
+    console.log('📊 Stats desde caché:', cached);
+    return cached;
+  }
+
+  try {
+    console.log('📊 Calculando stats desde BD...');
+
+    // Traer TODOS los productos para calcular contadores
+    const { data: products, error: productsError } = await supabase
+      .from('products')
+      .select('stock, min_stock, critical_stock');
+
+    if (productsError) {
+      console.error('❌ Error al obtener productos:', productsError);
+      throw productsError;
     }
-    
-    const cached = getCached('stats');
-    if (cached) {
-        console.log('📊 Stats desde caché:', cached);
-        return cached;
+
+    // Calcular contadores
+    let lowStockCount = 0;
+    let criticalStockCount = 0;
+    let outOfStockCount = 0;
+
+    (products || []).forEach(p => {
+      const stock = p.stock || 0;
+      const minStock = p.min_stock || 30;
+      const criticalStock = p.critical_stock || 10;
+
+      if (stock === 0) {
+        outOfStockCount++;
+      } else if (stock <= criticalStock) {
+        criticalStockCount++;
+      } else if (stock <= minStock) {
+        lowStockCount++;
+      }
+    });
+
+    console.log('📊 Contadores calculados:', {
+      lowStockCount,
+      criticalStockCount,
+      outOfStockCount
+    });
+
+    // Counts de otras tablas
+    const [
+      { count: totalProducts },
+      { count: totalMovements },
+      { count: totalContacts }
+    ] = await Promise.all([
+      supabase.from('products').select('id', { count: 'exact', head: true }),
+      supabase.from('movements').select('id', { count: 'exact', head: true }),
+      supabase.from('contacts').select('id', { count: 'exact', head: true })
+    ]);
+
+    const result: InventoryStats = {
+      totalProducts: totalProducts || 0,
+      lowStockCount,
+      criticalStockCount,
+      outOfStockCount,
+      totalMovements: totalMovements || 0,
+      totalContacts: totalContacts || 0,
+      totalValue: 0
+    };
+
+    console.log('✅ Stats finales:', result);
+
+    setCache('stats', result);
+    return result;
+
+  } catch (error) {
+    console.error('❌ Error en getStats:', error);
+
+    // Intentar devolver caché expirado
+    const expiredCache = getExpiredCache('stats');
+    if (expiredCache) {
+      console.log('⚠️ Usando caché expirado');
+      return expiredCache;
     }
-    
-    try {
-        console.log('📊 Calculando stats desde BD...');
-        
-        // Traer TODOS los productos para calcular contadores
-        const { data: products, error: productsError } = await supabase
-            .from('products')
-            .select('stock, min_stock, critical_stock');
-        
-        if (productsError) {
-            console.error('❌ Error al obtener productos:', productsError);
-            throw productsError;
-        }
-        
-        // Calcular contadores
-        let lowStockCount = 0;
-        let criticalStockCount = 0;
-        let outOfStockCount = 0;
-        
-        (products || []).forEach(p => {
-            const stock = p.stock || 0;
-            const minStock = p.min_stock || 30;
-            const criticalStock = p.critical_stock || 10;
-            
-            if (stock === 0) {
-                outOfStockCount++;
-            } else if (stock <= criticalStock) {
-                criticalStockCount++;
-            } else if (stock <= minStock) {
-                lowStockCount++;
-            }
-        });
-        
-        console.log('📊 Contadores calculados:', {
-            lowStockCount,
-            criticalStockCount,
-            outOfStockCount
-        });
-        
-        // Counts de otras tablas
-        const [
-            { count: totalProducts },
-            { count: totalMovements },
-            { count: totalContacts }
-        ] = await Promise.all([
-            supabase.from('products').select('id', { count: 'exact', head: true }),
-            supabase.from('movements').select('id', { count: 'exact', head: true }),
-            supabase.from('contacts').select('id', { count: 'exact', head: true })
-        ]);
-        
-        const result: InventoryStats = {
-            totalProducts: totalProducts || 0,
-            lowStockCount,
-            criticalStockCount,
-            outOfStockCount,
-            totalMovements: totalMovements || 0,
-            totalContacts: totalContacts || 0,
-            totalValue: 0
-        };
-        
-        console.log('✅ Stats finales:', result);
-        
-        setCache('stats', result);
-        return result;
-        
-    } catch (error) {
-        console.error('❌ Error en getStats:', error);
-        
-        // Intentar devolver caché expirado
-        const expiredCache = getExpiredCache('stats');
-        if (expiredCache) {
-            console.log('⚠️ Usando caché expirado');
-            return expiredCache;
-        }
-        
-        // Último recurso: valores en 0
-        return { 
-            totalProducts: 0, 
-            lowStockCount: 0, 
-            criticalStockCount: 0, 
-            outOfStockCount: 0, 
-            totalMovements: 0, 
-            totalContacts: 0, 
-            totalValue: 0 
-        };
-    }
+
+    // Último recurso: valores en 0
+    return {
+      totalProducts: 0,
+      lowStockCount: 0,
+      criticalStockCount: 0,
+      outOfStockCount: 0,
+      totalMovements: 0,
+      totalContacts: 0,
+      totalValue: 0
+    };
+  }
 };
 
 

@@ -119,6 +119,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
               <tr>
                 <th className="pb-3 px-2">Producto</th>
                 <th className="pb-3 px-2 text-center">Stock / Mínimo</th>
+                <th className="pb-3 px-2 text-left">Modelo</th>
                 <th className="pb-3 px-2">Almacén</th>
                 <th className="pb-3 px-2 text-center">Estado</th>
                 <th className="pb-3 w-8"></th>
@@ -139,6 +140,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
                     <span className="text-[11px] font-black text-slate-800">{p.stock}</span>
                     <span className="text-[9px] text-slate-400 font-bold"> / {p.minStock} </span>
                     <span className="text-[8px] text-slate-400 font-bold ml-0.5 uppercase">{p.unit}</span>
+                  </td>
+                  <td className="py-3 px-2 text-left">
+                    <p className="text-[9px] font-bold text-slate-600 uppercase">{p.model || '-'}</p>
                   </td>
                   <td className="py-3 px-2">
                     <p className="text-[9px] text-slate-500 font-black uppercase tracking-widest">{p.location}</p>
