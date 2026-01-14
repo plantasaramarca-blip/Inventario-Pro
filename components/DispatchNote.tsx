@@ -59,7 +59,7 @@ export const DispatchNote: React.FC<DispatchNoteProps> = ({ data, onClose }) => 
               </div>
               <div>
                 <h4 className="text-xs font-bold text-slate-400 uppercase mb-2">DESTINO (CENTRO DE COSTO)</h4>
-                <p className="font-semibold text-slate-700">{data.destination?.name || 'N/A'}</p>
+                 <p className="font-semibold text-slate-700">{data.destination?.nombre || data.destination?.name || 'N/A'}</p>
                 <p className="text-xs text-slate-500 capitalize">{data.destination?.type || ''}</p>
               </div>
               <div>
