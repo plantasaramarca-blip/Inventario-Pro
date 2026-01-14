@@ -92,8 +92,8 @@ export const Kardex: React.FC<KardexProps> = ({ role, userEmail, initialState, o
     } 
   };
 
-  //const suppliers = useMemo(() => contacts.filter(c => c.type === 'PROVEEDOR'), [contacts]);
-  const suppliers = useMemo(() => contacts.filter(c => c.type === 'PROVEEDOR' || c.type === 'name'), [contacts]);
+  const suppliers = useMemo(() => contacts.filter(c => c.type === 'PROVEEDOR'), [contacts]);
+  //const suppliers = useMemo(() => contacts.filter(c => c.type === 'PROVEEDOR' || c.type === 'name'), [contacts]);
   const totalPages = Math.ceil(movements.length / ITEMS_PER_PAGE);
   const paginatedMovements = movements.slice(currentPage * ITEMS_PER_PAGE, (currentPage + 1) * ITEMS_PER_PAGE);
 
