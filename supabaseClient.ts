@@ -1,25 +1,17 @@
 import { createClient } from '@supabase/supabase-js';
 
-const getEnv = (key: string) => {
-  if (typeof window !== 'undefined') {
-    const viteEnv = (import.meta as any).env?.[key];
-    if (viteEnv && !viteEnv.includes('placeholder')) return viteEnv;
+// Variables de entorno para Next.js
+// IMPORTANTE: En Next.js, process.env se reemplaza en tiempo de build
+// Las variables NEXT_PUBLIC_* son las únicas expuestas al cliente
+const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
+const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
 
-    try {
-      const procEnv = (process as any).env?.[key];
-      if (procEnv && !procEnv.includes('placeholder')) return procEnv;
-    } catch (e) { }
+export const supabaseUrl = SUPABASE_URL;
+export const supabaseAnonKey = SUPABASE_ANON_KEY;
 
-    const winEnv = (window as any).env?.[key];
-    if (winEnv) return winEnv;
-  }
-  return null;
-};
-
-export const supabaseUrl = getEnv('VITE_SUPABASE_URL');
-export const supabaseAnonKey = getEnv('VITE_SUPABASE_ANON_KEY');
-
-export const isSupabaseConfigured = !!(supabaseUrl && supabaseAnonKey);
+export const isSupabaseConfigured = !!(supabaseUrl && supabaseAnonKey &&
+  !supabaseUrl.includes('placeholder') &&
+  !supabaseAnonKey.includes('placeholder'));
 
 // Cliente con TIMEOUT AUMENTADO
 export const supabase = createClient(

@@ -25,6 +25,7 @@ import { Loader2 } from 'lucide-react';
 import { CustomDialog } from './components/CustomDialog';
 import { useNotification } from './contexts/NotificationContext';
 import { Toast } from './components/Toast';
+import { SupabaseDiagnostic } from './components/SupabaseDiagnostic';
 
 const NotificationContainer = () => {
   const { notifications, removeNotification } = useNotification();
@@ -281,6 +282,7 @@ export default function App() {
         </main>
       </div>
       <CommandPalette isOpen={isCommandPaletteOpen} onClose={() => setIsCommandPaletteOpen(false)} onNavigate={navigateTo} />
+      <SupabaseDiagnostic />
       <NotificationContainer />
 
       {/* Diálogo de cerrar sesión */}
