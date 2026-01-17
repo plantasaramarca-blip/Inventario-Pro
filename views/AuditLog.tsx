@@ -1,10 +1,12 @@
 
+'use client';
+
 import React, { useState, useEffect } from 'react';
-import { AuditLog } from '../types.ts';
-import * as api from '../services/supabaseService.ts';
-import { 
+import { AuditLog } from '../types';
+import * as api from '../services/supabaseService';
+import {
   ClipboardCheck, Loader2, ChevronLeft, ChevronRight, ChevronDown
-} from 'https://esm.sh/lucide-react@0.475.0?external=react,react-dom';
+} from 'lucide-react';
 
 const ITEMS_PER_PAGE = 20;
 
@@ -50,7 +52,7 @@ export const AuditPage: React.FC = () => {
   const [currentPage, setCurrentPage] = useState(0);
   const [totalCount, setTotalCount] = useState(0);
   const [expandedLogId, setExpandedLogId] = useState<string | null>(null);
-  
+
   const totalPages = Math.ceil(totalCount / ITEMS_PER_PAGE);
 
   const loadLogs = async (page: number) => {
@@ -119,11 +121,11 @@ export const AuditPage: React.FC = () => {
                       {log.changes_summary}
                     </td>
                     <td className="px-6 py-4">
-                       <ChevronDown className={`w-5 h-5 text-slate-300 transition-transform ${expandedLogId === log.id ? 'rotate-180' : ''}`} />
+                      <ChevronDown className={`w-5 h-5 text-slate-300 transition-transform ${expandedLogId === log.id ? 'rotate-180' : ''}`} />
                     </td>
                   </tr>
                   {expandedLogId === log.id && (
-                     <tr><td colSpan={5} className="p-0"><LogDetails log={log} /></td></tr>
+                    <tr><td colSpan={5} className="p-0"><LogDetails log={log} /></td></tr>
                   )}
                 </React.Fragment>
               ))}

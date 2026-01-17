@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { getStockInfo } from '../utils/stockUtils.ts';
+import { getStockInfo } from '../utils/stockUtils';
 
 interface StockBadgeProps {
   stock: number;

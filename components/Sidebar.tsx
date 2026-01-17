@@ -1,12 +1,12 @@
 
 import React, { useEffect, useState } from 'react';
-import { 
-  LayoutDashboard, Boxes, ClipboardList, Users, 
+import {
+  LayoutDashboard, Boxes, ClipboardList, Users,
   ClipboardCheck, MapPin, UserPlus, Tags, Warehouse, Settings,
   BarChart3
-} from 'https://esm.sh/lucide-react@0.475.0?external=react,react-dom';
-import { Role, InventoryStats } from '../types.ts';
-import * as api from '../services/supabaseService.ts';
+} from 'lucide-react';
+import { Role, InventoryStats } from '../types';
+import * as api from '../services/supabaseService';
 
 interface SidebarProps {
   currentPage: string;
@@ -49,31 +49,31 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentPage, onNavigate, isOpe
         <div className="h-full flex flex-col pt-5 pb-4 overflow-y-auto no-scrollbar">
           <div className="px-6 mb-8 flex items-center">
             <div className="bg-indigo-600 p-2 rounded-xl mr-3 shadow-lg">
-               <Boxes className="h-5 w-5 text-white" />
+              <Boxes className="h-5 w-5 text-white" />
             </div>
             <p className="text-sm font-black text-white tracking-tight uppercase">Kardex Pro</p>
           </div>
-          
+
           <nav className="mt-2 flex-1 space-y-1 px-4">
             <p className="px-4 text-[9px] font-black text-slate-500 uppercase tracking-widest mb-2">Principal</p>
             {menuItems.map((item) => {
-                const Icon = item.icon;
-                const isActive = currentPage === item.id;
-                return (
-                  <button
-                    key={item.id}
-                    onClick={() => { onNavigate(item.id); setIsOpen(false); }}
-                    className={`group flex w-full items-center px-4 py-3 text-xs font-bold rounded-2xl transition-all ${isActive ? 'bg-indigo-600 text-white shadow-xl' : 'text-slate-400 hover:bg-slate-800/50 hover:text-white'}`}
-                  >
-                    <Icon className={`mr-3 h-5 w-5 ${isActive ? 'text-white' : 'text-slate-500'}`} />
-                    <span className="uppercase tracking-widest">{item.label}</span>
-                    {item.hasBadge && (counts.critical > 0 || counts.low > 0) && (
-                      <span className={`ml-auto px-2 py-0.5 rounded-full text-[9px] ${counts.critical > 0 ? 'bg-red-500 animate-pulse' : 'bg-amber-500'}`}>
-                        {counts.critical > 0 ? counts.critical : counts.low}
-                      </span>
-                    )}
-                  </button>
-                );
+              const Icon = item.icon;
+              const isActive = currentPage === item.id;
+              return (
+                <button
+                  key={item.id}
+                  onClick={() => { onNavigate(item.id); setIsOpen(false); }}
+                  className={`group flex w-full items-center px-4 py-3 text-xs font-bold rounded-2xl transition-all ${isActive ? 'bg-indigo-600 text-white shadow-xl' : 'text-slate-400 hover:bg-slate-800/50 hover:text-white'}`}
+                >
+                  <Icon className={`mr-3 h-5 w-5 ${isActive ? 'text-white' : 'text-slate-500'}`} />
+                  <span className="uppercase tracking-widest">{item.label}</span>
+                  {item.hasBadge && (counts.critical > 0 || counts.low > 0) && (
+                    <span className={`ml-auto px-2 py-0.5 rounded-full text-[9px] ${counts.critical > 0 ? 'bg-red-500 animate-pulse' : 'bg-amber-500'}`}>
+                      {counts.critical > 0 ? counts.critical : counts.low}
+                    </span>
+                  )}
+                </button>
+              );
             })}
 
             {role === 'ADMIN' && (

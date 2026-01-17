@@ -1,12 +1,14 @@
+'use client';
+
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { Movement, Product, TransactionType, Destination, Role, LocationMaster, Contact } from '../types.ts';
-import * as api from '../services/supabaseService.ts';
-import { useNotification } from '../contexts/NotificationContext.tsx';
-import { DispatchNote } from '../components/DispatchNote.tsx';
-import { QRScanner } from '../components/QRScanner.tsx';
-import { 
+import { Movement, Product, TransactionType, Destination, Role, LocationMaster, Contact } from '../types';
+import * as api from '../services/supabaseService';
+import { useNotification } from '../contexts/NotificationContext';
+import { DispatchNote } from '../components/DispatchNote';
+import { QRScanner } from '../components/QRScanner';
+import {
   ArrowDownCircle, ArrowUpCircle, Loader2, X, Search, Save, UserCheck, ArrowUp, ArrowDown, Trash, ChevronLeft, ChevronRight, ScanLine
-} from 'https://esm.sh/lucide-react@0.475.0?external=react,react-dom';
+} from 'lucide-react';
 
 const ITEMS_PER_PAGE = 20;
 
@@ -41,13 +43,13 @@ export const Kardex: React.FC<KardexProps> = ({ role, userEmail, initialState, o
   const [dispatchNoteData, setDispatchNoteData] = useState<any>(null);
   const [isScannerOpen, setIsScannerOpen] = useState(false);
   const productSearchInputRef = useRef<HTMLInputElement>(null);
-  
+
   const loadData = async () => {
     setLoading(true);
     try {
       const [movs, { products: prods }, conts] = await Promise.all([
-        api.getMovements(), 
-        api.getProducts({ fetchAll: true }), 
+        api.getMovements(),
+        api.getProducts({ fetchAll: true }),
         api.getContacts()
       ]);
       setMovements(movs || []);
@@ -69,30 +71,29 @@ export const Kardex: React.FC<KardexProps> = ({ role, userEmail, initialState, o
       onInitialStateConsumed();
     }
   }, [initialState]);
-  
-  const handleLoadDestinos = async () => { 
-    if (!destinos || destinos.length === 0) { 
-      try { 
-        const data = await api.getDestinos(); 
-        setDestinos(data || []); 
-      } catch (e) { 
-        addNotification('Error al cargar destinos.', 'error'); 
-      } 
-    } 
-  };
-  
-  const handleLoadLocations = async () => { 
-    if (!locations || locations.length === 0) { 
-      try { 
-        const data = await api.getLocationsMaster(); 
-        setLocations(data || []); 
-      } catch (e) { 
-        addNotification('Error al cargar almacenes.', 'error'); 
-      } 
-    } 
+
+  const handleLoadDestinos = async () => {
+    if (!destinos || destinos.length === 0) {
+      try {
+        const data = await api.getDestinos();
+        setDestinos(data || []);
+      } catch (e) {
+        addNotification('Error al cargar destinos.', 'error');
+      }
+    }
   };
 
-  //const suppliers = useMemo(() => contacts.filter(c => c.type === 'PROVEEDOR'), [contacts]);
+  const handleLoadLocations = async () => {
+    if (!locations || locations.length === 0) {
+      try {
+        const data = await api.getLocationsMaster();
+        setLocations(data || []);
+      } catch (e) {
+        addNotification('Error al cargar almacenes.', 'error');
+      }
+    }
+  };
+
   const suppliers = useMemo(() => contacts.filter(c => c.type === 'PROVEEDOR' || !c.type), [contacts]);
   const totalPages = Math.ceil(movements.length / ITEMS_PER_PAGE);
   const paginatedMovements = movements.slice(currentPage * ITEMS_PER_PAGE, (currentPage + 1) * ITEMS_PER_PAGE);
@@ -113,11 +114,11 @@ export const Kardex: React.FC<KardexProps> = ({ role, userEmail, initialState, o
   // ✅ FUNCIÓN CORREGIDA: Escanear QR
   const handleScanSuccessForCart = (decodedText: string) => {
     setIsScannerOpen(false);
-    const foundProduct = products.find(p => 
-      p.qrData === decodedText || 
+    const foundProduct = products.find(p =>
+      p.qr_data === decodedText ||
       p.code === decodedText
     );
-    
+
     if (foundProduct) {
       handleAddToCart(foundProduct);
       addNotification(`Producto "${foundProduct.name}" agregado`, 'success');
@@ -127,9 +128,9 @@ export const Kardex: React.FC<KardexProps> = ({ role, userEmail, initialState, o
   };
 
   const handleAddToCart = (product: Product) => {
-    if (cartItems.some(item => item.productId === product.id)) { 
-      addNotification('Producto ya está en la lista.', 'info'); 
-      return; 
+    if (cartItems.some(item => item.productId === product.id)) {
+      addNotification('Producto ya está en la lista.', 'info');
+      return;
     }
     setCartItems(prev => [...prev, { ...product, productId: product.id, quantity: 1 }]);
     setProductSearch('');
@@ -140,11 +141,11 @@ export const Kardex: React.FC<KardexProps> = ({ role, userEmail, initialState, o
     if (!productSearch) return;
     const exactMatch = products.find(p => p.code.trim().toLowerCase() === productSearch.trim().toLowerCase());
     if (exactMatch) {
-      if (!cartItems.some(item => item.productId === exactMatch.id)) { 
-        handleAddToCart(exactMatch); 
-        addNotification(`"${exactMatch.name}" agregado.`, 'success'); 
-      } else { 
-        addNotification('Producto ya está en la lista.', 'info'); 
+      if (!cartItems.some(item => item.productId === exactMatch.id)) {
+        handleAddToCart(exactMatch);
+        addNotification(`"${exactMatch.name}" agregado.`, 'success');
+      } else {
+        addNotification('Producto ya está en la lista.', 'info');
       }
       setProductSearch('');
     }
@@ -152,7 +153,7 @@ export const Kardex: React.FC<KardexProps> = ({ role, userEmail, initialState, o
 
   const handleUpdateQuantity = (index: number, newQuantity: number) => {
     if (newQuantity < 1) return;
-    setCartItems(prev => prev.map((item, i) => i === index ? {...item, quantity: newQuantity} : item));
+    setCartItems(prev => prev.map((item, i) => i === index ? { ...item, quantity: newQuantity } : item));
   };
 
   const handleRemoveFromCart = (index: number) => {
@@ -160,9 +161,9 @@ export const Kardex: React.FC<KardexProps> = ({ role, userEmail, initialState, o
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault(); 
+    e.preventDefault();
     if (cartItems.length === 0) return;
-    
+
     // VALIDAR STOCK INSUFICIENTE EN DESPACHO
     if (type === 'SALIDA') {
       for (const item of cartItems) {
@@ -176,58 +177,58 @@ export const Kardex: React.FC<KardexProps> = ({ role, userEmail, initialState, o
         }
       }
     }
-    
+
     setSaving(true);
     try {
       const destinoObj = type === 'SALIDA' ? destinos.find(d => d.id === selectedDestinoId) : null;
       const supplierObj = type === 'INGRESO' ? suppliers.find(s => s.id === selectedSupplierId) : null;
       const locationObj = type === 'INGRESO' ? locations.find(l => l.name === selectedLocationId) : null;
-      
-      const batchPayload = cartItems.map(item => ({ 
-        productId: item.productId, 
-        name: item.name, 
-        type, 
-        quantity: item.quantity, 
-        dispatcher: userEmail, 
-        reason, 
-        destinationName: type === 'SALIDA' ? destinoObj?.nombre : null, 
-        locationName: type === 'INGRESO' ? locationObj?.name : null, 
-        contactId: type === 'INGRESO' ? supplierObj?.id : null, 
-        supplierName: type === 'INGRESO' ? supplierObj?.name : null 
+
+      const batchPayload = cartItems.map(item => ({
+        productId: item.productId,
+        name: item.name,
+        type,
+        quantity: item.quantity,
+        dispatcher: userEmail,
+        reason,
+        destinationName: type === 'SALIDA' ? destinoObj?.nombre : null,
+        locationName: type === 'INGRESO' ? locationObj?.name : null,
+        contactId: type === 'INGRESO' ? supplierObj?.id : null,
+        supplierName: type === 'INGRESO' ? supplierObj?.name : null
       }));
-      
-      await api.registerBatchMovements(batchPayload); 
-      
-      if (type === 'SALIDA') { 
-        setDispatchNoteData({ 
-          items: cartItems, 
-          destination: destinoObj, 
-          transportista: carriedBy, 
-          observaciones: reason, 
-          responsable: userEmail, 
-        }); 
+
+      await api.registerBatchMovements(batchPayload);
+
+      if (type === 'SALIDA') {
+        setDispatchNoteData({
+          items: cartItems,
+          destination: destinoObj,
+          transportista: carriedBy,
+          observaciones: reason,
+          responsable: userEmail,
+        });
       }
 
-      setIsModalOpen(false); 
+      setIsModalOpen(false);
       await loadData();
       addNotification('Movimiento registrado con éxito.', 'success');
-    } catch (err: any) { 
-      addNotification(err.message || 'Error al registrar movimiento', 'error'); 
-    } finally { 
-      setSaving(false); 
+    } catch (err: any) {
+      addNotification(err.message || 'Error al registrar movimiento', 'error');
+    } finally {
+      setSaving(false);
     }
   };
 
-  const filteredSearch = useMemo(() => 
-    productSearch 
-      ? products.filter(p => 
-          p.name.toLowerCase().includes(productSearch.toLowerCase()) || 
-          p.code.toLowerCase().includes(productSearch.toLowerCase())
-        ).slice(0, 5) 
-      : [], 
+  const filteredSearch = useMemo(() =>
+    productSearch
+      ? products.filter(p =>
+        p.name.toLowerCase().includes(productSearch.toLowerCase()) ||
+        p.code.toLowerCase().includes(productSearch.toLowerCase())
+      ).slice(0, 5)
+      : [],
     [products, productSearch]
   );
-  
+
   if (loading) return (
     <div className="h-[70vh] flex items-center justify-center">
       <Loader2 className="animate-spin w-8 h-8 text-indigo-500" />
@@ -237,19 +238,19 @@ export const Kardex: React.FC<KardexProps> = ({ role, userEmail, initialState, o
   return (
     <div className="space-y-4 animate-in fade-in pb-10">
       {isScannerOpen && (
-        <QRScanner 
-          onScanSuccess={handleScanSuccessForCart} 
-          onClose={() => setIsScannerOpen(false)} 
+        <QRScanner
+          onScanSuccess={handleScanSuccessForCart}
+          onClose={() => setIsScannerOpen(false)}
         />
       )}
-      
+
       {dispatchNoteData && (
-        <DispatchNote 
-          data={dispatchNoteData} 
-          onClose={() => setDispatchNoteData(null)} 
+        <DispatchNote
+          data={dispatchNoteData}
+          onClose={() => setDispatchNoteData(null)}
         />
       )}
-      
+
       <div className="flex justify-between items-end">
         <div>
           <h1 className="text-2xl font-black text-slate-900 uppercase tracking-tight">
@@ -262,14 +263,14 @@ export const Kardex: React.FC<KardexProps> = ({ role, userEmail, initialState, o
         <div className="flex gap-3">
           {role !== 'VIEWER' && (
             <div className="flex gap-2">
-              <button 
-                onClick={() => handleOpenModal('INGRESO')} 
+              <button
+                onClick={() => handleOpenModal('INGRESO')}
                 className="bg-indigo-600 text-white px-6 py-3.5 rounded-2xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2 shadow-xl shadow-indigo-100 hover:bg-indigo-700 active:scale-95 transition-all"
               >
                 <ArrowUpCircle className="w-4 h-4" /> Ingreso
               </button>
-              <button 
-                onClick={() => handleOpenModal('SALIDA')} 
+              <button
+                onClick={() => handleOpenModal('SALIDA')}
                 className="bg-rose-600 text-white px-6 py-3.5 rounded-2xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2 shadow-xl shadow-rose-100 hover:bg-rose-700 active:scale-95 transition-all"
               >
                 <ArrowDownCircle className="w-4 h-4" /> Despacho
@@ -278,14 +279,14 @@ export const Kardex: React.FC<KardexProps> = ({ role, userEmail, initialState, o
           )}
         </div>
       </div>
-      
+
       {/* MODAL DE MOVIMIENTOS */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={() => setIsModalOpen(false)}>
           <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm"></div>
-          <form 
-            onSubmit={handleSubmit} 
-            onClick={e => e.stopPropagation()} 
+          <form
+            onSubmit={handleSubmit}
+            onClick={e => e.stopPropagation()}
             className="relative bg-white rounded-3xl w-full max-w-4xl shadow-2xl animate-in zoom-in-95 flex flex-col h-[85vh]"
           >
             {/* Header */}
@@ -303,9 +304,9 @@ export const Kardex: React.FC<KardexProps> = ({ role, userEmail, initialState, o
                   </p>
                 )}
               </div>
-              <button 
-                type="button" 
-                onClick={() => setIsModalOpen(false)} 
+              <button
+                type="button"
+                onClick={() => setIsModalOpen(false)}
                 className="p-2 hover:bg-slate-100 rounded-xl"
               >
                 <X className="w-5 h-5 text-slate-400" />
@@ -318,11 +319,11 @@ export const Kardex: React.FC<KardexProps> = ({ role, userEmail, initialState, o
               <div className="relative">
                 {type === 'SALIDA' && (
                   <div className="grid grid-cols-2 gap-3 mb-3">
-                    <select 
-                      required 
-                      value={selectedDestinoId} 
-                      onFocus={handleLoadDestinos} 
-                      onChange={e => setSelectedDestinoId(e.target.value)} 
+                    <select
+                      required
+                      value={selectedDestinoId}
+                      onFocus={handleLoadDestinos}
+                      onChange={e => setSelectedDestinoId(e.target.value)}
                       className="w-full p-3 bg-slate-100 rounded-xl font-bold text-sm uppercase"
                     >
                       <option value="">Centro de Costo (Destino)...</option>
@@ -330,23 +331,23 @@ export const Kardex: React.FC<KardexProps> = ({ role, userEmail, initialState, o
                         <option key={d.id} value={d.id}>{d.nombre}</option>
                       ))}
                     </select>
-                    <input 
-                      type="text" 
-                      placeholder="Transportista..." 
-                      value={carriedBy} 
-                      onChange={e => setCarriedBy(e.target.value)} 
-                      className="w-full p-3 bg-slate-100 rounded-xl font-bold text-sm" 
+                    <input
+                      type="text"
+                      placeholder="Transportista..."
+                      value={carriedBy}
+                      onChange={e => setCarriedBy(e.target.value)}
+                      className="w-full p-3 bg-slate-100 rounded-xl font-bold text-sm"
                     />
                   </div>
                 )}
-                
+
                 {type === 'INGRESO' && (
                   <div className="grid grid-cols-2 gap-3 mb-3">
-                    <select 
-                      required 
-                      value={selectedLocationId} 
-                      onFocus={handleLoadLocations} 
-                      onChange={e => setSelectedLocationId(e.target.value)} 
+                    <select
+                      required
+                      value={selectedLocationId}
+                      onFocus={handleLoadLocations}
+                      onChange={e => setSelectedLocationId(e.target.value)}
                       className="w-full p-3 bg-slate-100 rounded-xl font-bold text-sm uppercase"
                     >
                       <option value="">Almacén de Ingreso...</option>
@@ -354,10 +355,10 @@ export const Kardex: React.FC<KardexProps> = ({ role, userEmail, initialState, o
                         <option key={l.id} value={l.name}>{l.name}</option>
                       ))}
                     </select>
-                    <select 
-                      required 
-                      value={selectedSupplierId} 
-                      onChange={e => setSelectedSupplierId(e.target.value)} 
+                    <select
+                      required
+                      value={selectedSupplierId}
+                      onChange={e => setSelectedSupplierId(e.target.value)}
                       className="w-full p-3 bg-slate-100 rounded-xl font-bold text-sm uppercase"
                     >
                       <option value="">Seleccionar Proveedor...</option>
@@ -371,14 +372,14 @@ export const Kardex: React.FC<KardexProps> = ({ role, userEmail, initialState, o
                 {/* Búsqueda de productos */}
                 <div className="relative">
                   <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300 pointer-events-none z-10" />
-                  <input 
+                  <input
                     ref={productSearchInputRef}
-                    type="text" 
-                    placeholder="Buscar por SKU o nombre..." 
-                    value={productSearch} 
-                    onChange={e => setProductSearch(e.target.value)} 
+                    type="text"
+                    placeholder="Buscar por SKU o nombre..."
+                    value={productSearch}
+                    onChange={e => setProductSearch(e.target.value)}
                     onBlur={handleProductInputBlur}
-                    className="w-full pl-12 pr-16 py-3 bg-slate-100 rounded-xl outline-none font-bold text-sm" 
+                    className="w-full pl-12 pr-16 py-3 bg-slate-100 rounded-xl outline-none font-bold text-sm"
                   />
                   <button
                     type="button"
@@ -471,15 +472,15 @@ export const Kardex: React.FC<KardexProps> = ({ role, userEmail, initialState, o
                 Total de productos: {cartItems.length}
               </div>
               <div className="flex gap-3">
-                <button 
-                  type="button" 
-                  onClick={() => setIsModalOpen(false)} 
+                <button
+                  type="button"
+                  onClick={() => setIsModalOpen(false)}
                   className="px-6 py-3 text-xs font-black uppercase text-slate-500 hover:text-slate-800"
                 >
                   Cancelar
                 </button>
-                <button 
-                  type="submit" 
+                <button
+                  type="submit"
                   disabled={saving || cartItems.length === 0}
                   className="px-8 py-3 bg-indigo-600 text-white rounded-xl text-xs font-black uppercase shadow-lg flex items-center gap-2 hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
@@ -523,11 +524,10 @@ export const Kardex: React.FC<KardexProps> = ({ role, userEmail, initialState, o
                       <div className="font-bold text-sm">{m.productName}</div>
                     </td>
                     <td className="px-6 py-4">
-                      <span className={`px-3 py-1 rounded-lg text-[8px] font-black uppercase ${
-                        m.type === 'INGRESO' 
-                          ? 'bg-indigo-50 text-indigo-600' 
-                          : 'bg-rose-50 text-rose-600'
-                      }`}>
+                      <span className={`px-3 py-1 rounded-lg text-[8px] font-black uppercase ${m.type === 'INGRESO'
+                        ? 'bg-indigo-50 text-indigo-600'
+                        : 'bg-rose-50 text-rose-600'
+                        }`}>
                         {m.type}
                       </span>
                     </td>

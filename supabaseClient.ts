@@ -1,4 +1,4 @@
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.1';
+import { createClient } from '@supabase/supabase-js';
 
 const getEnv = (key: string) => {
   if (typeof window !== 'undefined') {
@@ -8,7 +8,7 @@ const getEnv = (key: string) => {
     try {
       const procEnv = (process as any).env?.[key];
       if (procEnv && !procEnv.includes('placeholder')) return procEnv;
-    } catch (e) {}
+    } catch (e) { }
 
     const winEnv = (window as any).env?.[key];
     if (winEnv) return winEnv;
@@ -23,7 +23,7 @@ export const isSupabaseConfigured = !!(supabaseUrl && supabaseAnonKey);
 
 // Cliente con TIMEOUT AUMENTADO
 export const supabase = createClient(
-  supabaseUrl || 'https://placeholder-url.supabase.co', 
+  supabaseUrl || 'https://placeholder-url.supabase.co',
   supabaseAnonKey || 'placeholder-key',
   {
     auth: {
@@ -40,7 +40,7 @@ export const supabase = createClient(
         // Timeout de 60 segundos (antes era ~10)
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 60000);
-        
+
         return fetch(url, {
           ...options,
           signal: controller.signal

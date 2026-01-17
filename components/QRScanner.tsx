@@ -1,7 +1,7 @@
 
 import React, { useEffect, useRef } from 'react';
-import { Html5Qrcode } from 'https://esm.sh/html5-qrcode@2.3.8';
-import { X } from 'https://esm.sh/lucide-react@0.475.0?external=react,react-dom';
+import { Html5Qrcode } from 'html5-qrcode';
+import { X } from 'lucide-react';
 
 interface QRScannerProps {
   onScanSuccess: (decodedText: string, decodedResult: any) => void;
@@ -28,7 +28,7 @@ export const QRScanner: React.FC<QRScannerProps> = ({ onScanSuccess, onClose }) 
           { facingMode: 'environment' },
           config,
           onScanSuccess,
-          (errorMessage) => {}
+          (errorMessage) => { }
         );
       } catch (err) {
         console.error('Error al iniciar el escáner QR:', err);
@@ -48,7 +48,7 @@ export const QRScanner: React.FC<QRScannerProps> = ({ onScanSuccess, onClose }) 
   return (
     <div className="fixed inset-0 z-[1000] bg-slate-900/90 backdrop-blur-sm animate-in fade-in">
       <div id="qr-reader" className="w-full h-full"></div>
-      <button 
+      <button
         onClick={onClose}
         className="absolute top-6 right-6 p-4 bg-white/20 rounded-2xl text-white hover:bg-white/30 transition-all"
         aria-label="Cerrar escáner"
@@ -58,7 +58,7 @@ export const QRScanner: React.FC<QRScannerProps> = ({ onScanSuccess, onClose }) 
       <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
         <div className="w-[280px] h-[280px] border-4 border-white/50 rounded-3xl shadow-2xl"></div>
       </div>
-       <p className="absolute bottom-10 left-1/2 -translate-x-1/2 text-white/80 text-xs font-bold uppercase tracking-widest">Alinear código QR</p>
+      <p className="absolute bottom-10 left-1/2 -translate-x-1/2 text-white/80 text-xs font-bold uppercase tracking-widest">Alinear código QR</p>
     </div>
   );
 };

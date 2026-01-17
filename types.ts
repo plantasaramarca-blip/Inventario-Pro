@@ -24,10 +24,10 @@ export interface CategoryMaster {
 
 export interface Destination {
   id: string;
-  name: string;
-  type: DestinationType;
-  description?: string;
-  active: boolean;
+  nombre: string;
+  tipo: DestinationType;
+  descripcion?: string;
+  activo: boolean;
   createdAt: string;
 }
 

@@ -1,32 +1,36 @@
+'use client';
+
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { supabase, isSupabaseConfigured } from './supabaseClient.ts';
-import { Navbar } from './components/Navbar.tsx';
-import { Sidebar } from './components/Sidebar.tsx';
-import { Dashboard } from './pages/Dashboard.tsx';
-import { Inventory } from './pages/Inventory.tsx';
-import { Kardex } from './pages/Kardex.tsx';
-import { Contacts } from './pages/Contacts.tsx';
-import { Destinos } from './pages/Destinos.tsx';
-import { Reports } from './pages/Reports.tsx';
-import { AuditPage } from './pages/AuditLog.tsx';
-import { UsersPage } from './pages/Users.tsx';
-import { CategoryManagement } from './pages/Categories.tsx';
-import { LocationManagement } from './pages/Locations.tsx';
-import { Login } from './pages/Login.tsx';
-import { ProductDetail } from './pages/ProductDetail.tsx';
-import { CommandPalette } from './components/CommandPalette.tsx';
-import { Role, Product, Destination, CategoryMaster, LocationMaster, InventoryStats } from './types.ts';
-import * as api from './services/supabaseService.ts';
-import { Loader2 } from 'https://esm.sh/lucide-react@0.475.0?external=react,react-dom';
-import { CustomDialog } from './components/CustomDialog.tsx';
-import { useNotification } from './contexts/NotificationContext.tsx';
-import { Toast } from './components/Toast.tsx';
+import { supabase, isSupabaseConfigured } from './supabaseClient';
+import { Navbar } from './components/Navbar';
+import { Sidebar } from './components/Sidebar';
+import dynamic from 'next/dynamic';
+
+const Dashboard = dynamic(() => import('./views/Dashboard').then(mod => mod.Dashboard), { ssr: false });
+const Inventory = dynamic(() => import('./views/Inventory').then(mod => mod.Inventory), { ssr: false });
+const Kardex = dynamic(() => import('./views/Kardex').then(mod => mod.Kardex), { ssr: false });
+const Contacts = dynamic(() => import('./views/Contacts').then(mod => mod.Contacts), { ssr: false });
+const Destinos = dynamic(() => import('./views/Destinos').then(mod => mod.Destinos), { ssr: false });
+const Reports = dynamic(() => import('./views/Reports').then(mod => mod.Reports), { ssr: false });
+const AuditPage = dynamic(() => import('./views/AuditLog').then(mod => mod.AuditPage), { ssr: false });
+const UsersPage = dynamic(() => import('./views/Users').then(mod => mod.UsersPage), { ssr: false });
+const CategoryManagement = dynamic(() => import('./views/Categories').then(mod => mod.CategoryManagement), { ssr: false });
+const LocationManagement = dynamic(() => import('./views/Locations').then(mod => mod.LocationManagement), { ssr: false });
+const Login = dynamic(() => import('./views/Login').then(mod => mod.Login), { ssr: false });
+const ProductDetail = dynamic(() => import('./views/ProductDetail').then(mod => mod.ProductDetail), { ssr: false });
+import { CommandPalette } from './components/CommandPalette';
+import { Role, Product, Destination, CategoryMaster, LocationMaster, InventoryStats } from './types';
+import * as api from './services/supabaseService';
+import { Loader2 } from 'lucide-react';
+import { CustomDialog } from './components/CustomDialog';
+import { useNotification } from './contexts/NotificationContext';
+import { Toast } from './components/Toast';
 
 const NotificationContainer = () => {
   const { notifications, removeNotification } = useNotification();
   return (
     <div className="fixed top-6 right-6 z-[2000] w-full max-w-sm space-y-3">
-      {notifications.map((n) => ( <Toast key={n.id} notification={n} onClose={removeNotification} /> ))}
+      {notifications.map((n) => (<Toast key={n.id} notification={n} onClose={removeNotification} />))}
     </div>
   );
 };
@@ -35,7 +39,7 @@ export default function App() {
   const [session, setSession] = useState<any>(null);
   const [loadingSession, setLoadingSession] = useState(true);
   const [loadingData, setLoadingData] = useState(false);
-  
+
   const [currentPage, setCurrentPage] = useState('dashboard');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
@@ -47,10 +51,11 @@ export default function App() {
   const [destinos, setDestinos] = useState<Destination[] | null>(null);
   const [categories, setCategories] = useState<CategoryMaster[] | null>(null);
   const [locations, setLocations] = useState<LocationMaster[] | null>(null);
-  
+  const [stats, setStats] = useState<InventoryStats | null>(null);
+
   const dataLoadedRef = useRef(false);
   const { addNotification } = useNotification();
-  
+
   // ===== DESREGISTRO AGRESIVO DE SERVICE WORKERS =====
   useEffect(() => {
     if ('serviceWorker' in navigator) {
@@ -60,7 +65,7 @@ export default function App() {
           registration.unregister();
         });
       });
-      
+
       if ('caches' in window) {
         caches.keys().then(cacheNames => {
           cacheNames.forEach(cacheName => {
@@ -69,28 +74,28 @@ export default function App() {
           });
         });
       }
-      
+
       const originalRegister = navigator.serviceWorker.register;
-      navigator.serviceWorker.register = function() {
+      navigator.serviceWorker.register = function () {
         console.log('🚫 Service Worker registration BLOCKED permanently');
         return Promise.reject(new Error('Service Worker deshabilitado'));
       };
-      
+
       console.log('✅ Service Worker bloqueado permanentemente');
     }
   }, []);
-  
+
   const fetchRole = async (email: string) => {
     const cachedRole = localStorage.getItem('kardex_user_role') as Role;
     if (cachedRole) {
       setRole(cachedRole);
       console.log('✅ Rol cargado desde localStorage:', cachedRole);
     }
-    
+
     try {
       const profile = await api.getCurrentUserProfile(email);
       const userRole = profile ? profile.role : 'VIEWER';
-      
+
       if (userRole !== cachedRole) {
         setRole(userRole);
         localStorage.setItem('kardex_user_role', userRole);
@@ -103,35 +108,39 @@ export default function App() {
 
   const loadInitialData = async (currentSession: any) => {
     if (!currentSession?.user?.email || dataLoadedRef.current) return;
-    
+
     fetchRole(currentSession.user.email);
-    
+
+    // Cargar estadísticas
+    const statsData = await api.getStats();
+    setStats(statsData);
+
     dataLoadedRef.current = true;
     setLoadingData(false);
   };
-  
+
   const navigateTo = useCallback((page: string, options: { push?: boolean; state?: any } = {}) => {
     const { push = true, state = null } = options;
     if (page === currentPage && JSON.stringify(state) === JSON.stringify(navigationState)) return;
-    
+
     setCurrentPage(page);
     setNavigationState(state);
     if (isSidebarOpen) setIsSidebarOpen(false);
-    
+
     if (push) {
       setNavigationStack(prev => [...prev, page]);
       const url = new URL(window.location.href);
-      url.search = ''; 
+      url.search = '';
       if (page === 'productDetail' && state?.productId) url.searchParams.set('id', state.productId);
       window.history.pushState({ page, state }, "", url.toString());
     }
   }, [currentPage, navigationState, isSidebarOpen]);
 
   useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => { 
-      if ((e.metaKey || e.ctrlKey) && e.key === 'k') { 
-        e.preventDefault(); 
-        setIsCommandPaletteOpen(prev => !prev); 
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+        e.preventDefault();
+        setIsCommandPaletteOpen(prev => !prev);
       }
     };
     window.addEventListener('keydown', handleKeyDown);
@@ -142,13 +151,13 @@ export default function App() {
   useEffect(() => {
     const handlePopState = (event: PopStateEvent) => {
       event.preventDefault();
-      
+
       // Si hay más de una página en el stack, volver atrás
       if (navigationStack.length > 1) {
         const newStack = [...navigationStack];
         newStack.pop(); // Quitar la página actual
         const previousPage = newStack[newStack.length - 1];
-        
+
         setNavigationStack(newStack);
         setCurrentPage(previousPage);
         setNavigationState(event.state?.state || null);
@@ -159,7 +168,7 @@ export default function App() {
         window.history.pushState({ page: currentPage, state: navigationState }, "", window.location.href);
       }
     };
-    
+
     window.addEventListener('popstate', handlePopState);
     return () => window.removeEventListener('popstate', handlePopState);
   }, [navigationStack, currentPage, navigationState]);
@@ -167,12 +176,12 @@ export default function App() {
   useEffect(() => {
     if (isSupabaseConfigured) {
       console.log('🔵 Iniciando suscripción a Supabase Auth');
-      
+
       supabase.auth.getSession().then(({ data: { session: currentSession } }) => {
         console.log('🔵 Sesión inicial obtenida:', currentSession ? 'Existe' : 'No existe');
         setSession(currentSession);
         setLoadingSession(false);
-        if(currentSession) loadInitialData(currentSession);
+        if (currentSession) loadInitialData(currentSession);
       });
 
       const { data: { subscription } } = supabase.auth.onAuthStateChange((event, newSession) => {
@@ -200,12 +209,12 @@ export default function App() {
       if (currentSession) loadInitialData(currentSession);
     }
   }, []);
-  
+
   const handleLoginSuccess = (newSession: any) => {
     setSession(newSession);
     loadInitialData(newSession);
   };
-  
+
   const handleLogout = async () => {
     if (isSupabaseConfigured) {
       await supabase.auth.signOut();
@@ -230,39 +239,39 @@ export default function App() {
   if (loadingSession || (session && loadingData)) {
     return <div className="h-screen flex items-center justify-center bg-slate-50"><Loader2 className="animate-spin w-10 h-10 text-indigo-600" /></div>;
   }
-  
+
   if (!session) return <Login onLoginSuccess={handleLoginSuccess} />;
 
   const renderContent = () => {
     switch (currentPage) {
-      case 'productDetail': 
+      case 'productDetail':
         return <ProductDetail productId={navigationState?.productId} role={role} userEmail={session.user?.email} onBack={() => window.history.back()} onNavigate={navigateTo} />;
-      case 'inventory': 
+      case 'inventory':
         return <Inventory role={role} userEmail={session.user?.email} onNavigate={navigateTo} initialState={navigationState} onInitialStateConsumed={() => setNavigationState(null)} categories={categories || []} setCategories={setCategories} locations={locations || []} setLocations={setLocations} />;
-      case 'kardex': 
+      case 'kardex':
         return <Kardex role={role} userEmail={session.user?.email} initialState={navigationState} onInitialStateConsumed={() => setNavigationState(null)} destinos={destinos || []} setDestinos={setDestinos} locations={locations || []} setLocations={setLocations} />;
-      case 'destinos': 
+      case 'destinos':
         return <Destinos destinations={destinos} setDestinations={setDestinos} onCacheClear={clearCache} />;
-      case 'reports': 
+      case 'reports':
         return <Reports onNavigate={navigateTo} />;
-      case 'contacts': 
+      case 'contacts':
         return <Contacts role={role} initialState={navigationState} onInitialStateConsumed={() => setNavigationState(null)} />;
-      case 'categories': 
+      case 'categories':
         return <CategoryManagement role={role} categories={categories} setCategories={setCategories} onCacheClear={clearCache} />;
-      case 'locations': 
+      case 'locations':
         return <LocationManagement role={role} locations={locations} setLocations={setLocations} onCacheClear={clearCache} />;
-      case 'users': 
+      case 'users':
         return role === 'ADMIN' ? <UsersPage /> : <Dashboard onNavigate={navigateTo} />;
-      case 'audit': 
+      case 'audit':
         return role === 'ADMIN' ? <AuditPage /> : <Dashboard onNavigate={navigateTo} />;
-      default: 
+      default:
         return <Dashboard onNavigate={navigateTo} />;
     }
   };
 
   return (
     <div className="flex h-screen overflow-hidden bg-slate-50 font-inter animate-in fade-in duration-300">
-      <Sidebar currentPage={currentPage} onNavigate={(p) => navigateTo(p, { push: true })} isOpen={isSidebarOpen} setIsOpen={setIsSidebarOpen} role={role} />
+      <Sidebar currentPage={currentPage} onNavigate={(p) => navigateTo(p, { push: true })} isOpen={isSidebarOpen} setIsOpen={setIsSidebarOpen} role={role} stats={stats} />
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden relative">
         <Navbar onMenuClick={() => setIsSidebarOpen(true)} role={role} userEmail={session.user?.email} onLogout={handleLogout} />
         <main className="flex-1 overflow-y-auto p-3 sm:p-6 no-scrollbar">
@@ -273,7 +282,7 @@ export default function App() {
       </div>
       <CommandPalette isOpen={isCommandPaletteOpen} onClose={() => setIsCommandPaletteOpen(false)} onNavigate={navigateTo} />
       <NotificationContainer />
-      
+
       {/* Diálogo de cerrar sesión */}
       <CustomDialog
         isOpen={showLogoutDialog}

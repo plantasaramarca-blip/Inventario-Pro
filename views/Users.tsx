@@ -1,10 +1,12 @@
 
+'use client';
+
 import React, { useState, useEffect } from 'react';
-import { UserAccount, Role } from '../types.ts';
-import * as api from '../services/supabaseService.ts';
-import { useNotification } from '../contexts/NotificationContext.tsx';
-import { CustomDialog } from '../components/CustomDialog.tsx';
-import { UserPlus, Key, Trash2, X, Search, Loader2, Mail, ShieldCheck, UserCheck, ShieldAlert } from 'https://esm.sh/lucide-react@0.475.0?external=react,react-dom';
+import { UserAccount, Role } from '../types';
+import * as api from '../services/supabaseService';
+import { useNotification } from '../contexts/NotificationContext';
+import { CustomDialog } from '../components/CustomDialog';
+import { UserPlus, Key, Trash2, X, Search, Loader2, Mail, ShieldCheck, UserCheck, ShieldAlert } from 'lucide-react';
 
 export const UsersPage: React.FC = () => {
   const [users, setUsers] = useState<UserAccount[]>([]);
@@ -31,7 +33,7 @@ export const UsersPage: React.FC = () => {
   };
 
   useEffect(() => { loadData(); }, []);
-  
+
   useEffect(() => {
     const handler = setTimeout(() => {
       setDebouncedSearchTerm(searchTerm);
@@ -72,7 +74,7 @@ export const UsersPage: React.FC = () => {
       setUserToDelete(null);
     }
   };
-  
+
   const filteredUsers = users.filter(u => u.email.toLowerCase().includes(debouncedSearchTerm.toLowerCase()));
 
   return (
@@ -96,17 +98,17 @@ export const UsersPage: React.FC = () => {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {loading ? <div className="col-span-full py-10 text-center"><Loader2 className="animate-spin mx-auto w-6 h-6 text-indigo-500" /></div> : filteredUsers.map(u => (
           <div key={u.id} className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm flex flex-col justify-between hover:border-indigo-100 transition-all">
-             <div className="space-y-3">
-                <div className="flex justify-between items-start">
-                  <div className="p-3 bg-slate-50 rounded-xl text-slate-400"><Mail className="w-4 h-4" /></div>
-                  <span className="text-[8px] font-black uppercase bg-indigo-50 text-indigo-700 px-2.5 py-1 rounded-lg">{u.role}</span>
-                </div>
-                <h3 className="font-black text-slate-800 text-xs lowercase truncate">{u.email}</h3>
-             </div>
-             <div className="flex items-center justify-between mt-4 pt-4 border-t border-slate-50">
-                <button onClick={() => handleOpenModal(u)} className="text-[9px] font-black text-slate-400 uppercase tracking-widest hover:text-indigo-600 flex items-center gap-1.5"><Key className="w-3 h-3" /> Editar</button>
-                <button onClick={() => setUserToDelete(u)} className="p-1 text-slate-300 hover:text-red-500"><Trash2 className="w-4 h-4" /></button>
-             </div>
+            <div className="space-y-3">
+              <div className="flex justify-between items-start">
+                <div className="p-3 bg-slate-50 rounded-xl text-slate-400"><Mail className="w-4 h-4" /></div>
+                <span className="text-[8px] font-black uppercase bg-indigo-50 text-indigo-700 px-2.5 py-1 rounded-lg">{u.role}</span>
+              </div>
+              <h3 className="font-black text-slate-800 text-xs lowercase truncate">{u.email}</h3>
+            </div>
+            <div className="flex items-center justify-between mt-4 pt-4 border-t border-slate-50">
+              <button onClick={() => handleOpenModal(u)} className="text-[9px] font-black text-slate-400 uppercase tracking-widest hover:text-indigo-600 flex items-center gap-1.5"><Key className="w-3 h-3" /> Editar</button>
+              <button onClick={() => setUserToDelete(u)} className="p-1 text-slate-300 hover:text-red-500"><Trash2 className="w-4 h-4" /></button>
+            </div>
           </div>
         ))}
       </div>
@@ -115,16 +117,16 @@ export const UsersPage: React.FC = () => {
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => !saving && setIsModalOpen(false)}></div>
           <form onSubmit={handleSubmit} className="relative bg-white rounded-3xl p-8 w-full max-w-sm shadow-2xl">
-             <h3 className="text-sm font-black text-slate-800 uppercase mb-6 tracking-tight">{editingUser ? 'Configurar' : 'Nuevo'} Usuario</h3>
-             <div className="space-y-4">
-                <div className="space-y-1"><label className="text-[9px] font-black text-slate-400 uppercase ml-2 tracking-widest">Correo</label><input type="email" required readOnly={!!editingUser} className={`w-full p-4 bg-slate-100 rounded-2xl outline-none font-bold text-xs lowercase ${editingUser ? 'opacity-50' : ''}`} value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} /></div>
-                <div className="space-y-1"><label className="text-[9px] font-black text-slate-400 uppercase ml-2 tracking-widest">{editingUser ? 'Nueva Clave (opcional)' : 'Clave *'}</label><input type="password" required={!editingUser} className="w-full p-4 bg-slate-100 rounded-2xl outline-none font-bold text-xs" value={formData.password} onChange={e => setFormData({...formData, password: e.target.value})} placeholder="Mínimo 6 caracteres" /></div>
-                <div className="space-y-1"><label className="text-[9px] font-black text-slate-400 uppercase ml-2 tracking-widest">Rol</label><select className="w-full p-4 bg-indigo-50 text-indigo-700 rounded-2xl outline-none font-black text-xs uppercase" value={formData.role} onChange={e => setFormData({...formData, role: e.target.value as Role})}><option value="ADMIN">ADMIN</option><option value="USER">USUARIO</option><option value="VIEWER">VISOR</option></select></div>
-                <div className="flex gap-3 pt-4">
-                   <button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 py-3 text-[10px] font-black uppercase text-slate-400">Cerrar</button>
-                   <button type="submit" disabled={saving} className="flex-[2] py-3 bg-indigo-600 text-white rounded-2xl text-[10px] font-black uppercase shadow-xl">{saving ? <Loader2 className="animate-spin w-4 h-4 mx-auto" /> : 'Guardar'}</button>
-                </div>
-             </div>
+            <h3 className="text-sm font-black text-slate-800 uppercase mb-6 tracking-tight">{editingUser ? 'Configurar' : 'Nuevo'} Usuario</h3>
+            <div className="space-y-4">
+              <div className="space-y-1"><label className="text-[9px] font-black text-slate-400 uppercase ml-2 tracking-widest">Correo</label><input type="email" required readOnly={!!editingUser} className={`w-full p-4 bg-slate-100 rounded-2xl outline-none font-bold text-xs lowercase ${editingUser ? 'opacity-50' : ''}`} value={formData.email} onChange={e => setFormData({ ...formData, email: e.target.value })} /></div>
+              <div className="space-y-1"><label className="text-[9px] font-black text-slate-400 uppercase ml-2 tracking-widest">{editingUser ? 'Nueva Clave (opcional)' : 'Clave *'}</label><input type="password" required={!editingUser} className="w-full p-4 bg-slate-100 rounded-2xl outline-none font-bold text-xs" value={formData.password} onChange={e => setFormData({ ...formData, password: e.target.value })} placeholder="Mínimo 6 caracteres" /></div>
+              <div className="space-y-1"><label className="text-[9px] font-black text-slate-400 uppercase ml-2 tracking-widest">Rol</label><select className="w-full p-4 bg-indigo-50 text-indigo-700 rounded-2xl outline-none font-black text-xs uppercase" value={formData.role} onChange={e => setFormData({ ...formData, role: e.target.value as Role })}><option value="ADMIN">ADMIN</option><option value="USER">USUARIO</option><option value="VIEWER">VISOR</option></select></div>
+              <div className="flex gap-3 pt-4">
+                <button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 py-3 text-[10px] font-black uppercase text-slate-400">Cerrar</button>
+                <button type="submit" disabled={saving} className="flex-[2] py-3 bg-indigo-600 text-white rounded-2xl text-[10px] font-black uppercase shadow-xl">{saving ? <Loader2 className="animate-spin w-4 h-4 mx-auto" /> : 'Guardar'}</button>
+              </div>
+            </div>
           </form>
         </div>
       )}

@@ -1,18 +1,20 @@
+'use client';
+
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { Product, Role, CategoryMaster, LocationMaster } from '../types.ts';
-import * as api from '../services/supabaseService.ts';
-import { StockBadge } from '../components/StockBadge.tsx';
-import { formatCurrency, calculateMargin } from '../utils/currencyUtils.ts';
-import { exportToExcel } from '../services/excelService.ts';
-import { ProductQRCode } from '../components/ProductQRCode.tsx';
-import { MultiQRCode } from '../components/MultiQRCode.tsx';
-import { QRScanner } from '../components/QRScanner.tsx';
-import { useNotification } from '../contexts/NotificationContext.tsx';
-import { CustomDialog } from '../components/CustomDialog.tsx';
-import { supabase } from '../supabaseClient.ts';
+import { Product, Role, CategoryMaster, LocationMaster } from '../types';
+import * as api from '../services/supabaseService';
+import { StockBadge } from '../components/StockBadge';
+import { formatCurrency, calculateMargin } from '../utils/currencyUtils';
+import { exportToExcel } from '../services/excelService';
+import { ProductQRCode } from '../components/ProductQRCode';
+import { MultiQRCode } from '../components/MultiQRCode';
+import { QRScanner } from '../components/QRScanner';
+import { useNotification } from '../contexts/NotificationContext';
+import { CustomDialog } from '../components/CustomDialog';
+import { supabase } from '../supabaseClient';
 import {
   Plus, Search, Edit2, ImageIcon, Loader2, X, Save, Camera, QrCode, Info, Trash2, FileSpreadsheet, CheckSquare, Square, Printer, ChevronLeft, ChevronRight, ScanLine, AlertTriangle, Upload, DollarSign, TrendingUp, Layers
-} from 'https://esm.sh/lucide-react@0.475.0?external=react,react-dom';
+} from 'lucide-react';
 
 const ITEMS_PER_PAGE = 15;
 
@@ -149,7 +151,7 @@ export const Inventory: React.FC<InventoryProps> = ({ role, userEmail, onNavigat
 
   const handleScanSuccess = (decodedText: string) => {
     setIsScannerOpen(false);
-    const foundProduct = products.find(p => p.code === decodedText || p.qrData === decodedText);
+    const foundProduct = products.find(p => p.code === decodedText || p.qr_data === decodedText);
     if (foundProduct) {
       onNavigate('productDetail', { push: true, state: { productId: foundProduct.id } });
     } else {
@@ -452,7 +454,7 @@ export const Inventory: React.FC<InventoryProps> = ({ role, userEmail, onNavigat
     if (!productToDelete) return;
 
     try {
-      await api.deleteProduct(productToDelete.id, userEmail);
+      await api.deleteProduct(productToDelete.id);
       setProducts(prev => prev.filter(p => p.id !== productToDelete.id));
       setTotalCount(prev => prev - 1);
       addNotification('Producto eliminado exitosamente', 'success');

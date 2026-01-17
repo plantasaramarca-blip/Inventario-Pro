@@ -1,6 +1,6 @@
-import * as XLSX from 'https://esm.sh/xlsx@0.18.5';
-import { jsPDF } from 'https://esm.sh/jspdf@2.5.1';
-import autoTable from 'https://esm.sh/jspdf-autotable@3.8.2?external=jspdf';
+import * as XLSX from 'xlsx';
+import { jsPDF } from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 export function exportToExcel(
   data: any[],
@@ -24,7 +24,7 @@ export function exportToPDF(
   doc.setFontSize(14);
   doc.setTextColor(79, 70, 229);
   doc.text(title, 14, 15);
-  
+
   doc.setFontSize(7);
   doc.setTextColor(150);
   doc.text(`Generado: ${new Date().toLocaleString()}`, 14, 20);

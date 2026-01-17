@@ -1,9 +1,9 @@
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import * as api from '../services/supabaseService.ts';
-import { 
+import * as api from '../services/supabaseService';
+import {
   Search, Package, User, MapPin, ArrowRight, CornerDownLeft, X, Loader2
-} from 'https://esm.sh/lucide-react@0.475.0?external=react,react-dom';
+} from 'lucide-react';
 
 interface CommandPaletteProps {
   isOpen: boolean;
@@ -36,9 +36,9 @@ export const CommandPalette = ({ isOpen, onClose, onNavigate }: CommandPalettePr
       setLoading(true);
       Promise.all([api.getProducts({ fetchAll: true }), api.getContacts(), api.getDestinos()])
         .then(([{ products }, contacts, destinations]) => {
-          const productResults = (products || []).map(p => ({ type: 'Product', ...p }));
-          const contactResults = (contacts || []).map(c => ({ type: 'Contact', ...c }));
-          const destinationResults = (destinations || []).map(d => ({ type: 'Destination', ...d }));
+          const productResults = (products || []).map(p => ({ ...p, type: 'Product' }));
+          const contactResults = (contacts || []).map(c => ({ ...c, type: 'Contact' }));
+          const destinationResults = (destinations || []).map(d => ({ ...d, type: 'Destination', name: d.nombre }));
           setResults([...productResults, ...contactResults, ...destinationResults]);
         }).finally(() => setLoading(false));
     } else {
@@ -58,13 +58,13 @@ export const CommandPalette = ({ isOpen, onClose, onNavigate }: CommandPalettePr
   const filteredResults = useMemo(() => {
     if (!debouncedSearchTerm) return staticActions;
     const lowerSearch = debouncedSearchTerm.toLowerCase();
-    
-    const filteredContent = results.filter(item => 
-      item.name.toLowerCase().includes(lowerSearch) || 
+
+    const filteredContent = results.filter(item =>
+      item.name.toLowerCase().includes(lowerSearch) ||
       (item.code && item.code.toLowerCase().includes(lowerSearch))
     );
-    
-    const filteredActions = staticActions.filter(action => 
+
+    const filteredActions = staticActions.filter(action =>
       action.name.toLowerCase().includes(lowerSearch)
     );
 
@@ -96,7 +96,7 @@ export const CommandPalette = ({ isOpen, onClose, onNavigate }: CommandPalettePr
 
   useEffect(() => {
     resultsRef.current?.children[selectedIndex]?.scrollIntoView({
-        block: 'nearest',
+      block: 'nearest',
     });
   }, [selectedIndex]);
 
@@ -123,10 +123,10 @@ export const CommandPalette = ({ isOpen, onClose, onNavigate }: CommandPalettePr
       return <Icon className="w-5 h-5 text-slate-500" />;
     }
     switch (item.type) {
-        case 'Product': return <Package className="w-5 h-5 text-indigo-500" />;
-        case 'Contact': return <User className="w-5 h-5 text-slate-500" />;
-        case 'Destination': return <MapPin className="w-5 h-5 text-emerald-500" />;
-        default: return <ArrowRight className="w-5 h-5 text-slate-400" />;
+      case 'Product': return <Package className="w-5 h-5 text-indigo-500" />;
+      case 'Contact': return <User className="w-5 h-5 text-slate-500" />;
+      case 'Destination': return <MapPin className="w-5 h-5 text-emerald-500" />;
+      default: return <ArrowRight className="w-5 h-5 text-slate-400" />;
     }
   }
 
@@ -149,25 +149,25 @@ export const CommandPalette = ({ isOpen, onClose, onNavigate }: CommandPalettePr
           <button onClick={onClose} className="text-[9px] font-black uppercase text-slate-400 bg-slate-100 px-2 py-1 rounded-md">Esc</button>
         </div>
         <div ref={resultsRef} className="max-h-[400px] overflow-y-auto no-scrollbar p-2">
-          {loading ? <div className="text-center p-10"><Loader2 className="w-6 h-6 animate-spin mx-auto text-indigo-500" /></div> : 
-          filteredResults.length === 0 ? <div className="text-center p-10 text-[10px] font-black uppercase text-slate-400">Sin resultados</div> :
-          filteredResults.map((item, index) => (
-            <div
-              key={`${item.type}-${item.id || item.name}`}
-              onClick={() => handleSelect(item)}
-              onMouseEnter={() => setSelectedIndex(index)}
-              className={`p-4 flex justify-between items-center rounded-2xl cursor-pointer ${selectedIndex === index ? 'bg-indigo-50' : 'hover:bg-slate-50'}`}
-            >
-              <div className="flex items-center gap-4">
-                {getItemIcon(item)}
-                <div>
-                  <p className="font-bold text-sm text-slate-800">{item.name}</p>
-                  <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">{item.type}</p>
+          {loading ? <div className="text-center p-10"><Loader2 className="w-6 h-6 animate-spin mx-auto text-indigo-500" /></div> :
+            filteredResults.length === 0 ? <div className="text-center p-10 text-[10px] font-black uppercase text-slate-400">Sin resultados</div> :
+              filteredResults.map((item, index) => (
+                <div
+                  key={`${item.type}-${item.id || item.name}`}
+                  onClick={() => handleSelect(item)}
+                  onMouseEnter={() => setSelectedIndex(index)}
+                  className={`p-4 flex justify-between items-center rounded-2xl cursor-pointer ${selectedIndex === index ? 'bg-indigo-50' : 'hover:bg-slate-50'}`}
+                >
+                  <div className="flex items-center gap-4">
+                    {getItemIcon(item)}
+                    <div>
+                      <p className="font-bold text-sm text-slate-800">{item.name}</p>
+                      <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">{item.type}</p>
+                    </div>
+                  </div>
+                  {selectedIndex === index && <CornerDownLeft className="w-4 h-4 text-indigo-500" />}
                 </div>
-              </div>
-              {selectedIndex === index && <CornerDownLeft className="w-4 h-4 text-indigo-500" />}
-            </div>
-          ))}
+              ))}
         </div>
       </div>
     </div>

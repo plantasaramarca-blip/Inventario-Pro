@@ -1,7 +1,7 @@
 
 import React from 'react';
-import { Notification, NotificationType } from '../contexts/NotificationContext.tsx';
-import { CheckCircle, AlertCircle, Info, X } from 'https://esm.sh/lucide-react@0.475.0?external=react,react-dom';
+import { Notification, NotificationType } from '../contexts/NotificationContext';
+import { CheckCircle, AlertCircle, Info, X, AlertTriangle } from 'lucide-react';
 
 interface ToastProps {
   notification: Notification;
@@ -13,11 +13,13 @@ export const Toast: React.FC<ToastProps> = ({ notification, onClose }) => {
     success: <CheckCircle className="w-5 h-5" />,
     error: <AlertCircle className="w-5 h-5" />,
     info: <Info className="w-5 h-5" />,
+    warning: <AlertTriangle className="w-5 h-5" />,
   };
   const colors: Record<NotificationType, string> = {
     success: 'bg-emerald-500',
     error: 'bg-rose-500',
     info: 'bg-indigo-500',
+    warning: 'bg-amber-500',
   };
 
   return (

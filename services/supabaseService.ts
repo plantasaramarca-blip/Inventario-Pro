@@ -1,6 +1,6 @@
 
-import { supabase, isSupabaseConfigured } from '../supabaseClient.ts';
-import { Product, Movement, InventoryStats, CategoryMaster, LocationMaster, UserAccount, Role, Contact, Destination, AuditLog } from '../types.ts';
+import { supabase, isSupabaseConfigured } from '../supabaseClient';
+import { Product, Movement, InventoryStats, CategoryMaster, LocationMaster, UserAccount, Role, Contact, Destination, AuditLog } from '../types';
 
 const useSupabase = () => isSupabaseConfigured;
 
@@ -220,6 +220,15 @@ export const getProductById = async (id: string): Promise<Product | null> => {
   });
 };
 
+export const getProductByCode = async (code: string): Promise<Product | null> => {
+  if (!useSupabase()) return null;
+  return fetchWithRetry(async () => {
+    const { data, error } = await supabase.from('products').select(FULL_PRODUCT_QUERY).eq('code', code).single();
+    if (error) throw error;
+    return data ? mapToProduct(data) : null;
+  });
+};
+
 export const getAlertProducts = async (limit = 6): Promise<Product[]> => {
   if (!useSupabase()) return [];
 
@@ -233,7 +242,7 @@ export const getAlertProducts = async (limit = 6): Promise<Product[]> => {
       .select(`
         id, code, name, category, location, 
         stock, min_stock, critical_stock, 
-        unit, precio_compra, precio_venta, model, image_url
+        unit, precio_compra, precio_venta, model, image_url, moneda, brand, size
       `)
       .order('stock', { ascending: true })
       .limit(limit * 3);
@@ -257,12 +266,11 @@ export const getAlertProducts = async (limit = 6): Promise<Product[]> => {
       purchasePrice: p.precio_compra,
       salePrice: p.precio_venta,
       imageUrl: p.image_url || '',
-      brand: '',
+      brand: p.brand || '',
       model: p.model || '',
-      size: '',
-      qrCode: '',
-      qrData: null,
-      updatedAt: new Date()
+      size: p.size || '',
+      currency: p.moneda || 'PEN',
+      updatedAt: new Date().toISOString()
     }));
 
     setCache('alertProducts', result);

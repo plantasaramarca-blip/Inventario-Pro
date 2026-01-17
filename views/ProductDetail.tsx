@@ -1,13 +1,15 @@
 
+'use client';
+
 import React, { useState, useEffect } from 'react';
-import { Product, Movement, Role } from '../types.ts';
-import * as api from '../services/supabaseService.ts';
-import { formatCurrency } from '../utils/currencyUtils.ts';
-import { StockBadge } from '../components/StockBadge.tsx';
-import { 
+import { Product, Movement, Role } from '../types';
+import * as api from '../services/supabaseService';
+import { formatCurrency } from '../utils/currencyUtils';
+import { StockBadge } from '../components/StockBadge';
+import {
   ArrowLeft, ImageIcon, Loader2, RefreshCcw, ArrowUpCircle, ArrowDownCircle,
   ArrowUp, ArrowDown, UserCheck
-} from 'https://esm.sh/lucide-react@0.475.0?external=react,react-dom';
+} from 'lucide-react';
 
 interface ProductDetailProps {
   productId: string | null;
@@ -31,7 +33,7 @@ export const ProductDetail: React.FC<ProductDetailProps> = ({ productId, role, u
         api.getProductById(productId),
         api.getMovementsByProductId(productId)
       ]);
-      
+
       if (!productData) { setError(true); return; }
       setProduct(productData);
       setMovements(movementsData || []);
@@ -81,12 +83,12 @@ export const ProductDetail: React.FC<ProductDetailProps> = ({ productId, role, u
           </div>
           {role !== 'VIEWER' && (
             <div className="grid grid-cols-2 gap-3">
-              <button 
+              <button
                 onClick={() => onNavigate('kardex', { push: true, state: { prefill: { type: 'INGRESO', product } } })}
                 className="bg-indigo-50 text-indigo-600 p-4 rounded-2xl flex flex-col items-center justify-center text-[9px] font-black uppercase tracking-widest hover:bg-indigo-100 transition-all">
                 <ArrowUpCircle className="w-6 h-6 mb-2" /> Ingreso
               </button>
-              <button 
+              <button
                 onClick={() => onNavigate('kardex', { push: true, state: { prefill: { type: 'SALIDA', product } } })}
                 className="bg-rose-50 text-rose-600 p-4 rounded-2xl flex flex-col items-center justify-center text-[9px] font-black uppercase tracking-widest hover:bg-rose-100 transition-all">
                 <ArrowDownCircle className="w-6 h-6 mb-2" /> Despacho
@@ -94,7 +96,7 @@ export const ProductDetail: React.FC<ProductDetailProps> = ({ productId, role, u
             </div>
           )}
         </div>
-        
+
         <div className="lg:col-span-2 bg-white rounded-[2.5rem] p-6 border border-slate-100 shadow-sm">
           <h3 className="text-[10px] font-black text-slate-800 uppercase tracking-widest mb-4">Historial Reciente del Producto</h3>
           <div className="space-y-2">

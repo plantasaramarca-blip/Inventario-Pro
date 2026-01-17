@@ -1,13 +1,14 @@
+'use client';
 
 import React, { useState, useEffect } from 'react';
-import { InventoryStats, Product } from '../types.ts';
-import * as api from '../services/supabaseService.ts';
+import { InventoryStats, Product } from '../types';
+import * as api from '../services/supabaseService';
 import {
   TrendingUp, AlertTriangle, Package,
   AlertCircle, DollarSign, Layers, Users, ChevronRight, Loader2, Ban
-} from 'https://esm.sh/lucide-react@0.475.0?external=react,react-dom';
-import { StockBadge } from '../components/StockBadge.tsx';
-import { formatCurrency } from '../utils/currencyUtils.ts';
+} from 'lucide-react';
+import { StockBadge } from '../components/StockBadge';
+import { formatCurrency } from '../utils/currencyUtils';
 
 interface DashboardProps {
   onNavigate: (page: string, options?: { push?: boolean; state?: any }) => void;

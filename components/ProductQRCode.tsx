@@ -1,10 +1,10 @@
 
 import React, { useRef } from 'react';
-import { QRCodeSVG } from 'https://esm.sh/qrcode.react@3.1.0?external=react,react-dom';
-import { jsPDF } from 'https://esm.sh/jspdf@2.5.1';
-import html2canvas from 'https://esm.sh/html2canvas@1.4.1';
-import { X, Printer, FileDown } from 'https://esm.sh/lucide-react@0.475.0?external=react,react-dom';
-import { Product } from '../types.ts';
+import { QRCodeSVG } from 'qrcode.react';
+import { jsPDF } from 'jspdf';
+import html2canvas from 'html2canvas';
+import { X, Printer, FileDown } from 'lucide-react';
+import { Product } from '../types';
 
 interface ProductQRCodeProps {
   product: Product;
@@ -26,7 +26,7 @@ export const ProductQRCode: React.FC<ProductQRCodeProps> = ({ product, onClose }
       pdf.save(`ETIQUETA_${displayCode}.pdf`);
     } catch (e) { console.error('Error al generar PDF:', e); }
   };
-  
+
   const handleDirectPrint = () => {
     if (!labelRef.current) return;
     const printable = labelRef.current.cloneNode(true) as HTMLElement;

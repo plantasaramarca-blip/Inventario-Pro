@@ -10,6 +10,7 @@ const DESTINOS_KEY = 'kardex_destinos';
 const USER_EMAIL = 'admin@local.com'; // Usuario por defecto para auditoría local
 
 const seedData = () => {
+  if (typeof window === 'undefined') return;
   if (!localStorage.getItem(CATEGORIES_KEY)) localStorage.setItem(CATEGORIES_KEY, JSON.stringify(['Tecnología', 'Oficina', 'Impresión', 'Limpieza', 'Otros']));
   if (!localStorage.getItem(PRODUCTS_KEY)) localStorage.setItem(PRODUCTS_KEY, JSON.stringify([]));
   if (!localStorage.getItem(MOVEMENTS_KEY)) localStorage.setItem(MOVEMENTS_KEY, JSON.stringify([]));
@@ -32,6 +33,7 @@ export const saveAuditLog = (log: Partial<AuditLog>) => {
 };
 
 export const getDestinos = (): Destination[] => {
+  if (typeof window === 'undefined') return [];
   seedData();
   return JSON.parse(localStorage.getItem(DESTINOS_KEY) || '[]');
 };
@@ -43,7 +45,7 @@ export const saveDestino = (destino: Destination): void => {
   if (isUpdate) destinos[idx] = destino;
   else destinos.push(destino);
   localStorage.setItem(DESTINOS_KEY, JSON.stringify(destinos));
-  saveAuditLog({ action: isUpdate ? 'UPDATE' : 'CREATE', table_name: 'destinos', record_id: destino.id, record_name: destino.name, changes_summary: `${isUpdate ? 'Actualizó' : 'Creó'} el centro de costo "${destino.name}"` });
+  saveAuditLog({ action: isUpdate ? 'UPDATE' : 'CREATE', table_name: 'destinos', record_id: destino.id, record_name: destino.nombre, changes_summary: `${isUpdate ? 'Actualizó' : 'Creó'} el centro de costo "${destino.nombre}"` });
 };
 
 export const deleteDestino = (id: string): void => {
@@ -53,10 +55,11 @@ export const deleteDestino = (id: string): void => {
   const toDelete = all.find(d => d.id === id);
   const remaining = all.filter(d => d.id !== id);
   localStorage.setItem(DESTINOS_KEY, JSON.stringify(remaining));
-  if (toDelete) saveAuditLog({ action: 'DELETE', table_name: 'destinos', record_id: id, record_name: toDelete.name, changes_summary: `Eliminó el centro de costo "${toDelete.name}"` });
+  if (toDelete) saveAuditLog({ action: 'DELETE', table_name: 'destinos', record_id: id, record_name: toDelete.nombre, changes_summary: `Eliminó el centro de costo "${toDelete.nombre}"` });
 };
 
 export const getAuditLogs = (page = 0, limit = 50) => {
+  if (typeof window === 'undefined') return { data: [], count: 0 };
   seedData();
   const data = JSON.parse(localStorage.getItem(AUDIT_KEY) || '[]');
   const sorted = data.sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
@@ -64,6 +67,7 @@ export const getAuditLogs = (page = 0, limit = 50) => {
 };
 
 export const getCategories = (): string[] => {
+  if (typeof window === 'undefined') return [];
   seedData();
   return JSON.parse(localStorage.getItem(CATEGORIES_KEY) || '[]');
 };
@@ -77,6 +81,7 @@ export const saveCategory = (category: string): void => {
 };
 
 export const getProducts = (): Product[] => {
+  if (typeof window === 'undefined') return [];
   seedData();
   const products: Product[] = JSON.parse(localStorage.getItem(PRODUCTS_KEY) || '[]');
   // Ordena por fecha de actualización descendente para que los más nuevos aparezcan primero.
@@ -94,13 +99,13 @@ export const saveProduct = (product: Product): void => {
 
   // Asegura que la fecha de actualización esté presente y actualizada.
   const productToSave = { ...product, updatedAt: new Date().toISOString() };
-  
+
   if (isUpdate) {
     products[idx] = productToSave;
   } else {
     products.push(productToSave);
   }
-  
+
   localStorage.setItem(PRODUCTS_KEY, JSON.stringify(products));
   saveAuditLog({ action: isUpdate ? 'UPDATE' : 'CREATE', table_name: 'products', record_id: product.id, record_name: product.name, changes_summary: `${isUpdate ? 'Actualizó' : 'Creó'} el producto "${product.name}"` });
 };
@@ -114,6 +119,7 @@ export const deleteProduct = (id: string): void => {
 };
 
 export const getContacts = (): Contact[] => {
+  if (typeof window === 'undefined') return [];
   seedData();
   return JSON.parse(localStorage.getItem(CONTACTS_KEY) || '[]');
 };
@@ -137,6 +143,7 @@ export const deleteContact = (id: string): void => {
 };
 
 export const getMovements = (): Movement[] => {
+  if (typeof window === 'undefined') return [];
   seedData();
   return JSON.parse(localStorage.getItem(MOVEMENTS_KEY) || '[]');
 };
@@ -175,6 +182,7 @@ export const registerMovement = (movement: any): Movement => {
 };
 
 export const getStats = (): InventoryStats => {
+  if (typeof window === 'undefined') return { totalProducts: 0, lowStockCount: 0, criticalStockCount: 0, outOfStockCount: 0, totalMovements: 0, totalContacts: 0, totalValue: 0 };
   const products = getProducts();
   const movements = getMovements();
   const contacts = getContacts();

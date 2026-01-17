@@ -1,12 +1,14 @@
 
+'use client';
+
 import React, { useState, useEffect } from 'react';
-import { CategoryMaster, Role } from '../types.ts';
-import * as api from '../services/supabaseService.ts';
-import { useNotification } from '../contexts/NotificationContext.tsx';
-import { CustomDialog } from '../components/CustomDialog.tsx';
-import { 
+import { CategoryMaster, Role } from '../types';
+import * as api from '../services/supabaseService';
+import { useNotification } from '../contexts/NotificationContext';
+import { CustomDialog } from '../components/CustomDialog';
+import {
   Plus, Tags, Edit2, Trash2, X, Search, Loader2
-} from 'https://esm.sh/lucide-react@0.475.0?external=react,react-dom';
+} from 'lucide-react';
 
 interface CategoryManagementProps {
   role: Role;
@@ -42,7 +44,7 @@ export const CategoryManagement: React.FC<CategoryManagementProps> = ({ role, ca
     };
     loadData();
   }, [categories]);
-  
+
   useEffect(() => {
     const handler = setTimeout(() => {
       setDebouncedSearchTerm(searchTerm);
@@ -82,7 +84,7 @@ export const CategoryManagement: React.FC<CategoryManagementProps> = ({ role, ca
       setCatToDelete(null);
     }
   };
-  
+
   if (loading || categories === null) {
     return <div className="h-[70vh] flex items-center justify-center"><Loader2 className="animate-spin w-8 h-8 text-indigo-500" /></div>;
   }
@@ -128,14 +130,14 @@ export const CategoryManagement: React.FC<CategoryManagementProps> = ({ role, ca
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => setIsModalOpen(false)}></div>
           <form onSubmit={handleSave} className="relative bg-white rounded-3xl p-8 w-full max-w-sm shadow-2xl animate-in zoom-in-95">
-             <h3 className="text-sm font-black text-slate-800 uppercase tracking-tight mb-6">{editingCat ? 'Editar' : 'Nueva'} Categoría</h3>
-             <input type="text" autoFocus required className="w-full p-4 bg-slate-100 rounded-2xl outline-none font-bold text-sm mb-6 uppercase" value={name} onChange={e => setName(e.target.value)} />
-             <div className="flex gap-3">
-               <button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 py-4 text-[10px] font-black uppercase text-slate-400 tracking-widest">Cancelar</button>
-               <button type="submit" disabled={saving} className="flex-[2] py-4 bg-indigo-600 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-xl">
-                 {saving ? <Loader2 className="animate-spin w-4 h-4 mx-auto" /> : 'Guardar'}
-               </button>
-             </div>
+            <h3 className="text-sm font-black text-slate-800 uppercase tracking-tight mb-6">{editingCat ? 'Editar' : 'Nueva'} Categoría</h3>
+            <input type="text" autoFocus required className="w-full p-4 bg-slate-100 rounded-2xl outline-none font-bold text-sm mb-6 uppercase" value={name} onChange={e => setName(e.target.value)} />
+            <div className="flex gap-3">
+              <button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 py-4 text-[10px] font-black uppercase text-slate-400 tracking-widest">Cancelar</button>
+              <button type="submit" disabled={saving} className="flex-[2] py-4 bg-indigo-600 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-xl">
+                {saving ? <Loader2 className="animate-spin w-4 h-4 mx-auto" /> : 'Guardar'}
+              </button>
+            </div>
           </form>
         </div>
       )}

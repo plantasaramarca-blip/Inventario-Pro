@@ -1,12 +1,12 @@
 
 import React from 'react';
-import { X, AlertCircle, CheckCircle, HelpCircle, Loader2 } from 'https://esm.sh/lucide-react@0.475.0?external=react,react-dom';
+import { X, AlertCircle, CheckCircle, HelpCircle, Loader2, AlertTriangle } from 'lucide-react';
 
 interface CustomDialogProps {
   isOpen: boolean;
   title: string;
   message: string;
-  type?: 'confirm' | 'alert' | 'success' | 'error';
+  type?: 'confirm' | 'alert' | 'success' | 'error' | 'warning';
   onConfirm?: () => void;
   onCancel: () => void;
   confirmText?: string;
@@ -15,8 +15,8 @@ interface CustomDialogProps {
 }
 
 export const CustomDialog: React.FC<CustomDialogProps> = ({
-  isOpen, title, message, type = 'confirm', 
-  onConfirm, onCancel, confirmText = 'Aceptar', 
+  isOpen, title, message, type = 'confirm',
+  onConfirm, onCancel, confirmText = 'Aceptar',
   cancelText = 'Cancelar', loading = false
 }) => {
   if (!isOpen) return null;
@@ -26,6 +26,7 @@ export const CustomDialog: React.FC<CustomDialogProps> = ({
       case 'success': return <CheckCircle className="w-10 h-10 text-emerald-500" />;
       case 'error': return <AlertCircle className="w-10 h-10 text-rose-500" />;
       case 'alert': return <AlertCircle className="w-10 h-10 text-amber-500" />;
+      case 'warning': return <AlertTriangle className="w-10 h-10 text-amber-500" />;
       default: return <HelpCircle className="w-10 h-10 text-indigo-500" />;
     }
   };
@@ -40,24 +41,22 @@ export const CustomDialog: React.FC<CustomDialogProps> = ({
             <h3 className="text-[9px] font-black uppercase text-slate-400 tracking-widest mb-1.5">{title}</h3>
             <p className="text-sm font-bold text-slate-800 leading-tight uppercase">{message}</p>
           </div>
-          
+
           <div className="flex flex-col gap-2 pt-3">
             {type !== 'alert' && type !== 'success' && (
-              <button 
+              <button
                 onClick={onConfirm}
                 disabled={loading}
-                className={`w-full py-3.5 text-white rounded-2xl text-[9px] font-black uppercase tracking-widest shadow-xl transition-all active:scale-95 flex items-center justify-center gap-2 ${
-                  type === 'error' ? 'bg-rose-600 hover:bg-rose-700' : 'bg-indigo-600 hover:bg-indigo-700'
-                }`}
+                className={`w-full py-3.5 text-white rounded-2xl text-[9px] font-black uppercase tracking-widest shadow-xl transition-all active:scale-95 flex items-center justify-center gap-2 ${type === 'error' ? 'bg-rose-600 hover:bg-rose-700' : 'bg-indigo-600 hover:bg-indigo-700'
+                  }`}
               >
                 {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : confirmText}
               </button>
             )}
-            <button 
+            <button
               onClick={onCancel}
-              className={`w-full py-3.5 rounded-2xl text-[9px] font-black uppercase tracking-widest transition-all active:scale-95 ${
-                type === 'confirm' || type === 'error' ? 'text-slate-400 hover:bg-slate-50' : 'bg-slate-900 text-white shadow-xl'
-              }`}
+              className={`w-full py-3.5 rounded-2xl text-[9px] font-black uppercase tracking-widest transition-all active:scale-95 ${type === 'confirm' || type === 'error' ? 'text-slate-400 hover:bg-slate-50' : 'bg-slate-900 text-white shadow-xl'
+                }`}
             >
               {type === 'confirm' || type === 'error' ? cancelText : 'Cerrar'}
             </button>
