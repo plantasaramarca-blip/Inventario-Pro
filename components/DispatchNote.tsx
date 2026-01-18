@@ -93,7 +93,7 @@ export const DispatchNote: React.FC<DispatchNoteProps> = ({ data, onClose }) => 
                 <p className="p-4 bg-slate-50 rounded-lg text-slate-600 text-xs">{data.observaciones}</p>
               </section>
             )}
-            <footer className="mt-20 pt-10 grid grid-cols-3 gap-8 text-center text-xs">
+            <footer className="mt-20 pt-10 grid grid-cols-2 gap-8 text-center text-xs">
               <div>
                 <div className="border-t pt-2">
                   <p className="font-bold text-slate-700">Entregado por:</p>
@@ -104,11 +104,6 @@ export const DispatchNote: React.FC<DispatchNoteProps> = ({ data, onClose }) => 
                 <div className="border-t pt-2">
                   <p className="font-bold text-slate-700">Recibido por:</p>
                   <p className="text-slate-500 mt-6">Nombre y Firma</p>
-                </div>
-              </div>
-              <div>
-                <div className="border-t pt-2">
-                  <p className="font-bold text-slate-700">DNI:</p>
                 </div>
               </div>
             </footer>

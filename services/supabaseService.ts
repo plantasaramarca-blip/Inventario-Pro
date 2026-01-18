@@ -598,3 +598,39 @@ export const getAuditLogs = async (p = 0, l = 50): Promise<{ data: AuditLog[], c
     return { data: data as AuditLog[] || [], count };
   });
 };
+ 
+ / /   = = = = = = = = = = = = =   F U N C I O N E S   D E   C O N T A C T O S   ( C R M )   = = = = = = = = = = = = =  
+  
+ e x p o r t   c o n s t   g e t C o n t a c t s   =   a s y n c   ( ) :   P r o m i s e < C o n t a c t [ ] >   = >   {  
+     i f   ( ! u s e S u p a b a s e ( ) )   r e t u r n   [ ] ;  
+     r e t u r n   f e t c h W i t h R e t r y ( a s y n c   ( )   = >   {  
+         c o n s t   {   d a t a ,   e r r o r   }   =   a w a i t   s u p a b a s e  
+             . f r o m ( ' c o n t a c t s ' )  
+             . s e l e c t ( ' * ' )  
+             . o r d e r ( ' n a m e ' ,   {   a s c e n d i n g :   t r u e } ) ;  
+         i f   ( e r r o r )   t h r o w   e r r o r ;  
+         r e t u r n   d a t a   a s   C o n t a c t [ ]   | |   [ ] ;  
+     } ) ;  
+ } ;  
+  
+ e x p o r t   c o n s t   s a v e C o n t a c t   =   a s y n c   ( c o n t a c t :   C o n t a c t )   = >   {  
+     i f   ( ! u s e S u p a b a s e ( ) )   r e t u r n ;  
+     r e t u r n   f e t c h W i t h R e t r y ( a s y n c   ( )   = >   {  
+         c o n s t   {   e r r o r   }   =   a w a i t   s u p a b a s e  
+             . f r o m ( ' c o n t a c t s ' )  
+             . u p s e r t ( c o n t a c t ) ;  
+         i f   ( e r r o r )   t h r o w   e r r o r ;  
+     } ) ;  
+ } ;  
+  
+ e x p o r t   c o n s t   d e l e t e C o n t a c t   =   a s y n c   ( i d :   s t r i n g )   = >   {  
+     i f   ( ! u s e S u p a b a s e ( ) )   r e t u r n ;  
+     r e t u r n   f e t c h W i t h R e t r y ( a s y n c   ( )   = >   {  
+         c o n s t   {   e r r o r   }   =   a w a i t   s u p a b a s e  
+             . f r o m ( ' c o n t a c t s ' )  
+             . d e l e t e ( )  
+             . e q ( ' i d ' ,   i d ) ;  
+         i f   ( e r r o r )   t h r o w   e r r o r ;  
+     } ) ;  
+ } ;  
+ 

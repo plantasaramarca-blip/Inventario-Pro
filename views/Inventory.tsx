@@ -658,7 +658,7 @@ export const Inventory: React.FC<InventoryProps> = ({ role, userEmail, onNavigat
                         onBlur={() => setTimeout(() => setShowNameSuggestions(false), 200)}
                         readOnly={!!editingProduct}
                         className={`w-full px-5 py-4 bg-white border-2 border-slate-100 rounded-2xl outline-none font-black text-xl text-slate-800 placeholder:text-slate-300 focus:border-indigo-500/50 focus:shadow-xl focus:shadow-indigo-500/10 transition-all ${!!editingProduct ? 'opacity-70 cursor-not-allowed' : ''}`}
-                        placeholder="EJ: ZAPATILLAS NIKE AIR..."
+                        placeholder="EJ: NUEVO PRODUCTO"
                       />
                       {showNameSuggestions && nameSuggestions.length > 0 && (
                         <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-slate-200 rounded-xl shadow-lg z-50 max-h-48 overflow-y-auto">
@@ -767,21 +767,38 @@ export const Inventory: React.FC<InventoryProps> = ({ role, userEmail, onNavigat
                             </div>
                           </div>
                         </div>
+                        <div>
+                          <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2 block">Tipo de Documento (Opcional)</label>
+                          <div className="relative">
+                            <select
+                              value={formData.documentType || ''}
+                              onChange={e => setFormData({ ...formData, documentType: e.target.value as any })}
+                              className="w-full px-4 py-3 bg-white rounded-xl outline-none font-bold text-sm text-slate-700 border border-transparent focus:border-indigo-300 transition-all shadow-sm appearance-none cursor-pointer"
+                            >
+                              <option value="">SIN ESPECIFICAR</option>
+                              <option value="GUIA">GUÍA DE REMISIÓN</option>
+                              <option value="FACTURA">FACTURA</option>
+                            </select>
+                            <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
+                              <ChevronRight className="w-4 h-4 rotate-90" />
+                            </div>
+                          </div>
+                        </div>
                       </div>
                     </div>
                   </div>
                 </div>
                 {/* Nueva Sección Horizontal de Stock y Precios */}
-                <div className="w-full mt-6 p-4 bg-slate-900 rounded-2xl border-4 border-indigo-500 shadow-xl overflow-hidden relative group">
-                  <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
-                    <AlertTriangle className="w-32 h-32 text-indigo-400 rotate-12" />
+                <div className="w-full mt-6 p-3 bg-slate-900 rounded-2xl border-2 border-indigo-500 shadow-lg overflow-hidden relative group">
+                  <div className="absolute top-0 right-0 p-2 opacity-10 group-hover:opacity-20 transition-opacity">
+                    <AlertTriangle className="w-16 h-16 text-indigo-400 rotate-12" />
                   </div>
                   <div className="relative z-10">
-                    <div className="flex items-center gap-2 mb-4 border-b border-indigo-500/30 pb-3">
-                      <div className="p-1.5 bg-indigo-500 rounded-lg shadow-lg shadow-indigo-500/50 animate-pulse">
-                        <DollarSign className="w-4 h-4 text-white" />
+                    <div className="flex items-center gap-2 mb-3 border-b border-indigo-500/30 pb-2">
+                      <div className="p-1 bg-indigo-500 rounded-lg shadow-lg shadow-indigo-500/50">
+                        <DollarSign className="w-3 h-3 text-white" />
                       </div>
-                      <h4 className="text-[10px] font-black uppercase tracking-widest text-indigo-100">Control de Valor y Stock</h4>
+                      <h4 className="text-[9px] font-black uppercase tracking-widest text-indigo-100">Control de Valor y Stock</h4>
                     </div>
 
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4">

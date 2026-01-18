@@ -7,7 +7,7 @@ import { useNotification } from '../contexts/NotificationContext';
 import { DispatchNote } from '../components/DispatchNote';
 import { QRScanner } from '../components/QRScanner';
 import {
-  ArrowDownCircle, ArrowUpCircle, Loader2, X, Search, Save, UserCheck, ArrowUp, ArrowDown, Trash, ChevronLeft, ChevronRight, ScanLine
+  ArrowDownCircle, ArrowUpCircle, Loader2, X, Search, Save, UserCheck, ArrowUp, ArrowDown, Trash, ChevronLeft, ChevronRight, ScanLine, Printer
 } from 'lucide-react';
 
 const ITEMS_PER_PAGE = 20;
@@ -423,6 +423,24 @@ export const Kardex: React.FC<KardexProps> = ({ role, userEmail, initialState, o
                         <p className="text-xs text-slate-500">SKU: {item.code}</p>
                       </div>
                       <div className="flex items-center gap-2">
+                        {type === 'SALIDA' && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setDispatchNoteData({
+                                items: [item],
+                                destination: destinos.find(d => d.id === selectedDestinoId),
+                                transportista: carriedBy,
+                                observaciones: reason,
+                                responsable: userEmail,
+                              });
+                            }}
+                            className="w-8 h-8 bg-indigo-50 text-indigo-600 rounded-lg flex items-center justify-center hover:bg-indigo-100"
+                            title="Imprimir este producto"
+                          >
+                            <Printer className="w-4 h-4" />
+                          </button>
+                        )}
                         <button
                           type="button"
                           onClick={() => handleUpdateQuantity(index, item.quantity - 1)}
