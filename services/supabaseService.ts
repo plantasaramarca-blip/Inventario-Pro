@@ -597,40 +597,4 @@ export const getAuditLogs = async (p = 0, l = 50): Promise<{ data: AuditLog[], c
     if (error) throw error;
     return { data: data as AuditLog[] || [], count };
   });
-};
-
-// ============= FUNCIONES DE CONTACTOS (CRM) =============
-
-export const getContacts = async (): Promise<Contact[]> => {
-  if (!useSupabase()) return [];
-  return fetchWithRetry(async () => {
-    const { data, error } = await supabase
-      .from('contacts')
-      .select('*')
-      .order('name', { ascending: true});
-    if (error) throw error;
-    return data as Contact[] || [];
-  });
-};
-
-export const saveContact = async (contact: Contact) => {
-  if (!useSupabase()) return;
-  return fetchWithRetry(async () => {
-    const { error } = await supabase
-      .from('contacts')
-      .upsert(contact);
-    if (error) throw error;
-  });
-};
-
-export const deleteContact = async (id: string) => {
-  if (!useSupabase()) return;
-  return fetchWithRetry(async () => {
-    const { error } = await supabase
-      .from('contacts')
-      .delete()
-      .eq('id', id);
-    if (error) throw error;
-  });
-};
-
+};
