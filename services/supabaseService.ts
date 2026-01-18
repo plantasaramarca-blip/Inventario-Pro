@@ -416,20 +416,42 @@ export const registerBatchMovements = async (items: any[]) => {
   });
 };
 
-export const getContacts = async (): Promise<Contact[]> => {
-  if (!useSupabase()) return [];
-  return fetchWithRetry(async () => {
-    const query = 'id, name, type, phone, email, tax_id, address, notes';
-    const { data, error } = await supabase.from('contacts').select(query).order('name');
-        if (error) throw error;
-    return (data || []).map(c => ({ id: c.id, name: c.name, type: c.type, phone: c.phone, email: c.email, taxId: c.tax_id, address: c.address, notes: c.notes }));
-  });
-};
-
 export const saveContact = async (contact: Partial<Contact>) => {
   if (!useSupabase()) return;
   return fetchWithRetry(async () => {
     const { id, taxId, address, notes, ...rest } = contact;
+    const payload = { 
+      name: rest.name,
+      type: rest.type,
+      phone: rest.phone,
+      email: rest.email,
+      tax_id: taxId, 
+      address, 
+      notes 
+    };
+    
+    console.log('🔵 PAYLOAD A GUARDAR:', payload);
+    
+    if (id) {
+      const { data: oldData } = await supabase.from('contacts').select('*').eq('id', id).single();
+      const { error } = await supabase.from('contacts').update(payload).eq('id', id);
+      console.log('🔵 UPDATE RESULTADO:', { error });
+      if (error) throw error;
+      saveAuditLog({ action: 'UPDATE', table_name: 'contacts', record_id: id, record_name: payload.name || 'N/A' }, oldData, payload);
+    } else {
+      const { data, error } = await supabase.from('contacts').insert([payload]).select().single();
+      console.log('🔵 INSERT RESULTADO:', { data, error });
+      if (error) {
+        console.error('❌ ERROR AL INSERTAR:', error);
+        throw error;
+      }
+      if (data) {
+        console.log('✅ CONTACTO GUARDADO:', data);
+        saveAuditLog({ action: 'CREATE', table_name: 'contacts', record_id: data.id, record_name: data.name }, null, payload);
+      }
+    }
+  });
+};
     const payload = { ...rest, tax_id: taxId, address, notes };
     if (id) {
       const { data: oldData } = await supabase.from('contacts').select('*').eq('id', id).single();
@@ -441,8 +463,8 @@ export const saveContact = async (contact: Partial<Contact>) => {
       if (error) throw error;
       saveAuditLog({ action: 'CREATE', table_name: 'contacts', record_id: data.id, record_name: data.name }, null, payload);
     }
-  });
-};
+  
+
 
 export const deleteContact = async (id: string) => { if (!useSupabase()) return; };
 
