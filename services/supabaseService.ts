@@ -420,10 +420,8 @@ export const getContacts = async (): Promise<Contact[]> => {
   if (!useSupabase()) return [];
   return fetchWithRetry(async () => {
     const query = 'id, name, type, phone, email, tax_id, address, notes';
-    console.log('🔍 PAYLOAD A GUARDAR:', payload); // ← AGREGAR ESTA LÍNEA
     const { data, error } = await supabase.from('contacts').select(query).order('name');
-    console.log('🔍 RESULTADO:', { data, error }); // ← AGREGAR ESTA LÍNEA
-    if (error) throw error;
+        if (error) throw error;
     return (data || []).map(c => ({ id: c.id, name: c.name, type: c.type, phone: c.phone, email: c.email, taxId: c.tax_id, address: c.address, notes: c.notes }));
   });
 };
