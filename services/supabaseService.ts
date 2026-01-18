@@ -1,4 +1,4 @@
-
+﻿
 import { supabase, isSupabaseConfigured } from '../supabaseClient';
 import { Product, Movement, InventoryStats, CategoryMaster, LocationMaster, UserAccount, Role, Contact, Destination, AuditLog } from '../types';
 
@@ -23,7 +23,7 @@ const fetchWithRetry = async (fetchFn: () => Promise<any>, maxRetries = 5, delay
   throw lastError;
 };
 
-// ============= SISTEMA DE CACHÉ AGRESIVO =============
+// ============= SISTEMA DE CACHÃ‰ AGRESIVO =============
 const CACHE_DURATION = 10 * 60 * 1000; // 10 minutos
 
 const getCached = (key: string) => {
@@ -39,10 +39,10 @@ const getCached = (key: string) => {
       return null;
     }
 
-    console.log(`✅ Usando ${key} desde caché (${Math.floor(age / 1000)}s antiguo)`);
+    console.log(`âœ… Usando ${key} desde cachÃ© (${Math.floor(age / 1000)}s antiguo)`);
     return data;
   } catch (error) {
-    console.error('Error al leer caché:', error);
+    console.error('Error al leer cachÃ©:', error);
     return null;
   }
 };
@@ -53,9 +53,9 @@ const setCache = (key: string, data: any) => {
       data,
       timestamp: Date.now()
     }));
-    console.log(`💾 ${key} guardado en caché`);
+    console.log(`ðŸ’¾ ${key} guardado en cachÃ©`);
   } catch (error) {
-    console.error('Error al guardar caché:', error);
+    console.error('Error al guardar cachÃ©:', error);
   }
 };
 
@@ -64,7 +64,7 @@ const getExpiredCache = (key: string) => {
     const cached = localStorage.getItem(`kardex_cache_${key}`);
     if (!cached) return null;
     const { data } = JSON.parse(cached);
-    console.log(`⚠️ Usando ${key} desde caché EXPIRADO como fallback`);
+    console.log(`âš ï¸ Usando ${key} desde cachÃ© EXPIRADO como fallback`);
     return data;
   } catch (error) {
     return null;
@@ -74,14 +74,14 @@ const getExpiredCache = (key: string) => {
 const clearCache = (key?: string) => {
   if (key) {
     localStorage.removeItem(`kardex_cache_${key}`);
-    console.log(`🧹 Caché de ${key} limpiado`);
+    console.log(`ðŸ§¹ CachÃ© de ${key} limpiado`);
   } else {
     const keys = Object.keys(localStorage).filter(k => k.startsWith('kardex_cache_'));
     keys.forEach(k => localStorage.removeItem(k));
-    console.log('🧹 Todo el caché limpiado');
+    console.log('ðŸ§¹ Todo el cachÃ© limpiado');
   }
 };
-// ============= FIN SISTEMA DE CACHÉ =============
+// ============= FIN SISTEMA DE CACHÃ‰ =============
 
 const getChangedFields = (oldV: any, newV: any): string[] => {
   if (!oldV || !newV) return [];
@@ -101,13 +101,13 @@ const getChangedFields = (oldV: any, newV: any): string[] => {
 const generateChangesSummary = (action: 'CREATE' | 'UPDATE' | 'DELETE', tableName: string, recordName: string, oldValues: any, newValues: any): string => {
   const tableAlias = tableName.replace('_master', '').replace('s', '');
   switch (action) {
-    case 'CREATE': return `Creó el ${tableAlias} "${recordName}"`;
-    case 'DELETE': return `Eliminó el ${tableAlias} "${recordName}"`;
+    case 'CREATE': return `CreÃ³ el ${tableAlias} "${recordName}"`;
+    case 'DELETE': return `EliminÃ³ el ${tableAlias} "${recordName}"`;
     case 'UPDATE':
       const fields = getChangedFields(oldValues, newValues);
-      if (fields.length === 0) return `Realizó una actualización en el ${tableAlias} "${recordName}" sin cambios de datos.`;
-      return `Actualizó los campos: \`${fields.join(', ')}\` del ${tableAlias} "${recordName}"`;
-    default: return `Acción desconocida en "${recordName}"`;
+      if (fields.length === 0) return `RealizÃ³ una actualizaciÃ³n en el ${tableAlias} "${recordName}" sin cambios de datos.`;
+      return `ActualizÃ³ los campos: \`${fields.join(', ')}\` del ${tableAlias} "${recordName}"`;
+    default: return `AcciÃ³n desconocida en "${recordName}"`;
   }
 };
 
@@ -118,8 +118,8 @@ const saveAuditLog = async (logData: Omit<AuditLog, 'id' | 'created_at' | 'user_
     if (!user) return;
     const summary = generateChangesSummary(logData.action, logData.table_name, logData.record_name, oldValues, newValues);
     const logPayload = { ...logData, user_id: user.id, user_email: user.email, old_values: oldValues, new_values: newValues, changes_summary: summary };
-    supabase.from('audit_logs').insert([logPayload]).then(({ error }) => { if (error) console.error('Fallo al guardar en auditoría:', error); });
-  } catch (e) { console.error('Error al obtener usuario para auditoría:', e); }
+    supabase.from('audit_logs').insert([logPayload]).then(({ error }) => { if (error) console.error('Fallo al guardar en auditorÃ­a:', error); });
+  } catch (e) { console.error('Error al obtener usuario para auditorÃ­a:', e); }
 };
 
 const mapToProduct = (p: any): Product => ({
@@ -150,7 +150,7 @@ export const saveUser = async (user: Partial<UserAccount>) => { if (!useSupabase
 export const deleteUser = async (id: string) => { if (!useSupabase()) return; };
 
 export const getLocationsMaster = async (): Promise<LocationMaster[]> => {
-  if (!useSupabase()) return [{ id: '1', name: 'Almacén Principal' }];
+  if (!useSupabase()) return [{ id: '1', name: 'AlmacÃ©n Principal' }];
   return fetchWithRetry(async () => {
     const { data, error } = await supabase.from('locations_master').select('id, name').order('name');
     if (error) throw error;
@@ -232,7 +232,7 @@ export const getProductByCode = async (code: string): Promise<Product | null> =>
 export const getAlertProducts = async (limit = 6): Promise<Product[]> => {
   if (!useSupabase()) return [];
 
-  // Intentar caché primero
+  // Intentar cachÃ© primero
   const cached = getCached('alertProducts');
   if (cached) return cached;
 
@@ -306,7 +306,7 @@ export const saveProduct = async (product: Partial<Product>): Promise<Product> =
       saveAuditLog({ action: 'CREATE', table_name: 'products', record_id: data.id, record_name: data.name }, null, payload);
     }
 
-    // Limpiar caché después de guardar
+    // Limpiar cachÃ© despuÃ©s de guardar
     clearCache('stats');
     clearCache('alertProducts');
 
@@ -338,7 +338,7 @@ export const deleteProduct = async (id: string) => {
     if (error) throw error;
     if (oldData) saveAuditLog({ action: 'DELETE', table_name: 'products', record_id: id, record_name: oldData.name }, oldData, null);
 
-    // Limpiar caché después de eliminar
+    // Limpiar cachÃ© despuÃ©s de eliminar
     clearCache('stats');
     clearCache('alertProducts');
   });
@@ -347,7 +347,7 @@ export const deleteProduct = async (id: string) => {
 export const getMovements = async (limit = 100): Promise<Movement[]> => {
   if (!useSupabase()) return [];
 
-  // Intentar caché primero
+  // Intentar cachÃ© primero
   const cached = getCached('movements');
   if (cached) return cached;
 
@@ -410,7 +410,7 @@ export const registerBatchMovements = async (items: any[]) => {
       saveAuditLog({ action: 'CREATE', table_name: 'movements', record_id: mov.id, record_name: mov.product_name }, null, mov);
     }
 
-    // Limpiar caché después de registrar movimientos
+    // Limpiar cachÃ© despuÃ©s de registrar movimientos
     clearCache('movements');
     clearCache('stats');
   });
@@ -447,8 +447,8 @@ export const saveContact = async (contact: Partial<Contact>) => {
 export const deleteContact = async (id: string) => { if (!useSupabase()) return; };
 
 // ======================================================================
-// FUNCIÓN CORREGIDA PARA supabaseService.ts
-// Reemplaza la función getStats existente (línea ~455)
+// FUNCIÃ“N CORREGIDA PARA supabaseService.ts
+// Reemplaza la funciÃ³n getStats existente (lÃ­nea ~455)
 // ======================================================================
 
 export const getStats = async (): Promise<InventoryStats> => {
@@ -466,12 +466,12 @@ export const getStats = async (): Promise<InventoryStats> => {
 
   const cached = getCached('stats');
   if (cached) {
-    console.log('📊 Stats desde caché:', cached);
+    console.log('ðŸ“Š Stats desde cachÃ©:', cached);
     return cached;
   }
 
   try {
-    console.log('📊 Calculando stats desde BD...');
+    console.log('ðŸ“Š Calculando stats desde BD...');
 
     // Traer TODOS los productos para calcular contadores
     const { data: products, error: productsError } = await supabase
@@ -479,7 +479,7 @@ export const getStats = async (): Promise<InventoryStats> => {
       .select('stock, min_stock, critical_stock');
 
     if (productsError) {
-      console.error('❌ Error al obtener productos:', productsError);
+      console.error('âŒ Error al obtener productos:', productsError);
       throw productsError;
     }
 
@@ -502,7 +502,7 @@ export const getStats = async (): Promise<InventoryStats> => {
       }
     });
 
-    console.log('📊 Contadores calculados:', {
+    console.log('ðŸ“Š Contadores calculados:', {
       lowStockCount,
       criticalStockCount,
       outOfStockCount
@@ -529,22 +529,22 @@ export const getStats = async (): Promise<InventoryStats> => {
       totalValue: 0
     };
 
-    console.log('✅ Stats finales:', result);
+    console.log('âœ… Stats finales:', result);
 
     setCache('stats', result);
     return result;
 
   } catch (error) {
-    console.error('❌ Error en getStats:', error);
+    console.error('âŒ Error en getStats:', error);
 
-    // Intentar devolver caché expirado
+    // Intentar devolver cachÃ© expirado
     const expiredCache = getExpiredCache('stats');
     if (expiredCache) {
-      console.log('⚠️ Usando caché expirado');
+      console.log('âš ï¸ Usando cachÃ© expirado');
       return expiredCache;
     }
 
-    // Último recurso: valores en 0
+    // Ãšltimo recurso: valores en 0
     return {
       totalProducts: 0,
       lowStockCount: 0,
@@ -598,39 +598,39 @@ export const getAuditLogs = async (p = 0, l = 50): Promise<{ data: AuditLog[], c
     return { data: data as AuditLog[] || [], count };
   });
 };
- 
- / /   = = = = = = = = = = = = =   F U N C I O N E S   D E   C O N T A C T O S   ( C R M )   = = = = = = = = = = = = =  
-  
- e x p o r t   c o n s t   g e t C o n t a c t s   =   a s y n c   ( ) :   P r o m i s e < C o n t a c t [ ] >   = >   {  
-     i f   ( ! u s e S u p a b a s e ( ) )   r e t u r n   [ ] ;  
-     r e t u r n   f e t c h W i t h R e t r y ( a s y n c   ( )   = >   {  
-         c o n s t   {   d a t a ,   e r r o r   }   =   a w a i t   s u p a b a s e  
-             . f r o m ( ' c o n t a c t s ' )  
-             . s e l e c t ( ' * ' )  
-             . o r d e r ( ' n a m e ' ,   {   a s c e n d i n g :   t r u e } ) ;  
-         i f   ( e r r o r )   t h r o w   e r r o r ;  
-         r e t u r n   d a t a   a s   C o n t a c t [ ]   | |   [ ] ;  
-     } ) ;  
- } ;  
-  
- e x p o r t   c o n s t   s a v e C o n t a c t   =   a s y n c   ( c o n t a c t :   C o n t a c t )   = >   {  
-     i f   ( ! u s e S u p a b a s e ( ) )   r e t u r n ;  
-     r e t u r n   f e t c h W i t h R e t r y ( a s y n c   ( )   = >   {  
-         c o n s t   {   e r r o r   }   =   a w a i t   s u p a b a s e  
-             . f r o m ( ' c o n t a c t s ' )  
-             . u p s e r t ( c o n t a c t ) ;  
-         i f   ( e r r o r )   t h r o w   e r r o r ;  
-     } ) ;  
- } ;  
-  
- e x p o r t   c o n s t   d e l e t e C o n t a c t   =   a s y n c   ( i d :   s t r i n g )   = >   {  
-     i f   ( ! u s e S u p a b a s e ( ) )   r e t u r n ;  
-     r e t u r n   f e t c h W i t h R e t r y ( a s y n c   ( )   = >   {  
-         c o n s t   {   e r r o r   }   =   a w a i t   s u p a b a s e  
-             . f r o m ( ' c o n t a c t s ' )  
-             . d e l e t e ( )  
-             . e q ( ' i d ' ,   i d ) ;  
-         i f   ( e r r o r )   t h r o w   e r r o r ;  
-     } ) ;  
- } ;  
- 
+
+// ============= FUNCIONES DE CONTACTOS (CRM) =============
+
+export const getContacts = async (): Promise<Contact[]> => {
+  if (!useSupabase()) return [];
+  return fetchWithRetry(async () => {
+    const { data, error } = await supabase
+      .from('contacts')
+      .select('*')
+      .order('name', { ascending: true});
+    if (error) throw error;
+    return data as Contact[] || [];
+  });
+};
+
+export const saveContact = async (contact: Contact) => {
+  if (!useSupabase()) return;
+  return fetchWithRetry(async () => {
+    const { error } = await supabase
+      .from('contacts')
+      .upsert(contact);
+    if (error) throw error;
+  });
+};
+
+export const deleteContact = async (id: string) => {
+  if (!useSupabase()) return;
+  return fetchWithRetry(async () => {
+    const { error } = await supabase
+      .from('contacts')
+      .delete()
+      .eq('id', id);
+    if (error) throw error;
+  });
+};
+
