@@ -155,12 +155,12 @@ export const saveUser = async (user: Partial<UserAccount>) => {
       const { data: oldData } = await supabase.from('profiles').select('*').eq('id', id).single();
       const { error } = await supabase.from('profiles').update(payload).eq('id', id);
       if (error) throw error;
-      saveAuditLog({ action: 'UPDATE', table_name: 'profiles', record_id: id, record_name: email || 'N/A' }, oldData, payload);
+      saveAuditLog({ action: 'UPDATE', table_name: 'users', record_id: id, record_name: email || 'N/A' }, oldData, payload);
     } else {
       const { data, error } = await supabase.from('profiles').insert([payload]).select().single();
       if (error) throw error;
       if (data) {
-        saveAuditLog({ action: 'CREATE', table_name: 'profiles', record_id: data.id, record_name: data.email }, null, payload);
+        saveAuditLog({ action: 'CREATE', table_name: 'users', record_id: data.id, record_name: data.email }, null, payload);
       }
     }
   });
@@ -173,7 +173,7 @@ export const deleteUser = async (id: string) => {
     const { error } = await supabase.from('profiles').delete().eq('id', id);
     if (error) throw error;
     if (oldData) {
-      saveAuditLog({ action: 'DELETE', table_name: 'profiles', record_id: id, record_name: oldData.email }, oldData, null);
+      saveAuditLog({ action: 'DELETE', table_name: 'users', record_id: id, record_name: oldData.email }, oldData, null);
     }
   });
 };
@@ -197,12 +197,12 @@ export const saveLocationMaster = async (loc: Partial<LocationMaster>) => {
       const { data: oldData } = await supabase.from('locations_master').select('*').eq('id', id).single();
       const { error } = await supabase.from('locations_master').update(payload).eq('id', id);
       if (error) throw error;
-      saveAuditLog({ action: 'UPDATE', table_name: 'locations_master', record_id: id, record_name: name || 'N/A' }, oldData, payload);
+      saveAuditLog({ action: 'UPDATE', table_name: 'locations', record_id: id, record_name: name || 'N/A' }, oldData, payload);
     } else {
       const { data, error } = await supabase.from('locations_master').insert([payload]).select().single();
       if (error) throw error;
       if (data) {
-        saveAuditLog({ action: 'CREATE', table_name: 'locations_master', record_id: data.id, record_name: data.name }, null, payload);
+        saveAuditLog({ action: 'CREATE', table_name: 'locations', record_id: data.id, record_name: data.name }, null, payload);
       }
     }
   });
@@ -215,7 +215,7 @@ export const deleteLocationMaster = async (id: string) => {
     const { error } = await supabase.from('locations_master').delete().eq('id', id);
     if (error) throw error;
     if (oldData) {
-      saveAuditLog({ action: 'DELETE', table_name: 'locations_master', record_id: id, record_name: oldData.name }, oldData, null);
+      saveAuditLog({ action: 'DELETE', table_name: 'locations', record_id: id, record_name: oldData.name }, oldData, null);
     }
   });
 };
@@ -233,18 +233,18 @@ export const saveCategoryMaster = async (cat: Partial<CategoryMaster>) => {
   if (!useSupabase()) return;
   return fetchWithRetry(async () => {
     const { id, name } = cat;
-    const payload = { name };
+    const payload = { name: name?.toUpperCase() };
     
     if (id) {
       const { data: oldData } = await supabase.from('categories_master').select('*').eq('id', id).single();
       const { error } = await supabase.from('categories_master').update(payload).eq('id', id);
       if (error) throw error;
-      saveAuditLog({ action: 'UPDATE', table_name: 'categories_master', record_id: id, record_name: name || 'N/A' }, oldData, payload);
+      saveAuditLog({ action: 'UPDATE', table_name: 'categories', record_id: id, record_name: name || 'N/A' }, oldData, payload);
     } else {
       const { data, error } = await supabase.from('categories_master').insert([payload]).select().single();
       if (error) throw error;
       if (data) {
-        saveAuditLog({ action: 'CREATE', table_name: 'categories_master', record_id: data.id, record_name: data.name }, null, payload);
+        saveAuditLog({ action: 'CREATE', table_name: 'categories', record_id: data.id, record_name: data.name }, null, payload);
       }
     }
   });
@@ -257,7 +257,7 @@ export const deleteCategoryMaster = async (id: string) => {
     const { error } = await supabase.from('categories_master').delete().eq('id', id);
     if (error) throw error;
     if (oldData) {
-      saveAuditLog({ action: 'DELETE', table_name: 'categories_master', record_id: id, record_name: oldData.name }, oldData, null);
+      saveAuditLog({ action: 'DELETE', table_name: 'categories', record_id: id, record_name: oldData.name }, oldData, null);
     }
   });
 };
@@ -320,7 +320,6 @@ export const getProductByCode = async (code: string): Promise<Product | null> =>
 export const getAlertProducts = async (limit = 6): Promise<Product[]> => {
   if (!useSupabase()) return [];
 
-  // Intentar caché primero
   const cached = getCached('alertProducts');
   if (cached) return cached;
 
@@ -394,7 +393,6 @@ export const saveProduct = async (product: Partial<Product>): Promise<Product> =
       saveAuditLog({ action: 'CREATE', table_name: 'products', record_id: data.id, record_name: data.name }, null, payload);
     }
 
-    // Limpiar caché después de guardar
     clearCache('stats');
     clearCache('alertProducts');
 
@@ -426,7 +424,6 @@ export const deleteProduct = async (id: string) => {
     if (error) throw error;
     if (oldData) saveAuditLog({ action: 'DELETE', table_name: 'products', record_id: id, record_name: oldData.name }, oldData, null);
 
-    // Limpiar caché después de eliminar
     clearCache('stats');
     clearCache('alertProducts');
   });
@@ -435,7 +432,6 @@ export const deleteProduct = async (id: string) => {
 export const getMovements = async (limit = 100): Promise<Movement[]> => {
   if (!useSupabase()) return [];
 
-  // Intentar caché primero
   const cached = getCached('movements');
   if (cached) return cached;
 
@@ -498,7 +494,6 @@ export const registerBatchMovements = async (items: any[]) => {
       saveAuditLog({ action: 'CREATE', table_name: 'movements', record_id: mov.id, record_name: mov.product_name }, null, mov);
     }
 
-    // Limpiar caché después de registrar movimientos
     clearCache('movements');
     clearCache('stats');
   });
@@ -541,8 +536,8 @@ export const saveContact = async (contact: Partial<Contact>) => {
     
     if (id) {
       const { data: oldData } = await supabase.from('contacts').select('*').eq('id', id).single();
-      const { error } = await supabase.from('contacts').update(payload).eq('id', id);
-      console.log('🔵 UPDATE:', { error });
+      const { data, error } = await supabase.from('contacts').update(payload).eq('id', id).select().single();
+      console.log('🔵 UPDATE:', { data, error });
       if (error) throw error;
       saveAuditLog({ action: 'UPDATE', table_name: 'contacts', record_id: id, record_name: payload.name || 'N/A' }, oldData, payload);
     } else {
@@ -594,7 +589,6 @@ export const getStats = async (): Promise<InventoryStats> => {
   try {
     console.log('📊 Calculando stats desde BD...');
 
-    // Traer TODOS los productos para calcular contadores
     const { data: products, error: productsError } = await supabase
       .from('products')
       .select('stock, min_stock, critical_stock');
@@ -604,7 +598,6 @@ export const getStats = async (): Promise<InventoryStats> => {
       throw productsError;
     }
 
-    // Calcular contadores
     let lowStockCount = 0;
     let criticalStockCount = 0;
     let outOfStockCount = 0;
@@ -629,7 +622,6 @@ export const getStats = async (): Promise<InventoryStats> => {
       outOfStockCount
     });
 
-    // Counts de otras tablas
     const [
       { count: totalProducts },
       { count: totalMovements },
@@ -658,14 +650,12 @@ export const getStats = async (): Promise<InventoryStats> => {
   } catch (error) {
     console.error('❌ Error en getStats:', error);
 
-    // Intentar devolver caché expirado
     const expiredCache = getExpiredCache('stats');
     if (expiredCache) {
       console.log('⚠️ Usando caché expirado');
       return expiredCache;
     }
 
-    // Último recurso: valores en 0
     return {
       totalProducts: 0,
       lowStockCount: 0,
@@ -678,8 +668,6 @@ export const getStats = async (): Promise<InventoryStats> => {
   }
 };
 
-
-// ============= DESTINOS =============
 export const getDestinos = async (): Promise<Destination[]> => {
   if (!useSupabase()) return [];
   return fetchWithRetry(async () => {
