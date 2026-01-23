@@ -535,22 +535,87 @@ export const saveContact = async (contact: Partial<Contact>) => {
     console.log('🔵 PAYLOAD:', payload);
     
     if (id) {
-      const { data: oldData } = await supabase.from('contacts').select('*').eq('id', id).single();
-      const { data, error } = await supabase.from('contacts').update(payload).eq('id', id).select().single();
-      console.log('🔵 UPDATE:', { data, error });
-      if (error) throw error;
-      saveAuditLog({ action: 'UPDATE', table_name: 'contacts', record_id: id, record_name: payload.name || 'N/A' }, oldData, payload);
+      console.log('🔵 Intentando editar contacto con ID:', id);
+      
+      const { data: existingContact, error: checkError } = await supabase
+        .from('contacts')
+        .select('*')
+        .eq('id', id)
+        .maybeSingle();
+      
+      if (checkError) {
+        console.error('❌ Error al verificar contacto:', checkError);
+        throw checkError;
+      }
+      
+      if (!existingContact) {
+        console.warn('⚠️ El contacto no existe, creando uno nuevo...');
+        const { data: newData, error: insertError } = await supabase
+          .from('contacts')
+          .insert([payload])
+          .select()
+          .single();
+        
+        if (insertError) {
+          console.error('❌ ERROR al crear:', insertError);
+          throw insertError;
+        }
+        
+        console.log('✅ CREADO:', newData);
+        saveAuditLog({ 
+          action: 'CREATE', 
+          table_name: 'contacts', 
+          record_id: newData.id, 
+          record_name: newData.name 
+        }, null, payload);
+        return;
+      }
+      
+      const { data: updatedData, error: updateError } = await supabase
+        .from('contacts')
+        .update(payload)
+        .eq('id', id)
+        .select()
+        .single();
+      
+      console.log('🔵 UPDATE RESULT:', { data: updatedData, error: updateError });
+      
+      if (updateError) {
+        console.error('❌ ERROR al actualizar:', updateError);
+        throw updateError;
+      }
+      
+      console.log('✅ ACTUALIZADO:', updatedData);
+      saveAuditLog({ 
+        action: 'UPDATE', 
+        table_name: 'contacts', 
+        record_id: id, 
+        record_name: payload.name || 'N/A' 
+      }, existingContact, payload);
+      
     } else {
-      const { data, error } = await supabase.from('contacts').insert([payload]).select().single();
-      console.log('🔵 INSERT:', { data, error });
+      console.log('🔵 Creando contacto nuevo...');
+      
+      const { data, error } = await supabase
+        .from('contacts')
+        .insert([payload])
+        .select()
+        .single();
+      
+      console.log('🔵 INSERT RESULT:', { data, error });
+      
       if (error) {
-        console.error('❌ ERROR:', error);
+        console.error('❌ ERROR al crear:', error);
         throw error;
       }
-      if (data) {
-        console.log('✅ GUARDADO:', data);
-        saveAuditLog({ action: 'CREATE', table_name: 'contacts', record_id: data.id, record_name: data.name }, null, payload);
-      }
+      
+      console.log('✅ CREADO:', data);
+      saveAuditLog({ 
+        action: 'CREATE', 
+        table_name: 'contacts', 
+        record_id: data.id, 
+        record_name: data.name 
+      }, null, payload);
     }
   });
 };
