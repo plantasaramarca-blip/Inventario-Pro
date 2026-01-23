@@ -1,5 +1,4 @@
-﻿
-import { supabase, isSupabaseConfigured } from '../supabaseClient';
+﻿import { supabase, isSupabaseConfigured } from '../supabaseClient';
 import { Product, Movement, InventoryStats, CategoryMaster, LocationMaster, UserAccount, Role, Contact, Destination, AuditLog } from '../types';
 
 const useSupabase = () => isSupabaseConfigured;
@@ -23,7 +22,7 @@ const fetchWithRetry = async (fetchFn: () => Promise<any>, maxRetries = 5, delay
   throw lastError;
 };
 
-// ============= SISTEMA DE CACHÃ‰ AGRESIVO =============
+// ============= SISTEMA DE CACHÉ AGRESIVO =============
 const CACHE_DURATION = 10 * 60 * 1000; // 10 minutos
 
 const getCached = (key: string) => {
@@ -39,10 +38,10 @@ const getCached = (key: string) => {
       return null;
     }
 
-    console.log(`âœ… Usando ${key} desde cachÃ© (${Math.floor(age / 1000)}s antiguo)`);
+    console.log(`✅ Usando ${key} desde caché (${Math.floor(age / 1000)}s antiguo)`);
     return data;
   } catch (error) {
-    console.error('Error al leer cachÃ©:', error);
+    console.error('Error al leer caché:', error);
     return null;
   }
 };
@@ -53,9 +52,9 @@ const setCache = (key: string, data: any) => {
       data,
       timestamp: Date.now()
     }));
-    console.log(`ðŸ’¾ ${key} guardado en cachÃ©`);
+    console.log(`💾 ${key} guardado en caché`);
   } catch (error) {
-    console.error('Error al guardar cachÃ©:', error);
+    console.error('Error al guardar caché:', error);
   }
 };
 
@@ -64,7 +63,7 @@ const getExpiredCache = (key: string) => {
     const cached = localStorage.getItem(`kardex_cache_${key}`);
     if (!cached) return null;
     const { data } = JSON.parse(cached);
-    console.log(`âš ï¸ Usando ${key} desde cachÃ© EXPIRADO como fallback`);
+    console.log(`⚠️ Usando ${key} desde caché EXPIRADO como fallback`);
     return data;
   } catch (error) {
     return null;
@@ -74,14 +73,14 @@ const getExpiredCache = (key: string) => {
 const clearCache = (key?: string) => {
   if (key) {
     localStorage.removeItem(`kardex_cache_${key}`);
-    console.log(`ðŸ§¹ CachÃ© de ${key} limpiado`);
+    console.log(`🧹 Caché de ${key} limpiado`);
   } else {
     const keys = Object.keys(localStorage).filter(k => k.startsWith('kardex_cache_'));
     keys.forEach(k => localStorage.removeItem(k));
-    console.log('ðŸ§¹ Todo el cachÃ© limpiado');
+    console.log('🧹 Todo el caché limpiado');
   }
 };
-// ============= FIN SISTEMA DE CACHÃ‰ =============
+// ============= FIN SISTEMA DE CACHÉ =============
 
 const getChangedFields = (oldV: any, newV: any): string[] => {
   if (!oldV || !newV) return [];
@@ -101,13 +100,13 @@ const getChangedFields = (oldV: any, newV: any): string[] => {
 const generateChangesSummary = (action: 'CREATE' | 'UPDATE' | 'DELETE', tableName: string, recordName: string, oldValues: any, newValues: any): string => {
   const tableAlias = tableName.replace('_master', '').replace('s', '');
   switch (action) {
-    case 'CREATE': return `CreÃ³ el ${tableAlias} "${recordName}"`;
-    case 'DELETE': return `EliminÃ³ el ${tableAlias} "${recordName}"`;
+    case 'CREATE': return `Creó el ${tableAlias} "${recordName}"`;
+    case 'DELETE': return `Eliminó el ${tableAlias} "${recordName}"`;
     case 'UPDATE':
       const fields = getChangedFields(oldValues, newValues);
-      if (fields.length === 0) return `RealizÃ³ una actualizaciÃ³n en el ${tableAlias} "${recordName}" sin cambios de datos.`;
-      return `ActualizÃ³ los campos: \`${fields.join(', ')}\` del ${tableAlias} "${recordName}"`;
-    default: return `AcciÃ³n desconocida en "${recordName}"`;
+      if (fields.length === 0) return `Realizó una actualización en el ${tableAlias} "${recordName}" sin cambios de datos.`;
+      return `Actualizó los campos: \`${fields.join(', ')}\` del ${tableAlias} "${recordName}"`;
+    default: return `Acción desconocida en "${recordName}"`;
   }
 };
 
@@ -118,8 +117,8 @@ const saveAuditLog = async (logData: Omit<AuditLog, 'id' | 'created_at' | 'user_
     if (!user) return;
     const summary = generateChangesSummary(logData.action, logData.table_name, logData.record_name, oldValues, newValues);
     const logPayload = { ...logData, user_id: user.id, user_email: user.email, old_values: oldValues, new_values: newValues, changes_summary: summary };
-    supabase.from('audit_logs').insert([logPayload]).then(({ error }) => { if (error) console.error('Fallo al guardar en auditorÃ­a:', error); });
-  } catch (e) { console.error('Error al obtener usuario para auditorÃ­a:', e); }
+    supabase.from('audit_logs').insert([logPayload]).then(({ error }) => { if (error) console.error('Fallo al guardar en auditoría:', error); });
+  } catch (e) { console.error('Error al obtener usuario para auditoría:', e); }
 };
 
 const mapToProduct = (p: any): Product => ({
@@ -146,11 +145,41 @@ export const getUsers = async (): Promise<UserAccount[]> => {
   });
 };
 
-export const saveUser = async (user: Partial<UserAccount>) => { if (!useSupabase()) return; };
-export const deleteUser = async (id: string) => { if (!useSupabase()) return; };
+export const saveUser = async (user: Partial<UserAccount>) => {
+  if (!useSupabase()) return;
+  return fetchWithRetry(async () => {
+    const { id, email, role } = user;
+    const payload = { email: email?.toLowerCase(), role };
+    
+    if (id) {
+      const { data: oldData } = await supabase.from('profiles').select('*').eq('id', id).single();
+      const { error } = await supabase.from('profiles').update(payload).eq('id', id);
+      if (error) throw error;
+      saveAuditLog({ action: 'UPDATE', table_name: 'profiles', record_id: id, record_name: email || 'N/A' }, oldData, payload);
+    } else {
+      const { data, error } = await supabase.from('profiles').insert([payload]).select().single();
+      if (error) throw error;
+      if (data) {
+        saveAuditLog({ action: 'CREATE', table_name: 'profiles', record_id: data.id, record_name: data.email }, null, payload);
+      }
+    }
+  });
+};
+
+export const deleteUser = async (id: string) => {
+  if (!useSupabase()) return;
+  return fetchWithRetry(async () => {
+    const { data: oldData } = await supabase.from('profiles').select('*').eq('id', id).single();
+    const { error } = await supabase.from('profiles').delete().eq('id', id);
+    if (error) throw error;
+    if (oldData) {
+      saveAuditLog({ action: 'DELETE', table_name: 'profiles', record_id: id, record_name: oldData.email }, oldData, null);
+    }
+  });
+};
 
 export const getLocationsMaster = async (): Promise<LocationMaster[]> => {
-  if (!useSupabase()) return [{ id: '1', name: 'AlmacÃ©n Principal' }];
+  if (!useSupabase()) return [{ id: '1', name: 'Almacén Principal' }];
   return fetchWithRetry(async () => {
     const { data, error } = await supabase.from('locations_master').select('id, name').order('name');
     if (error) throw error;
@@ -158,8 +187,38 @@ export const getLocationsMaster = async (): Promise<LocationMaster[]> => {
   });
 };
 
-export const saveLocationMaster = async (loc: Partial<LocationMaster>) => { if (!useSupabase()) return; };
-export const deleteLocationMaster = async (id: string) => { if (!useSupabase()) return; };
+export const saveLocationMaster = async (loc: Partial<LocationMaster>) => {
+  if (!useSupabase()) return;
+  return fetchWithRetry(async () => {
+    const { id, name } = loc;
+    const payload = { name };
+    
+    if (id) {
+      const { data: oldData } = await supabase.from('locations_master').select('*').eq('id', id).single();
+      const { error } = await supabase.from('locations_master').update(payload).eq('id', id);
+      if (error) throw error;
+      saveAuditLog({ action: 'UPDATE', table_name: 'locations_master', record_id: id, record_name: name || 'N/A' }, oldData, payload);
+    } else {
+      const { data, error } = await supabase.from('locations_master').insert([payload]).select().single();
+      if (error) throw error;
+      if (data) {
+        saveAuditLog({ action: 'CREATE', table_name: 'locations_master', record_id: data.id, record_name: data.name }, null, payload);
+      }
+    }
+  });
+};
+
+export const deleteLocationMaster = async (id: string) => {
+  if (!useSupabase()) return;
+  return fetchWithRetry(async () => {
+    const { data: oldData } = await supabase.from('locations_master').select('*').eq('id', id).single();
+    const { error } = await supabase.from('locations_master').delete().eq('id', id);
+    if (error) throw error;
+    if (oldData) {
+      saveAuditLog({ action: 'DELETE', table_name: 'locations_master', record_id: id, record_name: oldData.name }, oldData, null);
+    }
+  });
+};
 
 export const getCategoriesMaster = async (): Promise<CategoryMaster[]> => {
   if (!useSupabase()) return [{ id: '1', name: 'General' }];
@@ -170,8 +229,38 @@ export const getCategoriesMaster = async (): Promise<CategoryMaster[]> => {
   });
 };
 
-export const saveCategoryMaster = async (cat: Partial<CategoryMaster>) => { if (!useSupabase()) return; };
-export const deleteCategoryMaster = async (id: string) => { if (!useSupabase()) return; };
+export const saveCategoryMaster = async (cat: Partial<CategoryMaster>) => {
+  if (!useSupabase()) return;
+  return fetchWithRetry(async () => {
+    const { id, name } = cat;
+    const payload = { name };
+    
+    if (id) {
+      const { data: oldData } = await supabase.from('categories_master').select('*').eq('id', id).single();
+      const { error } = await supabase.from('categories_master').update(payload).eq('id', id);
+      if (error) throw error;
+      saveAuditLog({ action: 'UPDATE', table_name: 'categories_master', record_id: id, record_name: name || 'N/A' }, oldData, payload);
+    } else {
+      const { data, error } = await supabase.from('categories_master').insert([payload]).select().single();
+      if (error) throw error;
+      if (data) {
+        saveAuditLog({ action: 'CREATE', table_name: 'categories_master', record_id: data.id, record_name: data.name }, null, payload);
+      }
+    }
+  });
+};
+
+export const deleteCategoryMaster = async (id: string) => {
+  if (!useSupabase()) return;
+  return fetchWithRetry(async () => {
+    const { data: oldData } = await supabase.from('categories_master').select('*').eq('id', id).single();
+    const { error } = await supabase.from('categories_master').delete().eq('id', id);
+    if (error) throw error;
+    if (oldData) {
+      saveAuditLog({ action: 'DELETE', table_name: 'categories_master', record_id: id, record_name: oldData.name }, oldData, null);
+    }
+  });
+};
 
 const FULL_PRODUCT_QUERY = 'id, code, name, brand, size, model, category, location, stock, min_stock, critical_stock, precio_compra, precio_venta, moneda, unit, image_url, updated_at';
 const LIST_PRODUCT_QUERY = 'id, code, name, stock, location, min_stock, critical_stock, precio_compra, moneda, unit, model, brand, size, category, precio_venta, image_url';
@@ -210,7 +299,6 @@ export const getProducts = async (options?: { page?: number; pageSize?: number; 
     return { products: (data || []).map(mapToProduct), count };
   });
 };
-
 export const getProductById = async (id: string): Promise<Product | null> => {
   if (!useSupabase()) return null;
   return fetchWithRetry(async () => {
@@ -232,7 +320,7 @@ export const getProductByCode = async (code: string): Promise<Product | null> =>
 export const getAlertProducts = async (limit = 6): Promise<Product[]> => {
   if (!useSupabase()) return [];
 
-  // Intentar cachÃ© primero
+  // Intentar caché primero
   const cached = getCached('alertProducts');
   if (cached) return cached;
 
@@ -306,7 +394,7 @@ export const saveProduct = async (product: Partial<Product>): Promise<Product> =
       saveAuditLog({ action: 'CREATE', table_name: 'products', record_id: data.id, record_name: data.name }, null, payload);
     }
 
-    // Limpiar cachÃ© despuÃ©s de guardar
+    // Limpiar caché después de guardar
     clearCache('stats');
     clearCache('alertProducts');
 
@@ -338,7 +426,7 @@ export const deleteProduct = async (id: string) => {
     if (error) throw error;
     if (oldData) saveAuditLog({ action: 'DELETE', table_name: 'products', record_id: id, record_name: oldData.name }, oldData, null);
 
-    // Limpiar cachÃ© despuÃ©s de eliminar
+    // Limpiar caché después de eliminar
     clearCache('stats');
     clearCache('alertProducts');
   });
@@ -347,7 +435,7 @@ export const deleteProduct = async (id: string) => {
 export const getMovements = async (limit = 100): Promise<Movement[]> => {
   if (!useSupabase()) return [];
 
-  // Intentar cachÃ© primero
+  // Intentar caché primero
   const cached = getCached('movements');
   if (cached) return cached;
 
@@ -410,7 +498,7 @@ export const registerBatchMovements = async (items: any[]) => {
       saveAuditLog({ action: 'CREATE', table_name: 'movements', record_id: mov.id, record_name: mov.product_name }, null, mov);
     }
 
-    // Limpiar cachÃ© despuÃ©s de registrar movimientos
+    // Limpiar caché después de registrar movimientos
     clearCache('movements');
     clearCache('stats');
   });
@@ -472,14 +560,17 @@ export const saveContact = async (contact: Partial<Contact>) => {
   });
 };
 
-export const deleteContact = async (id: string) => { 
-  if (!useSupabase()) return; 
+export const deleteContact = async (id: string) => {
+  if (!useSupabase()) return;
+  return fetchWithRetry(async () => {
+    const { data: oldData } = await supabase.from('contacts').select('*').eq('id', id).single();
+    const { error } = await supabase.from('contacts').delete().eq('id', id);
+    if (error) throw error;
+    if (oldData) {
+      saveAuditLog({ action: 'DELETE', table_name: 'contacts', record_id: id, record_name: oldData.name }, oldData, null);
+    }
+  });
 };
-
-// ======================================================================
-// FUNCIÃ“N CORREGIDA PARA supabaseService.ts
-// Reemplaza la funciÃ³n getStats existente (lÃ­nea ~455)
-// ======================================================================
 
 export const getStats = async (): Promise<InventoryStats> => {
   if (!useSupabase()) {
@@ -496,12 +587,12 @@ export const getStats = async (): Promise<InventoryStats> => {
 
   const cached = getCached('stats');
   if (cached) {
-    console.log('ðŸ“Š Stats desde cachÃ©:', cached);
+    console.log('📊 Stats desde caché:', cached);
     return cached;
   }
 
   try {
-    console.log('ðŸ“Š Calculando stats desde BD...');
+    console.log('📊 Calculando stats desde BD...');
 
     // Traer TODOS los productos para calcular contadores
     const { data: products, error: productsError } = await supabase
@@ -509,7 +600,7 @@ export const getStats = async (): Promise<InventoryStats> => {
       .select('stock, min_stock, critical_stock');
 
     if (productsError) {
-      console.error('âŒ Error al obtener productos:', productsError);
+      console.error('❌ Error al obtener productos:', productsError);
       throw productsError;
     }
 
@@ -532,7 +623,7 @@ export const getStats = async (): Promise<InventoryStats> => {
       }
     });
 
-    console.log('ðŸ“Š Contadores calculados:', {
+    console.log('📊 Contadores calculados:', {
       lowStockCount,
       criticalStockCount,
       outOfStockCount
@@ -559,22 +650,22 @@ export const getStats = async (): Promise<InventoryStats> => {
       totalValue: 0
     };
 
-    console.log('âœ… Stats finales:', result);
+    console.log('✅ Stats finales:', result);
 
     setCache('stats', result);
     return result;
 
   } catch (error) {
-    console.error('âŒ Error en getStats:', error);
+    console.error('❌ Error en getStats:', error);
 
-    // Intentar devolver cachÃ© expirado
+    // Intentar devolver caché expirado
     const expiredCache = getExpiredCache('stats');
     if (expiredCache) {
-      console.log('âš ï¸ Usando cachÃ© expirado');
+      console.log('⚠️ Usando caché expirado');
       return expiredCache;
     }
 
-    // Ãšltimo recurso: valores en 0
+    // Último recurso: valores en 0
     return {
       totalProducts: 0,
       lowStockCount: 0,
