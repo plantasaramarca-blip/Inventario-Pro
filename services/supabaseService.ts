@@ -375,7 +375,8 @@ export const getAlertProducts = async (limit = 6): Promise<Product[]> => {
 export const saveProduct = async (product: Partial<Product>): Promise<Product> => {
   if (!useSupabase()) return product as Product;
   return fetchWithRetry(async () => {
-    const { id, minStock, criticalStock, purchasePrice, salePrice, imageUrl, updatedAt, ...rest } = product;
+    // ✅ ÚNICO CAMBIO: Agregamos documentType aquí para filtrarlo
+    const { id, minStock, criticalStock, purchasePrice, salePrice, imageUrl, updatedAt, documentType, ...rest } = product;
     const payload: any = { ...rest, min_stock: minStock, critical_stock: criticalStock, precio_compra: purchasePrice, precio_venta: salePrice, image_url: imageUrl, updated_at: new Date().toISOString() };
     Object.keys(payload).forEach(key => payload[key] === undefined && delete payload[key]);
 
