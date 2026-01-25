@@ -643,32 +643,6 @@ export const Inventory: React.FC<InventoryProps> = ({ role, userEmail, onNavigat
                     </div>
                   </div>
 
-                  {/* Tipo y Número de Documento */}
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2 block">Tipo de Documento</label>
-                      <select
-                        value={formData.documentType || ''}
-                        onChange={e => setFormData({ ...formData, documentType: e.target.value as any })}
-                        className="w-full px-3 py-2.5 bg-white rounded-xl outline-none font-bold text-xs text-slate-700 border border-slate-200 focus:border-indigo-300 transition-all"
-                      >
-                        <option value="">SIN ESPECIFICAR</option>
-                        <option value="GUIA">GUÍA</option>
-                        <option value="FACTURA">FACTURA</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2 block">Nº de Documento</label>
-                      <input
-                        type="text"
-                        value={formData.documentNumber || ''}
-                        onChange={e => setFormData({ ...formData, documentNumber: e.target.value })}
-                        className="w-full px-3 py-2.5 bg-slate-100 rounded-xl outline-none font-bold text-xs text-slate-700 focus:ring-2 focus:ring-indigo-500/20 transition-all"
-                        placeholder="001-0001234"
-                      />
-                    </div>
-                  </div>
-
                   {/* RIGHT COLUMN: Details (8/12) */}
                   <div className="lg:col-span-8 flex flex-col gap-5">
 
@@ -718,6 +692,32 @@ export const Inventory: React.FC<InventoryProps> = ({ role, userEmail, onNavigat
                           onChange={e => setFormData({ ...formData, model: e.target.value })}
                           className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl outline-none font-semibold text-sm text-slate-700 focus:bg-white focus:border-indigo-300 transition-all"
                           placeholder="Modelo..."
+                        />
+                      </div>
+                    </div>
+
+                    {/* Tipo y Número de Documento */}
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2 block">Tipo de Documento</label>
+                        <select
+                          value={formData.documentType || ''}
+                          onChange={e => setFormData({ ...formData, documentType: e.target.value as any })}
+                          className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl outline-none font-semibold text-sm text-slate-700 focus:bg-white focus:border-indigo-300 transition-all"
+                        >
+                          <option value="">SIN ESPECIFICAR</option>
+                          <option value="GUIA">GUÍA</option>
+                          <option value="FACTURA">FACTURA</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2 block">Nº de Documento</label>
+                        <input
+                          type="text"
+                          value={formData.documentNumber || ''}
+                          onChange={e => setFormData({ ...formData, documentNumber: e.target.value })}
+                          className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl outline-none font-semibold text-sm text-slate-700 focus:bg-white focus:border-indigo-300 transition-all"
+                          placeholder="001-0001234"
                         />
                       </div>
                     </div>
