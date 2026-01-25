@@ -202,12 +202,21 @@ export const Kardex: React.FC<KardexProps> = ({ role, userEmail, initialState, o
       await api.registerBatchMovements(batchPayload);
 
       if (type === 'SALIDA') {
+        // Calcular correlativo para nuevo registro (conteo actual + 1)
+        const startOfDay = new Date();
+        startOfDay.setHours(0, 0, 0, 0);
+        const todaysCount = movements.filter(m =>
+          m.type === 'SALIDA' && new Date(m.date) >= startOfDay
+        ).length;
+        const newCorrelative = (todaysCount + 1).toString();
+
         setDispatchNoteData({
           items: cartItems,
           destination: destinoObj,
           transportista: carriedBy,
           observaciones: reason,
           responsable: userEmail,
+          customId: newCorrelative
         });
       }
 
@@ -567,6 +576,26 @@ export const Kardex: React.FC<KardexProps> = ({ role, userEmail, initialState, o
                           onClick={() => {
                             const product = products.find(p => p.id === m.productId);
                             const destino = destinos.find(d => d.nombre === m.destinationName);
+                            // Calcular correlativo diario para reimpresión
+                            const movementDate = new Date(m.date);
+                            const startOfDay = new Date(movementDate);
+                            startOfDay.setHours(0, 0, 0, 0);
+                            const endOfDay = new Date(movementDate);
+                            endOfDay.setHours(23, 59, 59, 999);
+
+                            // Filtrar salidas de ese día
+                            const todaysOutputs = movements
+                              .filter(mov =>
+                                mov.type === 'SALIDA' &&
+                                new Date(mov.date) >= startOfDay &&
+                                new Date(mov.date) <= endOfDay
+                              )
+                              .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+                            // Encontrar índice (1-based)
+                            const index = todaysOutputs.findIndex(mov => mov.id === m.id);
+                            const correlative = index !== -1 ? (index + 1).toString() : '1';
+
                             setDispatchNoteData({
                               items: [{
                                 id: m.productId,
@@ -580,6 +609,7 @@ export const Kardex: React.FC<KardexProps> = ({ role, userEmail, initialState, o
                               transportista: m.carriedBy || '',
                               observaciones: m.reason || '',
                               responsable: m.dispatcher,
+                              customId: correlative
                             });
                           }}
                           className="p-2 hover:bg-indigo-50 rounded-lg text-indigo-600 hover:text-indigo-700 transition-colors"

@@ -8,28 +8,30 @@ interface DispatchNoteProps {
     transportista: string;
     observaciones: string;
     responsable?: string;
+    customId?: string;
   };
   onClose: () => void;
 }
 
 export const DispatchNote: React.FC<DispatchNoteProps> = ({ data, onClose }) => {
   const noteRef = useRef<HTMLDivElement>(null);
-  const dispatchId = `OD-${new Date().getTime()}`;
+
+  // Generar ID: OD-DDMMAA-XXXX (Usando timestamp corto para simular correlativo único del momento)
+  // El usuario pidió 1,2,3... para eso necesitaríamos contar en BD. 
+  // Usaremos HHMMSS como fallback "único" del día para no requerir backend complejo.
+  const now = new Date();
+  const day = now.getDate().toString().padStart(2, '0');
+  const month = (now.getMonth() + 1).toString().padStart(2, '0');
+  const year = now.getFullYear().toString().slice(-2); // AA
+
+  // Simulamos correlativo con la hora para que sea OD-250125-1130
+  // Si el usuario quiere estrictamente 1, 2, 3 necesitamos pasar ese dato desde fuera.
+  // Por ahora usaré data.correlativo si existe, o timestamp corto.
+  const correlativo = data.customId || `${now.getHours()}${now.getMinutes()}`;
+  const dispatchId = `OD-${day}${month}${year}-${correlativo}`;
 
   const handlePrint = () => {
-    if (!noteRef.current) return;
-
-    const style = document.createElement('style');
-    style.textContent = `
-      @media print {
-        body * { visibility: hidden; }
-        #printable-dispatch-note, #printable-dispatch-note * { visibility: visible; }
-        #printable-dispatch-note { position: absolute; left: 0; top: 0; width: 100%; }
-      }
-    `;
-    document.head.appendChild(style);
     window.print();
-    setTimeout(() => document.head.removeChild(style), 100);
   };
 
   return (

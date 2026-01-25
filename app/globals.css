@@ -22,3 +22,34 @@ body {
       transparent,
       rgb(var(--background-end-rgb))) rgb(var(--background-start-rgb));
 }
+
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  #printable-dispatch-note,
+  #printable-dispatch-note * {
+    visibility: visible;
+  }
+  #printable-dispatch-note {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    margin: 0;
+    padding: 20px;
+    background-color: white !important;
+    color: black !important;
+  }
+  
+  /* Asegurar que fondo y colores se impriman */
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+  
+  /* Ocultar elementos innecesarios en impresión */
+  .no-print {
+    display: none !important;
+  }
+}
