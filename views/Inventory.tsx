@@ -643,6 +643,32 @@ export const Inventory: React.FC<InventoryProps> = ({ role, userEmail, onNavigat
                     </div>
                   </div>
 
+                  {/* Tipo y Número de Documento */}
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2 block">Tipo de Documento</label>
+                      <select
+                        value={formData.documentType || ''}
+                        onChange={e => setFormData({ ...formData, documentType: e.target.value as any })}
+                        className="w-full px-3 py-2.5 bg-white rounded-xl outline-none font-bold text-xs text-slate-700 border border-slate-200 focus:border-indigo-300 transition-all"
+                      >
+                        <option value="">SIN ESPECIFICAR</option>
+                        <option value="GUIA">GUÍA</option>
+                        <option value="FACTURA">FACTURA</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2 block">Nº de Documento</label>
+                      <input
+                        type="text"
+                        value={formData.documentNumber || ''}
+                        onChange={e => setFormData({ ...formData, documentNumber: e.target.value })}
+                        className="w-full px-3 py-2.5 bg-slate-100 rounded-xl outline-none font-bold text-xs text-slate-700 focus:ring-2 focus:ring-indigo-500/20 transition-all"
+                        placeholder="001-0001234"
+                      />
+                    </div>
+                  </div>
+
                   {/* RIGHT COLUMN: Details (8/12) */}
                   <div className="lg:col-span-8 flex flex-col gap-5">
 
@@ -767,38 +793,22 @@ export const Inventory: React.FC<InventoryProps> = ({ role, userEmail, onNavigat
                             </div>
                           </div>
                         </div>
-                        <div>
-                          <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2 block">Tipo de Documento (Opcional)</label>
-                          <div className="relative">
-                            <select
-                              value={formData.documentType || ''}
-                              onChange={e => setFormData({ ...formData, documentType: e.target.value as any })}
-                              className="w-full px-4 py-3 bg-white rounded-xl outline-none font-bold text-sm text-slate-700 border border-transparent focus:border-indigo-300 transition-all shadow-sm appearance-none cursor-pointer"
-                            >
-                              <option value="">SIN ESPECIFICAR</option>
-                              <option value="GUIA">GUÍA DE REMISIÓN</option>
-                              <option value="FACTURA">FACTURA</option>
-                            </select>
-                            <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
-                              <ChevronRight className="w-4 h-4 rotate-90" />
-                            </div>
-                          </div>
-                        </div>
+
                       </div>
                     </div>
                   </div>
                 </div>
                 {/* Nueva Sección Horizontal de Stock y Precios */}
-                <div className="w-full mt-6 p-3 bg-slate-900 rounded-2xl border-2 border-indigo-500 shadow-lg overflow-hidden relative group">
-                  <div className="absolute top-0 right-0 p-2 opacity-10 group-hover:opacity-20 transition-opacity">
-                    <AlertTriangle className="w-16 h-16 text-indigo-400 rotate-12" />
+                <div className="w-full mt-4 p-2 bg-slate-900 rounded-xl border border-indigo-500 shadow-md overflow-hidden relative">
+                  <div className="absolute top-0 right-0 p-1 opacity-5">
+                    <AlertTriangle className="w-10 h-10 text-indigo-400 rotate-12" />
                   </div>
                   <div className="relative z-10">
-                    <div className="flex items-center gap-2 mb-3 border-b border-indigo-500/30 pb-2">
-                      <div className="p-1 bg-indigo-500 rounded-lg shadow-lg shadow-indigo-500/50">
-                        <DollarSign className="w-3 h-3 text-white" />
+                    <div className="flex items-center gap-1.5 mb-2 border-b border-indigo-500/30 pb-1.5">
+                      <div className="p-0.5 bg-indigo-500 rounded-md">
+                        <DollarSign className="w-2.5 h-2.5 text-white" />
                       </div>
-                      <h4 className="text-[9px] font-black uppercase tracking-widest text-indigo-100">Control de Valor y Stock</h4>
+                      <h4 className="text-[8px] font-black uppercase tracking-widest text-indigo-100">Control de Valor y Stock</h4>
                     </div>
 
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4">

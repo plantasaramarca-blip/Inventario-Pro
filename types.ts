@@ -63,6 +63,7 @@ export interface Product {
   qr_code?: string;
   qr_data?: string;
   documentType?: 'GUIA' | 'FACTURA'; // Tipo de documento de registro
+  documentNumber?: string; // Número de guía o factura
 }
 
 export interface Movement {
