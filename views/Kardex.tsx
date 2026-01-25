@@ -192,6 +192,8 @@ export const Kardex: React.FC<KardexProps> = ({ role, userEmail, initialState, o
         dispatcher: userEmail,
         reason,
         destinationName: type === 'SALIDA' ? destinoObj?.nombre : null,
+        destinationId: type === 'SALIDA' ? destinoObj?.id : null,
+        carriedBy: type === 'SALIDA' ? carriedBy : null,
         locationName: type === 'INGRESO' ? locationObj?.name : null,
         contactId: type === 'INGRESO' ? supplierObj?.id : null,
         supplierName: type === 'INGRESO' ? supplierObj?.name : null

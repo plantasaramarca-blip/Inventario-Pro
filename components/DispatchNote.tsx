@@ -17,16 +17,28 @@ export const DispatchNote: React.FC<DispatchNoteProps> = ({ data, onClose }) => 
   const dispatchId = `OD-${new Date().getTime()}`;
 
   const handlePrint = () => {
+    if (!noteRef.current) return;
+
+    const style = document.createElement('style');
+    style.textContent = `
+      @media print {
+        body * { visibility: hidden; }
+        #printable-dispatch-note, #printable-dispatch-note * { visibility: visible; }
+        #printable-dispatch-note { position: absolute; left: 0; top: 0; width: 100%; }
+      }
+    `;
+    document.head.appendChild(style);
     window.print();
+    setTimeout(() => document.head.removeChild(style), 100);
   };
 
   return (
     <div className="fixed inset-0 z-[1000] flex items-center justify-center p-2 sm:p-4">
       <div className="absolute inset-0 bg-slate-900/80 backdrop-blur-sm" onClick={onClose}></div>
-      
+
       {/* Modal Container - Responsive */}
       <div className="relative bg-white w-full max-w-4xl rounded-2xl sm:rounded-[3rem] shadow-2xl overflow-hidden animate-in zoom-in-95 flex flex-col max-h-[95vh] sm:max-h-[90vh]">
-        
+
         {/* Header - No se imprime */}
         <div className="print:hidden p-4 sm:p-6 border-b flex flex-wrap justify-between items-center gap-3 bg-slate-50/50">
           <div>
@@ -34,31 +46,29 @@ export const DispatchNote: React.FC<DispatchNoteProps> = ({ data, onClose }) => 
             <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest mt-0.5">Vista Previa de Impresión</p>
           </div>
           <div className="flex items-center gap-2 sm:gap-3">
-            <button 
-              onClick={handlePrint} 
+            <button
+              onClick={handlePrint}
               className="bg-slate-800 text-white px-4 sm:px-5 py-2 sm:py-3 rounded-xl sm:rounded-2xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2 shadow-lg active:scale-95 transition-transform"
             >
               <Printer className="w-4 h-4" /> Imprimir
             </button>
-            <button 
-              onClick={onClose} 
+            <button
+              onClick={onClose}
               className="p-2 text-slate-400 hover:bg-slate-200 rounded-xl"
             >
               <X className="w-5 h-5" />
             </button>
           </div>
         </div>
-        
-        {/* Content Area - Scrollable */}
-        <div className="flex-1 overflow-y-auto p-4 sm:p-8 bg-slate-100/70 print:p-0 print:overflow-visible print:bg-white">
-          
-          {/* Documento Principal */}
-          <div 
-            ref={noteRef} 
-            className="bg-white p-4 sm:p-6 md:p-10 mx-auto print:p-0"
-          >
-            {/* Header del Documento */}
-            <header className="flex flex-col sm:flex-row justify-between items-start gap-4 pb-4 sm:pb-6 border-b">
+
+        {/* Contenido Imprimible - Desktop View */}
+        <div className="hidden sm:block flex-1 overflow-y-auto p-6 sm:p-8 bg-slate-100/70 print:bg-white print:p-0 print:overflow-visible">
+          <div
+            id="printable-dispatch-note"
+            ref={noteRef}
+            className="bg-white p-8 sm:p-10 mx-auto print:p-0"
+            style={{ width: '210mm', minHeight: '297mm', fontFamily: 'sans-serif' }}
+          >  <header className="flex flex-col sm:flex-row justify-between items-start gap-4 pb-4 sm:pb-6 border-b">
               <div>
                 <h1 className="text-xl sm:text-2xl font-black text-slate-900">Kardex Pro</h1>
                 <p className="text-xs sm:text-sm text-slate-500">Sistema de Gestión Logística</p>
@@ -68,7 +78,7 @@ export const DispatchNote: React.FC<DispatchNoteProps> = ({ data, onClose }) => 
                 <p className="text-xs sm:text-sm font-mono text-slate-600 mt-1">{dispatchId}</p>
               </div>
             </header>
-            
+
             {/* Info Grid - Responsive */}
             <section className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6 md:gap-8 my-6 sm:my-8 text-sm">
               <div>
@@ -85,7 +95,7 @@ export const DispatchNote: React.FC<DispatchNoteProps> = ({ data, onClose }) => 
                 <p className="font-semibold text-slate-700 text-sm">{data.transportista || 'N/A'}</p>
               </div>
             </section>
-            
+
             {/* Tabla de Productos - Responsive */}
             <section className="my-6 sm:my-8">
               {/* Vista Desktop/Tablet */}
@@ -126,7 +136,7 @@ export const DispatchNote: React.FC<DispatchNoteProps> = ({ data, onClose }) => 
                 ))}
               </div>
             </section>
-            
+
             {/* Observaciones */}
             {data.observaciones && (
               <section className="my-6 sm:my-8 text-sm print:break-inside-avoid">
@@ -134,7 +144,7 @@ export const DispatchNote: React.FC<DispatchNoteProps> = ({ data, onClose }) => 
                 <p className="p-3 sm:p-4 bg-slate-50 rounded-lg text-slate-600 text-xs sm:text-sm">{data.observaciones}</p>
               </section>
             )}
-            
+
             {/* Firmas */}
             <footer className="mt-12 sm:mt-16 md:mt-20 pt-8 sm:pt-10 grid grid-cols-2 gap-4 sm:gap-6 md:gap-8 text-center text-xs print:break-inside-avoid">
               <div>
