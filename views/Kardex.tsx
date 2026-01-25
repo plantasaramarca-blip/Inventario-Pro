@@ -523,12 +523,13 @@ export const Kardex: React.FC<KardexProps> = ({ role, userEmail, initialState, o
                 <th className="px-6 py-4 text-right">Cantidad</th>
                 <th className="px-6 py-4 text-left">Responsable</th>
                 <th className="px-6 py-4 text-left">Destino</th>
+                <th className="px-6 py-4 text-center">Acciones</th>
               </tr>
             </thead>
             <tbody>
               {paginatedMovements.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-6 py-12 text-center text-slate-400">
+                  <td colSpan={7} className="px-6 py-12 text-center text-slate-400">
                     <p className="text-sm font-bold">No hay movimientos registrados</p>
                   </td>
                 </tr>
@@ -557,6 +558,34 @@ export const Kardex: React.FC<KardexProps> = ({ role, userEmail, initialState, o
                     </td>
                     <td className="px-6 py-4 text-xs text-slate-600">
                       {m.destinationName || '-'}
+                    </td>
+                    <td className="px-6 py-4 text-center">
+                      {m.type === 'SALIDA' && (
+                        <button
+                          onClick={() => {
+                            const product = products.find(p => p.id === m.productId);
+                            const destino = destinos.find(d => d.nombre === m.destinationName);
+                            setDispatchNoteData({
+                              items: [{
+                                id: m.productId,
+                                code: product?.code || '',
+                                name: m.productName,
+                                brand: product?.brand || '',
+                                quantity: m.quantity,
+                                unit: product?.unit || 'UND'
+                              }],
+                              destination: destino,
+                              transportista: m.carriedBy || '',
+                              observaciones: m.reason || '',
+                              responsable: m.dispatcher,
+                            });
+                          }}
+                          className="p-2 hover:bg-indigo-50 rounded-lg text-indigo-600 hover:text-indigo-700 transition-colors"
+                          title="Reimprimir orden de despacho"
+                        >
+                          <Printer className="w-4 h-4" />
+                        </button>
+                      )}
                     </td>
                   </tr>
                 ))
